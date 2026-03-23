@@ -1,0 +1,2 @@
+MYSQLDB:
+  TEST_SQLITE_PATH: .tmp/lush_sqlalchemyx_test.db
