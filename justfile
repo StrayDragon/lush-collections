@@ -87,3 +87,49 @@ set-version-one pkg version:
 # 语义化 bump (level: major/minor/patch/alpha/beta/rc/dev/post...).
 bump-one pkg level:
   @cd {{pkg}} && just bump {{level}}
+
+# 多包 bump 快捷方式:
+# - 直接传包名: `just bump-patch lush-stdx lush-redisx`
+# - 不传包名: 使用 `fzf -m` 交互多选
+
+bump-major *pkgs:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  pkgs="{{pkgs}}"
+  if [ -z "$pkgs" ]; then
+    pkgs="$(just packages | fzf -m --prompt='packages> ')" || exit 0
+  fi
+
+  for d in $pkgs; do
+    echo "== bump major $d"
+    (cd "$d" && just bump major)
+  done
+
+bump-minor *pkgs:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  pkgs="{{pkgs}}"
+  if [ -z "$pkgs" ]; then
+    pkgs="$(just packages | fzf -m --prompt='packages> ')" || exit 0
+  fi
+
+  for d in $pkgs; do
+    echo "== bump minor $d"
+    (cd "$d" && just bump minor)
+  done
+
+bump-patch *pkgs:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  pkgs="{{pkgs}}"
+  if [ -z "$pkgs" ]; then
+    pkgs="$(just packages | fzf -m --prompt='packages> ')" || exit 0
+  fi
+
+  for d in $pkgs; do
+    echo "== bump patch $d"
+    (cd "$d" && just bump patch)
+  done
