@@ -1,0 +1,112 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "lush-*-v*"
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package directory (e.g. lush-stdx)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.10"
+          enable-cache: true
+
+      - name: Resolve package
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            pkg="${{ inputs.package }}"
+            version=""
+          else
+            ref="${GITHUB_REF_NAME}"
+            pkg="${ref%-v*}"
+            version="${ref#${pkg}-v}"
+          fi
+
+          if [ -z "$pkg" ]; then
+            echo "::error::Package is required."
+            exit 2
+          fi
+
+          if [ ! -f "$pkg/pyproject.toml" ]; then
+            echo "::error::pyproject.toml not found under: $pkg"
+            exit 2
+          fi
+
+          echo "package=$pkg" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Sync (frozen)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.resolve.outputs.package }}"
+          uv sync -p 3.10 --frozen --default-index https://pypi.org/simple
+
+      - name: Verify tag version matches pyproject
+        if: ${{ steps.resolve.outputs.version != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.resolve.outputs.package }}"
+          expected="${{ steps.resolve.outputs.version }}"
+          actual="$(
+            python - <<'PY'
+            from __future__ import annotations
+
+            import re
+            from pathlib import Path
+
+            text = Path("pyproject.toml").read_text(encoding="utf-8")
+            m = re.search(r'(?m)^\\s*version\\s*=\\s*\"([^\"]+)\"\\s*$', text)
+            if not m:
+                raise SystemExit("version not found in pyproject.toml")
+            print(m.group(1))
+            PY
+          )"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::Tag version mismatch. tag=$expected pyproject=$actual"
+            exit 2
+          fi
+
+      - name: Test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.resolve.outputs.package }}"
+          uv run -p 3.10 --default-index https://pypi.org/simple pytest
+
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.resolve.outputs.package }}"
+          uv build --default-index https://pypi.org/simple
+
+      - name: Publish (Trusted Publisher)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.resolve.outputs.package }}"
+          uv publish --trusted-publishing=always
