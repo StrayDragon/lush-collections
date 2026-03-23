@@ -1,0 +1,58 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+# Package `lush-sentryx-core` 的本地开发命令.
+# 约定: Python 3.10+, 使用 uv 管理依赖/锁文件.
+
+# `python`: 用于 uv/pytest 的 Python 版本(与 `.python-version` 保持一致).
+python := "3.10"
+
+# `default_index`: 固定默认索引为 PyPI,避免本机全局 uv 配置影响 lock 内容.
+default_index := "https://pypi.org/simple"
+
+_default:
+  @just --list
+
+# 生成/更新 `uv.lock`.
+lock:
+  @uv lock -p {{python}} --default-index {{default_index}}
+
+# 按 `uv.lock` 同步虚拟环境(不会改锁文件).
+sync:
+  @uv sync -p {{python}} --frozen --default-index {{default_index}}
+
+# 运行测试.
+test:
+  @uv run -p {{python}} --default-index {{default_index}} pytest
+
+# 构建 dist (wheel/sdist).
+build:
+  @uv build --default-index {{default_index}}
+
+# 清理缓存/构建产物.
+clean:
+  @rm -rf .venv .pytest_cache .ruff_cache .mypy_cache .coverage .coverage.* dist build *.egg-info
+  @find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+
+# 格式化(ruff format).
+fmt:
+  @uvx --default-index {{default_index}} ruff format
+
+# Lint 检查(ruff check).
+lint:
+  @uvx --default-index {{default_index}} ruff check
+
+# Lint 并自动修复(ruff check --fix).
+lint-fix:
+  @uvx --default-index {{default_index}} ruff check --fix
+
+# 读取当前版本号.
+version:
+  @uv version --short
+
+# 设置版本号(不自动重新 lock).
+set-version version:
+  @uv version --frozen {{version}}
+
+# 语义化 bump (level: major/minor/patch/alpha/beta/rc/dev/post...).
+bump level:
+  @uv version --bump {{level}} --frozen
