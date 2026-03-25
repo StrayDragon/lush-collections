@@ -231,6 +231,36 @@ class TestMetaInfoStrEnum:
         assert Flavor.CHOCOLATE.name == "CHOCOLATE"
         assert Flavor.STRAWBERRY.value == "strawberry"
 
+    def test_str_returns_value_not_name(self):
+        """str() must return the value, not 'ClassName.MEMBER_NAME'.
+
+        This is a guardrail to prevent regression — the old behavior
+        (returning e.g. 'Flavor.VANILLA') caused enum names to leak
+        into database fields and API payloads.
+        """
+        assert str(Flavor.VANILLA) == "vanilla"
+        assert str(Flavor.CHOCOLATE) == "chocolate"
+        assert str(Flavor.STRAWBERRY) == "strawberry"
+
+        for member in Flavor:
+            assert str(member) == member.value
+            assert "." not in str(member), f"str({member!r}) should not contain class name"
+
+    def test_str_in_fstring_and_format(self):
+        """f-string and format() should also return the value."""
+        assert f"{Flavor.VANILLA}" == "vanilla"
+        assert format(Flavor.CHOCOLATE) == "chocolate"
+        assert f"page={Flavor.STRAWBERRY}" == "page=strawberry"
+
+    def test_str_for_database_safety(self):
+        """Simulate the database persistence scenario: str(member) must be a valid lookup value."""
+        stored = str(Flavor.VANILLA)
+        assert Flavor(stored) is Flavor.VANILLA
+
+        for member in Flavor:
+            roundtrip = Flavor(str(member))
+            assert roundtrip is member, f"Round-trip failed for {member!r}: str() gave {str(member)!r}"
+
     def test_instantiation(self):
         """Test creating members from values and names."""
         assert Flavor("vanilla") is Flavor.VANILLA

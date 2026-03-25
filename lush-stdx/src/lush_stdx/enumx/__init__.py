@@ -94,6 +94,9 @@ class MetaInfoStrEnum(str, enum.Enum):
         obj._x_meta = meta  # pyright: ignore[reportAttributeAccessIssue ]
         return obj
 
+    def __str__(self) -> str:  # pyright: ignore[reportImplicitOverride]
+        return self.value
+
     @classmethod
     def to_db_field_comment(cls) -> str:
         return " ".join([f"{i.value}: {i.x_meta.description}" for i in cls])
