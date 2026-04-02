@@ -24,11 +24,27 @@ package = true
 dev = ["pytest>=8.4.1", "pytest-asyncio>=1.1.0", "pytest-cov>=6.2.1"]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib --cov=lush_wecom --cov-report=term-missing"
-testpaths = ["src/lush_wecom/tests"]
+addopts = "--import-mode=importlib --cov=lush_wecom --cov-branch --cov-report=term-missing"
+testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"
+
+[tool.coverage.run]
+branch = true
+omit = [
+    # repo-maintenance script (not library runtime)
+    "src/lush_wecom/client/__script_*.py",
+    # package-internal tests (will be moved to top-level `tests/`)
+    "src/lush_wecom/tests/*",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",
+]
 
 [tool.ruff]
 line-length = 140
@@ -105,7 +121,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/lush_wecom/tests/**/*.py" = [
+"tests/**/*.py" = [
     # === 测试代码质量 ===
     "B011",    # assert False应改为raise AssertionError
     "B008",    # 函数调用作为默认参数
@@ -213,7 +229,7 @@ reportConstantRedefinition = "none"
 reportUnnecessaryComparison = "none"
 
 [[tool.basedpyright.executionEnvironments]]
-root = "src/lush_wecom/tests"
+root = "tests"
 reportUnusedCallResult = "none"
 reportArgumentType = false
 reportExplicitAny = "none"

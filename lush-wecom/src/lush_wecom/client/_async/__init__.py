@@ -269,25 +269,25 @@ class AsyncWeComClient(AsyncWeComClientBase):
                   }
                 },
                 {
-	                  "msgtype": "link",
-	                  "link": {
-	                    "title": "示例链接(网页端)",
-	                    "url": "https://example.com/",
-	                    "picurl": "https://example.com/static/cover.png",
-	                    "desc": "示例描述: 一个普通的链接卡片"
-	                  }
-	                },
-	                {
-	                  "msgtype": "miniprogram",
-	                  "miniprogram": {
-	                    "title": "示例小程序",
-	                    "appid": "wx1234567890abcdef",
-	                    "page": "pages/index/index"
-	                  }
-	                }
-	              ]
-	            }
-	          ]
+                          "msgtype": "link",
+                          "link": {
+                            "title": "示例链接(网页端)",
+                            "url": "https://example.com/",
+                            "picurl": "https://example.com/static/cover.png",
+                            "desc": "示例描述: 一个普通的链接卡片"
+                          }
+                        },
+                        {
+                          "msgtype": "miniprogram",
+                          "miniprogram": {
+                            "title": "示例小程序",
+                            "appid": "wx1234567890abcdef",
+                            "page": "pages/index/index"
+                          }
+                        }
+                      ]
+                    }
+                  ]
         }
         ```
         """
