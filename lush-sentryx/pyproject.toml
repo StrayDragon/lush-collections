@@ -1,6 +1,6 @@
 [project]
 name = "lush-sentryx"
-version = "0.2.1"
+version = "0.2.2"
 description = "sentry-sdk slim wrapper for more security and easier to use."
 readme = "README.md"
 requires-python = ">=3.10"
