@@ -251,18 +251,19 @@ class JWTManager:
 
         try:
             payload = self.decrypt_model(encrypted_token, SimpleIDPayload, verify_subject="encrypted_id")
-            return expected_type(payload.id)
-
+        except TokenExpiredException as exc:
+            raise TokenExpiredException("加密ID已过期,请重新获取") from exc
+        except TokenInvalidException as exc:
+            raise TokenInvalidException(f"无效的加密ID: {exc}") from exc
+        except TokenFormatException as exc:
+            raise TokenFormatException("ID格式错误") from exc
         except Exception as exc:
-            message = str(exc)
-            lower_message = message.lower()
-            if "已过期" in message or "expired" in lower_message:
-                raise TokenExpiredException("加密ID已过期,请重新获取") from exc
-            if "无效" in message or "invalid" in lower_message:
-                raise TokenInvalidException(f"无效的加密ID: {exc}") from exc
-            if "格式" in message or "format" in lower_message:
-                raise TokenFormatException("ID格式错误") from exc
             raise DecryptionException(f"ID解密失败: {exc}") from exc
+
+        try:
+            return expected_type(payload.id)
+        except (TypeError, ValueError) as exc:
+            raise TokenFormatException("ID格式错误") from exc
 
     def get_encrypt_id_key(self, key: str) -> str:
         if not self.config.enable_encryption:
@@ -288,13 +289,13 @@ class JWTManager:
 
         try:
             payload = self.decrypt_model(encrypted_token, SimpleParamsPayload, verify_subject="encrypted_params")
+        except TokenExpiredException as exc:
+            raise TokenExpiredException("加密参数已过期,请重新获取") from exc
+        except TokenInvalidException as exc:
+            raise TokenInvalidException(f"无效的加密参数: {exc}") from exc
+        except TokenFormatException as exc:
+            raise TokenFormatException("参数格式错误") from exc
         except Exception as exc:
-            message = str(exc)
-            lower_message = message.lower()
-            if "已过期" in message or "expired" in lower_message:
-                raise TokenExpiredException("加密参数已过期,请重新获取") from exc
-            if "无效" in message or "invalid" in lower_message:
-                raise TokenInvalidException(f"无效的加密参数: {exc}") from exc
             raise DecryptionException(f"参数解密失败: {exc}") from exc
         else:
             return payload.params
