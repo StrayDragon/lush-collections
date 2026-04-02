@@ -1,10 +1,15 @@
 [project]
 name = "lush-redisx"
 version = "0.1.1"
-description = "see README.md"
+description = "Async Redis manager and FastAPI integrations (mutex/idempotency/rate-limit)."
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "straydragon" }]
+authors = [{ name = "straydragon", email = "straydragonl@foxmail.com" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+]
 dependencies = [
     "redis>=5.0.0",
     "structlog>=25.5.0",

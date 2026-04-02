@@ -1,10 +1,15 @@
 [project]
 name = "lush-sqlalchemyx"
 version = "0.1.1"
-description = "see README.md"
+description = "SQLAlchemy helpers (DAL) and async MySQL managers, with FastAPI integrations."
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "straydragon" }]
+authors = [{ name = "straydragon", email = "straydragonl@foxmail.com" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+]
 dependencies = [
     "sqlalchemy[asyncio]>=2.0.43",
     "pydantic>=2.11.0,<3.0.0",

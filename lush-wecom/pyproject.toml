@@ -1,10 +1,15 @@
 [project]
 name = "lush-wecom"
 version = "0.1.1"
-description = "see README.md"
+description = "WeCom (WeChat Work) async/sync client and models."
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "straydragon" }]
+authors = [{ name = "straydragon", email = "straydragonl@foxmail.com" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+]
 dependencies = [
     "anyio>=4.4.0",
     "httpx>=0.28.1",

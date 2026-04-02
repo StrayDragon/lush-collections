@@ -4,7 +4,12 @@ version = "0.1.1"
 description = "Core scrubbing and masking utilities for Sentry events, SDK-agnostic."
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "straydragon" }]
+authors = [{ name = "straydragon", email = "straydragonl@foxmail.com" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+]
 dependencies = []                                                                     # 无外部依赖,纯 Python 实现
 
 [project.optional-dependencies]
