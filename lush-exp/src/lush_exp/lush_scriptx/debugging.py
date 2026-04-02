@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import pdb  # noqa: T100  # pragma: no cover - 调试专用
 import traceback
@@ -24,7 +25,7 @@ def debug_async_on_error(func: Callable[P, Coroutine[None, None, R]]) -> Callabl
             print("完整错误信息:")
             traceback.print_exc()
 
-            debug_choice = input("是否进入调试模式? (y/n, 默认n): ").lower()
+            debug_choice = (await asyncio.to_thread(input, "是否进入调试模式? (y/n, 默认n): ")).lower()
             if debug_choice == "y":
                 print("进入调试模式,使用 'l' 查看代码,'pp 变量名' 查看变量值,'c' 继续执行,'q' 退出")
                 pdb.post_mortem()
