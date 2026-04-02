@@ -83,6 +83,15 @@ class TestMaskEmail:
         mask_user_email_partially(user2)
         assert user2["mail"] == "ano***@test.com"
 
+        # 非字符串或无效邮箱应保持不变
+        user3: dict[str, object] = {"email": None}
+        mask_user_email_partially(user3)
+        assert user3["email"] is None
+
+        user4 = {"email": "invalid-email"}
+        mask_user_email_partially(user4)
+        assert user4["email"] == "invalid-email"
+
 
 class TestCustomRepr:
     """测试自定义变量序列化"""
@@ -106,6 +115,7 @@ class TestCustomRepr:
         assert custom_repr({"a": 1}) is None
         assert custom_repr((1, 2)) is None
         assert custom_repr({1, 2}) is None
+        assert custom_repr(object()) is None
 
 
 class TestMaskStringPartially:
@@ -143,6 +153,23 @@ class TestParameterizeRequestUrls:
         parameterize_request_urls(request)
         assert request["url"] == "https://api.example.com/users?page=1"
 
+    def test_url_not_string_noop(self):
+        """url 不是字符串时应直接返回"""
+        from lush_sentryx_core.sdk.v2 import parameterize_request_urls
+
+        request: dict[str, object] = {"url": 123}
+        parameterize_request_urls(request)
+        assert request["url"] == 123
+
+    def test_sensitive_pattern_without_question_mark(self):
+        """匹配 '&token=xxx' 但 url 无 '?' 的异常场景"""
+        from lush_sentryx_core.sdk.v2 import parameterize_request_urls
+
+        request = {"url": "https://api.example.com/users&token=secret123", "query_string": "token=secret123"}
+        parameterize_request_urls(request)
+        assert request["url"] == "https://api.example.com/users&token=secret123"
+        assert "query_string" not in request
+
 
 class TestScrubDictKeys:
     """测试字典顶层敏感字段清理"""
@@ -178,7 +205,9 @@ class TestScrubStacktraceVars:
                                         "list": [{"token": "value"}],
                                         "scalar": "keep",
                                     }
-                                }
+                                },
+                                {"vars": "not-a-dict"},
+                                {},
                             ]
                         }
                     }
@@ -193,8 +222,11 @@ class TestScrubStacktraceVars:
                                     "vars": {
                                         "nested": {"api_key": "aaa", "plain": "ok"},
                                         "list": [{"secret": "bbb"}],
+                                        "scalar": 1,
                                     }
-                                }
+                                },
+                                {"vars": "not-a-dict"},
+                                {},
                             ]
                         }
                     }
@@ -214,6 +246,7 @@ class TestScrubStacktraceVars:
         assert thread_vars["nested"]["api_key"] == "[Filtered]"
         assert thread_vars["nested"]["plain"] == "ok"
         assert thread_vars["list"][0]["secret"] == "[Filtered]"
+        assert thread_vars["scalar"] == 1
 
 
 class TestFilters:
@@ -276,6 +309,17 @@ class TestFilters:
         filter_func = create_additional_filter({"token"})
         assert filter_func(None, None) is None
 
+    def test_create_additional_filter_with_empty_user(self):
+        """user 为空时不应触发邮箱脱敏分支"""
+        from lush_sentryx_core.sdk.v2 import create_additional_filter
+
+        filter_func = create_additional_filter({"password"})
+        event = {"user": {}, "extra": {"password": "secret"}}
+        result = filter_func(event, None)
+        assert result is not None
+        assert result["user"] == {}  # pyright: ignore[reportTypedDictNotRequiredAccess]
+        assert result["extra"]["password"] == "[Filtered]"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
     def test_create_transaction_filter(self):
         """测试事务名称过滤器"""
         from lush_sentryx_core.sdk.v2 import create_transaction_filter
@@ -287,6 +331,35 @@ class TestFilters:
 
         assert result is not None
         assert "secret123" not in result["transaction"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
+    def test_create_transaction_filter_no_sensitive_params(self):
+        """无敏感参数时应保持不变"""
+        from lush_sentryx_core.sdk.v2 import create_transaction_filter
+
+        filter_func = create_transaction_filter()
+        event = {"transaction": "/api/users?page=1"}
+        result = filter_func(event, None)
+        assert result is not None
+        assert result["transaction"] == "/api/users?page=1"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
+    def test_create_transaction_filter_non_str_transaction(self):
+        """transaction 不是字符串时不应处理"""
+        from lush_sentryx_core.sdk.v2 import create_transaction_filter
+
+        filter_func = create_transaction_filter()
+        event = {"transaction": 123}
+        result = filter_func(event, None)
+        assert result is not None
+        assert result["transaction"] == 123  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
+    def test_create_transaction_filter_missing_transaction(self):
+        """transaction 缺失时应返回 event"""
+        from lush_sentryx_core.sdk.v2 import create_transaction_filter
+
+        filter_func = create_transaction_filter()
+        event: dict[str, object] = {}
+        result = filter_func(event, None)
+        assert result == {}
 
     def test_create_transaction_filter_handles_invalid_event(self):
         """测试异常输入不影响流程"""
