@@ -29,7 +29,7 @@ lush-stdx = { path = "../lush-stdx" }
 dev = ["pytest>=8.4.1", "pytest-cov>=6.2.1", "textual-dev>=1.8.0"]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib --cov=lush_logx --cov-report=term-missing"
+addopts = "--import-mode=importlib --cov=lush_logx --cov-branch --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
 
 [tool.coverage.run]
@@ -40,22 +40,10 @@ omit = [
 
 [tool.coverage.report]
 exclude_also = [
-    # Don't complain about missing debug-only code:
-    "def __repr__",
-    "if self\\.debug",
-
-    # Don't complain if tests don't hit defensive assertion code:
-    "raise AssertionError",
-    "raise NotImplementedError",
-
-    # Don't complain if non-runnable code isn't run:
-    "if 0:",
+    "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
-
-    # Don't complain about abstract methods, they aren't run:
     "@(abc\\.)?abstractmethod",
 ]
-ignore_errors = true
 
 
 [tool.ruff]
