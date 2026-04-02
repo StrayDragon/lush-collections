@@ -1,10 +1,15 @@
 [project]
 name = "lush-fastapix"
 version = "0.1.1"
-description = "see README.md"
+description = "FastAPI OpenAPI schema enhancer (enum/meta description helpers)."
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "straydragon" }]
+authors = [{ name = "straydragon", email = "straydragonl@foxmail.com" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+]
 dependencies = ["fastapi>=0.117.1", "typing-extensions>=4.12.2", "lush-stdx>=0.1.0"]
 
 [build-system]

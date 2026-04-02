@@ -1,10 +1,15 @@
 [project]
 name = "lush-logx"
 version = "0.1.1"
-description = "see README.md"
+description = "Logging helpers and a CLI log parser for structlog."
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "straydragon" }]
+authors = [{ name = "straydragon", email = "straydragonl@foxmail.com" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+]
 dependencies = [
     "structlog>=25.5.0",
     "rich>=14.1.0",

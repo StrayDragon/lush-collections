@@ -4,7 +4,12 @@ version = "0.2.2"
 description = "sentry-sdk slim wrapper for more security and easier to use."
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "straydragon" }]
+authors = [{ name = "straydragon", email = "straydragonl@foxmail.com" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+]
 dependencies = ["sentry-sdk>=2.37.1", "lush-sentryx-core>=0.1.0"]
 
 # 最小可选依赖 - 只依赖框架本身
