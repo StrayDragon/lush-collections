@@ -133,3 +133,115 @@ bump-patch *pkgs:
     echo "== bump patch $d"
     (cd "$d" && just bump patch)
   done
+
+# Release helper:
+# - Patch-bump each package (one commit per package)
+# - Create tag `lush-<pkg>-v<ver>` (one tag per package)
+# - Push main, then push tags one-by-one (reliably triggers tag workflows)
+# - Optionally watch the publish workflow to complete
+#
+# Env knobs:
+# - RELEASE_REMOTE=origin
+# - RELEASE_WORKFLOW=publish-pypi.yaml
+# - RELEASE_SKIP_TESTS=1    (skip local `just test-one <pkg>`)
+# - RELEASE_WATCH=0         (don't wait for GH Actions)
+release-patch *pkgs:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  remote="${RELEASE_REMOTE:-origin}"
+  workflow="${RELEASE_WORKFLOW:-publish-pypi.yaml}"
+  skip_tests="${RELEASE_SKIP_TESTS:-0}"
+  watch="${RELEASE_WATCH:-1}"
+
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "error: working tree is not clean" >&2
+    exit 2
+  fi
+
+  branch="$(git rev-parse --abbrev-ref HEAD)"
+  if [ "$branch" != "main" ]; then
+    echo "error: must run on branch 'main' (current: $branch)" >&2
+    exit 2
+  fi
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "error: missing dependency: gh (GitHub CLI)" >&2
+    exit 2
+  fi
+  gh auth status -h github.com >/dev/null
+
+  pkgs="{{pkgs}}"
+  if [ -z "$pkgs" ]; then
+    pkgs="$(just packages | fzf -m --prompt='release> ')" || exit 0
+  fi
+
+  # Create one commit + one tag per package.
+  tags=()
+  for pkg in $pkgs; do
+    if [ ! -f "$pkg/pyproject.toml" ]; then
+      echo "error: package not found or missing pyproject.toml: $pkg" >&2
+      exit 2
+    fi
+
+    echo "== bump patch $pkg"
+    just bump-one "$pkg" patch
+    version="$(cd "$pkg" && uv version --short)"
+
+    if [ "$skip_tests" != "1" ]; then
+      echo "== test $pkg"
+      just test-one "$pkg"
+    fi
+
+    git add "$pkg/pyproject.toml"
+    git commit -m "$pkg: bump version to $version"
+
+    tag="$pkg-v$version"
+    if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+      echo "error: local tag already exists: $tag" >&2
+      exit 2
+    fi
+    if git ls-remote --tags "$remote" "$tag" | rg -q "refs/tags/$tag$"; then
+      echo "error: remote tag already exists: $tag" >&2
+      exit 2
+    fi
+
+    git tag -a "$tag" -m "$pkg v$version"
+    tags+=("$tag")
+  done
+
+  echo "== push branch: main"
+  git push "$remote" main
+
+  # Push tags one-by-one (more reliable than `--follow-tags` for triggering tag workflows).
+  for tag in "${tags[@]}"; do
+    echo "== push tag $tag"
+    git push "$remote" "$tag"
+
+    if [ "$watch" != "1" ]; then
+      continue
+    fi
+
+    echo "== watch workflow ($workflow) for $tag"
+    run_id=""
+    for _ in $(seq 1 60); do
+      run_id="$(
+        gh run list \
+          --workflow "$workflow" \
+          --event push \
+          --branch "$tag" \
+          --limit 1 \
+          --json databaseId \
+          --jq '.[0].databaseId // empty'
+      )"
+      if [ -n "$run_id" ]; then
+        break
+      fi
+      sleep 2
+    done
+    if [ -z "$run_id" ]; then
+      echo "error: workflow run not found for tag: $tag" >&2
+      exit 3
+    fi
+    gh run watch "$run_id" --exit-status
+  done

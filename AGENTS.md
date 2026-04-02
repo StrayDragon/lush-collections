@@ -49,3 +49,14 @@ Current fixtures:
 - CI must use **pinned Docker images** (no floating tags) for deterministic runs:
   - `LUSH_TEST_REDIS_IMAGE=redis:7.4-alpine`
   - `LUSH_TEST_MYSQL_IMAGE=mysql:8.0.40-debian`
+
+## Release (Best Practices)
+
+- Use **one commit + one tag per package**:
+  - Commit message: `lush-<pkg>: bump version to <ver>`
+  - Tag format: `lush-<pkg>-v<ver>` (this is what `publish-pypi.yaml` expects).
+- Prefer pushing tags **one-by-one** via `git push origin <tag>` to reliably trigger `on.push.tags`.
+  - Avoid relying on `git push --follow-tags` for publishing triggers.
+- Use `just release-patch` for a safe, repeatable flow:
+  - Patch-bumps each selected package, runs `just test-one <pkg>` (unless `RELEASE_SKIP_TESTS=1`),
+  - creates the tag, pushes `main`, then pushes tags one-by-one and (by default) waits for GitHub Actions to complete.
