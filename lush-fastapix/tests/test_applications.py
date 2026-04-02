@@ -88,6 +88,11 @@ def test_app():
 class TestFastAPIX:
     """FastAPIX功能测试"""
 
+    def test_openapi_is_cached_per_instance(self, test_app):
+        schema1 = test_app.openapi()
+        schema2 = test_app.openapi()
+        assert schema1 is schema2
+
     def test_query_parameter_enhancement(self, test_app):
         """测试Query参数的枚举增强"""
         schema = test_app.openapi()
