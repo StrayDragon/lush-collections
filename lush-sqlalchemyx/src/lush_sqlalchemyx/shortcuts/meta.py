@@ -53,7 +53,7 @@ class TableDDLInfo:
 
 def get_table_ddl_info(
     entity: type[DeclarativeBase],
-    dialect_fn: Callable[[], Dialect | None] = lambda: mysql_dialect(),
+    dialect_fn: Callable[[], Dialect | None] = mysql_dialect,
 ) -> TableDDLInfo:
     dialect = dialect_fn()
     table = cast("Table", entity.__table__)

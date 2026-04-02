@@ -47,10 +47,7 @@ class AsyncMySQLManagersMapper(Generic[DBEnumT]):
     async def health_check(self) -> dict[DBEnumT, bool]:
         results: dict[DBEnumT, bool] = {}
         for key, manager in self._managers.items():
-            with suppress(Exception):
-                results[key] = await manager.health_check()
-            if key not in results:
-                results[key] = False
+            results[key] = await manager.health_check()
         return results
 
     async def close(self) -> None:
