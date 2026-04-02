@@ -1,6 +1,8 @@
 import sys
 from enum import Enum
 
+from typing_extensions import Self
+
 if sys.version_info >= (3, 11):
     from enum import StrEnum  # pragma: no cover
 else:
@@ -15,7 +17,7 @@ else:
         Enum where members are also (and must be) strings
         """
 
-        def __new__(cls, *values: str) -> "StrEnum":
+        def __new__(cls, *values: str) -> Self:
             "values must already be of type `str`"
             if len(values) > 3:
                 raise TypeError(f"too many arguments for str(): {values!r}")

@@ -6,6 +6,7 @@ from pydantic import GetJsonSchemaHandler
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import ValidationError as PydanticValidationError
 from pydantic_core import core_schema
+from typing_extensions import Self
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -21,7 +22,7 @@ class MetaInfoIntEnum(enum.IntEnum):
     Most of behavior like IntEnum, and you can use ._x_meta to get the pre-defined XMetaInfo
     """
 
-    def __new__(cls, value: int, meta: XMetaInfo) -> "MetaInfoIntEnum":
+    def __new__(cls, value: int, meta: XMetaInfo) -> Self:
         obj = int.__new__(cls, value)
         obj._value_ = value
         obj._x_meta = meta  # pyright: ignore[reportAttributeAccessIssue ]
@@ -88,7 +89,7 @@ class MetaInfoStrEnum(str, enum.Enum):
     Most of behavior like StrEnum, and you can use ._x_meta to get the pre-defined XMetaInfo
     """
 
-    def __new__(cls, value: str, meta: XMetaInfo) -> "MetaInfoStrEnum":
+    def __new__(cls, value: str, meta: XMetaInfo) -> Self:
         obj = str.__new__(cls, value)
         obj._value_ = value
         obj._x_meta = meta  # pyright: ignore[reportAttributeAccessIssue ]

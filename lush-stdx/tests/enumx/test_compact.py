@@ -116,8 +116,8 @@ class TestStrEnumBackport:
         """Test StrEnum with 3 arguments (value, encoding, errors)."""
 
         class ThreeArgEnum(StrEnum):
-            A = "test_a"
-            B = "test_b"
+            A = b"test_a", "utf-8", "strict"
+            B = b"test_b", "utf-8", "strict"
 
         assert ThreeArgEnum.A.value == "test_a"
         assert ThreeArgEnum.B.value == "test_b"
