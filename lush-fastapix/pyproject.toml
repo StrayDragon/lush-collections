@@ -21,11 +21,26 @@ lush-stdx = { path = "../lush-stdx" }
 dev = ["pytest>=8.4.1", "pytest-asyncio>=1.1.0", "pytest-cov>=6.2.1"]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib --cov=lush_fastapix --cov-report=term-missing"
+addopts = "--import-mode=importlib --cov=lush_fastapix --cov-branch --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"
+
+[tool.coverage.run]
+branch = true
+omit = [
+    # vendored code + debugging helpers
+    "src/lush_fastapix/vendor/*",
+    "src/lush_fastapix/x/*",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",
+]
 
 [tool.ruff]
 line-length = 140

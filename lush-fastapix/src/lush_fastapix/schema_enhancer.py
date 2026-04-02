@@ -212,14 +212,15 @@ def _enhance_direct_enum_schema(schema: dict[str, Any], context_hint: str = "") 
     if not enum_class:
         return schema
 
-    enhanced_description = generate_enhanced_description(enum_class, schema.get("description", ""))
+    original_description = schema.get("description", "")
+    enhanced_description = generate_enhanced_description(enum_class, original_description)
 
-    if enhanced_description:
-        enhanced_schema = schema.copy()
-        enhanced_schema["description"] = enhanced_description
-        return enhanced_schema
+    if not enhanced_description or enhanced_description == original_description:
+        return schema
 
-    return schema
+    enhanced_schema = schema.copy()
+    enhanced_schema["description"] = enhanced_description
+    return enhanced_schema
 
 
 def _enhance_anyof_enum_schema(schema: dict[str, Any], context_hint: str = "") -> dict[str, Any]:
@@ -300,12 +301,8 @@ def enhance_parameter_description(param: dict[str, Any]) -> dict[str, Any]:
         return param
 
     enhanced_param = param.copy()
-    schema = param.get("schema", {})
-    schema_desc = _get_enum_description_from_schema(schema)
-    param_desc = param.get("description", "")
-
-    if "`" in schema_desc and schema_desc != param_desc:
-        enhanced_param["description"] = schema_desc
+    schema_desc = _get_enum_description_from_schema(param.get("schema", {}))
+    enhanced_param["description"] = schema_desc
 
     return enhanced_param
 
