@@ -202,7 +202,7 @@ def test_conditionals_in_template() -> None:
     # without where
     q1, p1 = j2sql.from_string(tmpl, context={"use_where": False, "status": 1}, param_style="named")
     assert q1.strip() == "SELECT 1"
-    assert p1 in ({},)
+    assert p1 == {}
 
     # with where
     q2, p2 = j2sql.from_string(tmpl, context={"use_where": True, "status": 2}, param_style="named")

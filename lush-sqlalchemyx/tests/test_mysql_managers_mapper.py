@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 
 import pytest
 import sqlalchemy as sa
@@ -71,14 +72,10 @@ async def test_managers_mapper_missing_default_name(sqlite_dsn: str) -> None:
         await manager.close()
 
 
-async def test_managers_mapper_health_check_failure(monkeypatch: pytest.MonkeyPatch, sqlite_dsn: str) -> None:
-    manager = AsyncMySQLManager(sqlite_dsn, poolclass=NullPool)
+async def test_managers_mapper_health_check_failure(tmp_path: Any) -> None:
+    bad_dsn = f"sqlite+aiosqlite:///{(tmp_path / 'missing_dir' / 'db.sqlite3').as_posix()}"
+    manager = AsyncMySQLManager(bad_dsn, poolclass=NullPool)
     mapper = AsyncMySQLManagersMapper[DBBind](default_name=DBBind.DEFAULT, managers={DBBind.DEFAULT: manager})
-
-    async def bad_health_check() -> bool:
-        raise RuntimeError("health check failed")
-
-    monkeypatch.setattr(manager, "health_check", bad_health_check, raising=False)
     try:
         results = await mapper.health_check()
         assert results[DBBind.DEFAULT] is False

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import types
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -23,6 +22,24 @@ from lush_sqlalchemyx.same_impl_just_warn_wrapper import AsyncSession as WarnWra
 @pytest.fixture(scope="module")
 def sqlite_dsn() -> str:
     return "sqlite+aiosqlite:///:memory:"
+
+
+@pytest.mark.asyncio
+async def test_manager_init_without_poolclass_works_for_file_sqlite(tmp_path: Any) -> None:
+    # file-based sqlite supports QueuePool args; this covers the branch where poolclass isn't provided
+    dsn = f"sqlite+aiosqlite:///{(tmp_path / 'unit_testing_sqlalchemyx.db').as_posix()}"
+    mgr = AsyncMySQLManager(dsn)
+    try:
+        assert await mgr.health_check() is True
+    finally:
+        await mgr.close()
+
+
+@pytest.mark.asyncio
+async def test_close_skips_when_engine_is_none(sqlite_dsn: str) -> None:
+    mgr = AsyncMySQLManager(sqlite_dsn, poolclass=NullPool)
+    mgr.async_engine = None  # type: ignore[assignment]
+    await mgr.close()
 
 
 @pytest_asyncio.fixture
@@ -88,24 +105,14 @@ async def test_health_check_true(db_manager: AsyncMySQLManager) -> None:
 
 
 @pytest.mark.asyncio
-async def test_health_check_false(monkeypatch: pytest.MonkeyPatch, db_manager: AsyncMySQLManager) -> None:
-    class BadCtx:
-        async def __aenter__(self) -> AsyncSession:  # type: ignore[override]
-            raise RuntimeError("fail to open session")
-
-        async def __aexit__(
-            self,
-            exc_type: type[BaseException] | None,
-            exc: BaseException | None,
-            tb: types.TracebackType | None,
-        ) -> bool:  # type: ignore[override]
-            return False
-
-    def bad_session(_self: Any) -> BadCtx:  # type: ignore[no-redef]
-        return BadCtx()
-
-    monkeypatch.setattr(db_manager, "got_manual_session", bad_session, raising=False)
-    assert await db_manager.health_check() is False
+async def test_health_check_false(tmp_path: Any) -> None:
+    # Use a file sqlite path whose parent directory does not exist => connect failure.
+    dsn = f"sqlite+aiosqlite:///{(tmp_path / 'missing_dir' / 'db.sqlite3').as_posix()}"
+    mgr = AsyncMySQLManager(dsn)
+    try:
+        assert await mgr.health_check() is False
+    finally:
+        await mgr.close()
 
 
 @pytest.mark.asyncio
@@ -166,40 +173,52 @@ async def test_configured_session_no_changes_passthrough(db_manager: AsyncMySQLM
 
 
 @pytest.mark.asyncio
-async def test_configured_session_autocommit_true_commits(monkeypatch: pytest.MonkeyPatch, db_manager: AsyncMySQLManager) -> None:
-    async with db_manager.got_manual_session() as session:
-        called = {"commit": 0}
+async def test_configured_session_autocommit_true_commits(tmp_path: Any) -> None:
+    dsn = f"sqlite+aiosqlite:///{(tmp_path / 'autocommit_sqlalchemyx.db').as_posix()}"
+    mgr = AsyncMySQLManager(dsn)
+    try:
+        async with mgr.got_manual_session() as session:
+            _ = await session.execute(text("CREATE TABLE t (id INTEGER PRIMARY KEY, val INTEGER)"))
+            await session.commit()
 
-        async def fake_commit() -> None:  # type: ignore[unused-argument]
-            called["commit"] += 1
+        async with mgr.got_manual_session() as session:
+            async with async_configured_session_temporarily(session, autocommit=True):
+                _ = await session.execute(text("INSERT INTO t (val) VALUES (1)"))
 
-        monkeypatch.setattr(session, "commit", fake_commit, raising=False)
-
-        async with async_configured_session_temporarily(session, autocommit=True):
-            pass
-
-        assert called["commit"] == 1
+        async with mgr.got_manual_session() as session:
+            row = (await session.execute(text("SELECT COUNT(*) FROM t"))).fetchone()
+            assert row is not None
+            assert row[0] == 1
+    finally:
+        await mgr.close()
 
 
 @pytest.mark.asyncio
 async def test_configured_session_exception_triggers_rollback_and_restore(
-    monkeypatch: pytest.MonkeyPatch, db_manager: AsyncMySQLManager
+    tmp_path: Any,
 ) -> None:
-    async with db_manager.got_manual_session() as session:
-        original = session.autoflush
-        called = {"rollback": 0}
+    dsn = f"sqlite+aiosqlite:///{(tmp_path / 'rollback_sqlalchemyx.db').as_posix()}"
+    mgr = AsyncMySQLManager(dsn)
+    try:
+        async with mgr.got_manual_session() as session:
+            _ = await session.execute(text("CREATE TABLE t (id INTEGER PRIMARY KEY, val INTEGER)"))
+            await session.commit()
 
-        async def fake_rollback() -> None:  # type: ignore[unused-argument]
-            called["rollback"] += 1
+        async with mgr.got_manual_session() as session:
+            original = session.autoflush
+            with pytest.raises(RuntimeError):
+                async with async_configured_session_temporarily(session, autoflush=not original):
+                    _ = await session.execute(text("INSERT INTO t (val) VALUES (1)"))
+                    raise RuntimeError("boom in context")
 
-        monkeypatch.setattr(session, "rollback", fake_rollback, raising=False)
+            assert session.autoflush is original
 
-        with pytest.raises(RuntimeError):
-            async with async_configured_session_temporarily(session, autoflush=not original):
-                raise RuntimeError("boom in context")
-
-        assert called["rollback"] == 1
-        assert session.autoflush is original
+        async with mgr.got_manual_session() as session:
+            row = (await session.execute(text("SELECT COUNT(*) FROM t"))).fetchone()
+            assert row is not None
+            assert row[0] == 0
+    finally:
+        await mgr.close()
 
 
 @pytest.mark.asyncio

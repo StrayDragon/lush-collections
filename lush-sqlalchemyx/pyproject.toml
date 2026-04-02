@@ -31,15 +31,26 @@ dev = [
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",
     "aiosqlite>=0.20.0",
+    "aiomysql>=0.2.0",
     "fastapi[standard]>=0.117.1",
 ]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib --cov=lush_sqlalchemyx --cov-report=term-missing"
+addopts = "--import-mode=importlib --cov=lush_sqlalchemyx --cov-branch --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",
+]
 
 [tool.ruff]
 line-length = 140

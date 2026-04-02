@@ -3924,11 +3924,10 @@ class TestIterRecordsEdgeCases:
         # 模拟调用 _iter_records 时的检查
         # 检查逻辑: if not hasattr(table_class, "id") or not isinstance(...)
         with pytest.raises(ValueError, match="必须有 id 字段"):
-            # 使用 mock 测试检查逻辑
             import asyncio
-            from unittest.mock import AsyncMock
+            from typing import cast
 
-            async_session = AsyncMock()
+            async_session = cast("AsyncSession", object())
 
             async def run_test():
                 async for _ in AsyncRawReadDAL._iter_records(
