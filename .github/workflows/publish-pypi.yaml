@@ -19,6 +19,12 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     environment: pypi
+    env:
+      # Pin Docker images to avoid tag drift / surprise upgrades on CI.
+      # Tests that need external services (e.g. lush-redisx / lush-sqlalchemyx)
+      # will use these images via pytest fixtures.
+      LUSH_TEST_REDIS_IMAGE: redis:7.4-alpine
+      LUSH_TEST_MYSQL_IMAGE: mysql:8.0.40-debian
     steps:
       - name: Checkout
         uses: actions/checkout@v4
