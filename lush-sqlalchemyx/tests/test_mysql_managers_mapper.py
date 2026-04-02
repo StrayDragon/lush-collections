@@ -16,6 +16,11 @@ class DBBind(Enum):
     REPORTING = "reporting"
 
 
+class _BoomHealthCheckManager(AsyncMySQLManager):
+    async def health_check(self) -> bool:  # noqa: PLR6301
+        raise RuntimeError("boom")
+
+
 @pytest.fixture(scope="module")
 def sqlite_dsn() -> str:
     return "sqlite+aiosqlite:///:memory:"
@@ -75,6 +80,16 @@ async def test_managers_mapper_missing_default_name(sqlite_dsn: str) -> None:
 async def test_managers_mapper_health_check_failure(tmp_path: Any) -> None:
     bad_dsn = f"sqlite+aiosqlite:///{(tmp_path / 'missing_dir' / 'db.sqlite3').as_posix()}"
     manager = AsyncMySQLManager(bad_dsn, poolclass=NullPool)
+    mapper = AsyncMySQLManagersMapper[DBBind](default_name=DBBind.DEFAULT, managers={DBBind.DEFAULT: manager})
+    try:
+        results = await mapper.health_check()
+        assert results[DBBind.DEFAULT] is False
+    finally:
+        await mapper.close()
+
+
+async def test_managers_mapper_health_check_exception_is_false(sqlite_dsn: str) -> None:
+    manager = _BoomHealthCheckManager(sqlite_dsn, poolclass=NullPool)
     mapper = AsyncMySQLManagersMapper[DBBind](default_name=DBBind.DEFAULT, managers={DBBind.DEFAULT: manager})
     try:
         results = await mapper.health_check()
