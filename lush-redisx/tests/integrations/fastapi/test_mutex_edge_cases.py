@@ -1,7 +1,5 @@
 """测试互斥锁守卫的边界情况和异常处理"""  # noqa: INP001
 
-from unittest.mock import AsyncMock
-
 import pytest
 from fastapi import Depends, FastAPI, status
 from fastapi.testclient import TestClient
@@ -17,10 +15,11 @@ from lush_redisx.integrations.fastapi.depends.mutex import (
 
 
 class FakeRedisManager:
-    def __init__(self, set_result: bool = True) -> None:
+    def __init__(self, set_result: bool = True, *, delete_exception: Exception | None = None) -> None:
         self.deleted_keys = []
         self.locks = {}
         self.set_result = set_result
+        self.delete_exception = delete_exception
 
     @property
     def op_prefixed(self) -> "FakeRedisManager":
@@ -33,6 +32,8 @@ class FakeRedisManager:
         return self.set_result
 
     async def delete(self, key: str) -> int:
+        if self.delete_exception is not None:
+            raise self.delete_exception
         self.deleted_keys.append(key)
         if key in self.locks:
             del self.locks[key]
@@ -406,8 +407,7 @@ class TestMutexAutoReleaseMiddlewareException:
 
     def test_middleware_handles_delete_exception(self) -> None:
         """测试中间件处理删除锁时的异常"""
-        fake_redis = FakeRedisManager()
-        fake_redis.delete = AsyncMock(side_effect=Exception("Delete failed"))
+        fake_redis = FakeRedisManager(delete_exception=Exception("Delete failed"))
 
         from lush_redisx.integrations.fastapi.depends.mutex import create_mutex_auto_release_middleware
 

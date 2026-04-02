@@ -13,7 +13,6 @@ from typing import Any, ParamSpec, TypeVar
 import redis.asyncio as redis
 import structlog
 from redis.asyncio import ConnectionPool, Redis
-from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import RedisError
 from structlog.typing import FilteringBoundLogger
 from typing_extensions import override
@@ -718,15 +717,10 @@ class AsyncRedisManager:
         try:
             pong = await self.origin_redis_conn.ping()  # pyright: ignore[reportUnknownMemberType]
             return bool(pong == "PONG" or pong is True)
-        except RedisConnectionError:
-            self.logger.exception("Redis connection error", connection_info=self.connection_info)
-            return False
         except Exception:
             self.logger.exception("Redis ping error", connection_info=self.connection_info)
             return False
 
     async def close(self) -> None:
-        try:
+        with contextlib.suppress(RedisError):
             await self.origin_redis_conn.aclose(close_connection_pool=True)
-        except RedisError as exc:
-            self.logger.warning("Redis close error", error=str(exc))

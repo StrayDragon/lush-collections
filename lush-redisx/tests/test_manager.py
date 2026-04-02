@@ -1,7 +1,5 @@
 import asyncio
-import os
 import uuid
-from collections.abc import AsyncGenerator
 from datetime import timedelta
 
 import pytest
@@ -16,31 +14,6 @@ from lush_redisx import (
     SerializationMode,
     build_cache_key,
 )
-
-
-def _create_test_redis_manager() -> AsyncRedisManager:
-    return AsyncRedisManager(
-        host=os.getenv("REDIS_HOST", "127.0.0.1"),
-        port=int(os.getenv("REDIS_PORT", "6379")),
-        password=os.getenv("REDIS_PASSWORD") or None,
-        db=int(os.getenv("REDIS_DB", "0")),
-        key_prefix=":lush-redisx:test:",
-        max_connections=20,
-        retry_on_timeout=True,
-    )
-
-
-@pytest.fixture
-async def redis_mgr() -> AsyncGenerator[AsyncRedisManager, None]:
-    mgr = _create_test_redis_manager()
-    try:
-        # 快速健康检查,若不可用则跳过本文件
-        ok = await mgr.health_check()
-        if not ok:
-            pytest.skip("Redis 未就绪,跳过 Redis 测试")
-        yield mgr
-    finally:
-        await mgr.close()
 
 
 @pytest.mark.asyncio
@@ -273,6 +246,40 @@ async def test_cache_get_or_set_basic_and_skip_none(redis_mgr: AsyncRedisManager
         null_value_strategy=RedisCacheAll(),
     )
     assert call_count3 == 1
+
+
+@pytest.mark.asyncio
+async def test_cache_get_or_set_force_call_producer(redis_mgr: AsyncRedisManager) -> None:
+    key = build_cache_key("ut:cache", "force", 1)
+    _ = await redis_mgr.op_prefixed.delete(key)
+
+    call_count = 0
+
+    async def producer() -> dict[str, int]:
+        nonlocal call_count
+        call_count += 1
+        return {"v": call_count}
+
+    # 先写入缓存
+    v1 = await redis_mgr.op_prefixed.cache_get_or_set(key, producer=producer, ttl=300, serializer=SerializationMode.JSON)
+    assert v1 == {"v": 1}
+    assert call_count == 1
+
+    # 即使缓存已存在, force_call_producer=True 仍会再次调用 producer 并覆盖缓存
+    v2 = await redis_mgr.op_prefixed.cache_get_or_set(
+        key,
+        producer=producer,
+        ttl=300,
+        serializer=SerializationMode.JSON,
+        force_call_producer=True,
+    )
+    assert v2 == {"v": 2}
+    assert call_count == 2
+
+    # 再次读取应命中新值
+    v3 = await redis_mgr.op_prefixed.cache_get_or_set(key, producer=producer, ttl=300, serializer=SerializationMode.JSON)
+    assert v3 == {"v": 2}
+    assert call_count == 2
 
 
 @pytest.mark.asyncio
@@ -746,16 +753,10 @@ async def test_wrongtype_errors_cover_except_paths(redis_mgr: AsyncRedisManager)
 
 
 @pytest.mark.asyncio
-async def test_after_close_still_operable_but_set_json_typeerror() -> None:
-    mgr = _create_test_redis_manager()
-    try:
-        if not await mgr.health_check():
-            pytest.skip("Redis 未就绪,跳过 Redis 测试")
-        await mgr.close()
-        # 关闭后客户端可能自行重连,不强求 except 分支; 仅验证 set_json TypeError 仍被捕获
-        assert await mgr.op_prefixed.set_json("k", set()) is False  # json.dumps(set()) -> TypeError
-    finally:
-        await mgr.close()
+async def test_after_close_still_operable_but_set_json_typeerror(redis_mgr: AsyncRedisManager) -> None:
+    await redis_mgr.close()
+    # 关闭后客户端可能自行重连,不强求 except 分支; 仅验证 set_json TypeError 仍被捕获
+    assert await redis_mgr.op_prefixed.set_json("k", set()) is False  # json.dumps(set()) -> TypeError
 
 
 @pytest.mark.asyncio
@@ -933,6 +934,22 @@ async def test_debounce_action_multi_group(redis_mgr: AsyncRedisManager) -> None
     # 第二次 - 拒绝
     result2 = await redis_mgr.op_prefixed.debounce_action(action, window_seconds=10, group_by=groups)
     assert result2.allowed is False
+
+
+@pytest.mark.asyncio
+async def test_debounce_action_group_by_invalid_type(redis_mgr: AsyncRedisManager) -> None:
+    action = "test_action_group_by_invalid_type"
+    _ = await redis_mgr.op_prefixed.delete(f"debounce:{action}")
+
+    from typing import Any, cast
+
+    group_by = cast("Any", ("not-a", "list"))
+
+    r1 = await redis_mgr.op_prefixed.debounce_action(action, window_seconds=10, group_by=group_by)
+    assert r1.allowed is True
+
+    r2 = await redis_mgr.op_prefixed.debounce_action(action, window_seconds=10, group_by=group_by)
+    assert r2.allowed is False
 
 
 @pytest.mark.asyncio
