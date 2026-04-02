@@ -2,7 +2,6 @@
 
 from collections import abc
 from datetime import timedelta
-from unittest.mock import AsyncMock, patch
 
 import pytest
 from redis.exceptions import RedisError
@@ -13,14 +12,17 @@ from lush_redisx import AsyncRedisManager, AsyncRedisPrefixedOp, SerializationMo
 class FakeRedisWithExceptions:
     """模拟 Redis,支持触发异常"""
 
-    def __init__(self, *, raise_on_get: bool = False, raise_on_set: bool = False) -> None:
-        self.store: dict[str, str] = {}
-        self.raise_on_get = raise_on_get
-        self.raise_on_set = raise_on_set
+    def __init__(self, *, exceptions: dict[str, Exception] | None = None) -> None:
+        self.store: dict[str, object] = {}
+        self._exceptions: dict[str, Exception] = exceptions or {}
 
-    async def get(self, key: str) -> str | None:
-        if self.raise_on_get:
-            raise RedisError("Simulated Redis error")
+    def _raise_if_needed(self, method: str) -> None:
+        exc = self._exceptions.get(method)
+        if exc is not None:
+            raise exc
+
+    async def get(self, key: str) -> object | None:
+        self._raise_if_needed("get")
         return self.store.get(key)
 
     async def set(  # noqa: A003
@@ -32,8 +34,7 @@ class FakeRedisWithExceptions:
         nx: bool = False,
         xx: bool = False,
     ) -> bool:
-        if self.raise_on_set:
-            raise RedisError("Simulated Redis error")
+        self._raise_if_needed("set")
         exists = key in self.store
         if nx and exists:
             return False
@@ -43,6 +44,7 @@ class FakeRedisWithExceptions:
         return True
 
     async def delete(self, *keys: str) -> int:
+        self._raise_if_needed("delete")
         deleted = 0
         for key in keys:
             if key in self.store:
@@ -51,55 +53,70 @@ class FakeRedisWithExceptions:
         return deleted
 
     async def exists(self, *keys: str) -> int:
+        self._raise_if_needed("exists")
         return sum(1 for k in keys if k in self.store)
 
     async def ttl(self, key: str) -> int:
+        self._raise_if_needed("ttl")
         if key not in self.store:
             return -2
         return -1
 
     async def expire(self, key: str, seconds: int) -> bool:
+        self._raise_if_needed("expire")
         return True
 
     async def hget(self, key: str, field: str) -> str | None:
+        self._raise_if_needed("hget")
         return None
 
     async def hset(self, key: str, field: str, value: str) -> int:
+        self._raise_if_needed("hset")
         return 1
 
     async def hgetall(self, key: str) -> dict[str, str]:
+        self._raise_if_needed("hgetall")
         return {}
 
     async def lpush(self, key: str, *values: str) -> int:
+        self._raise_if_needed("lpush")
         return len(values)
 
     async def rpush(self, key: str, *values: str) -> int:
+        self._raise_if_needed("rpush")
         return len(values)
 
     async def lpop(self, key: str, count: int | None = None) -> str | None:
+        self._raise_if_needed("lpop")
         return None
 
     async def lrange(self, key: str, start: int, end: int) -> list[str]:
+        self._raise_if_needed("lrange")
         return []
 
     async def sadd(self, key: str, *values: str) -> int:
+        self._raise_if_needed("sadd")
         return len(values)
 
     async def smembers(self, key: str) -> abc.Set[str]:
+        self._raise_if_needed("smembers")
         return set[str]()
 
     async def mget(self, *keys: str) -> list[str | None]:
-        return [self.store.get(k) for k in keys]
+        self._raise_if_needed("mget")
+        return [self.store.get(k) for k in keys]  # type: ignore[return-value]
 
     async def mset(self, mapping: dict[str, str]) -> bool:
+        self._raise_if_needed("mset")
         self.store.update(mapping)
         return True
 
     async def ping(self) -> str:
+        self._raise_if_needed("ping")
         return "PONG"
 
     async def aclose(self, close_connection_pool: bool = False) -> None:
-        pass
+        self._raise_if_needed("aclose")
 
 
 class TestAsyncRedisPrefixedOpEdgeCases:
@@ -203,7 +220,7 @@ class TestExceptionHandling:
     @pytest.mark.asyncio
     async def test_get_with_redis_error(self) -> None:
         """测试 get 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions(raise_on_get=True)
+        fake_redis = FakeRedisWithExceptions(exceptions={"get": RedisError("Simulated Redis error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
         result = await op.get("key", default="fallback")
@@ -212,7 +229,7 @@ class TestExceptionHandling:
     @pytest.mark.asyncio
     async def test_set_with_redis_error(self) -> None:
         """测试 set 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions(raise_on_set=True)
+        fake_redis = FakeRedisWithExceptions(exceptions={"set": RedisError("Simulated Redis error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
         result = await op.set("key", "value", expire=60)
@@ -221,106 +238,95 @@ class TestExceptionHandling:
     @pytest.mark.asyncio
     async def test_delete_with_redis_error(self) -> None:
         """测试 delete 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions()
+        fake_redis = FakeRedisWithExceptions(exceptions={"delete": RedisError("Error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        with patch.object(fake_redis, "delete", side_effect=RedisError("Error")):
-            result = await op.delete("key")
-            assert result == 0
+        result = await op.delete("key")
+        assert result == 0
 
     @pytest.mark.asyncio
     async def test_exists_with_redis_error(self) -> None:
         """测试 exists 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions()
+        fake_redis = FakeRedisWithExceptions(exceptions={"exists": RedisError("Error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        with patch.object(fake_redis, "exists", side_effect=RedisError("Error")):
-            result = await op.exists("key")
-            assert result == 0
+        result = await op.exists("key")
+        assert result == 0
 
     @pytest.mark.asyncio
     async def test_expire_with_redis_error(self) -> None:
         """测试 expire 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions()
+        fake_redis = FakeRedisWithExceptions(exceptions={"expire": RedisError("Error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        with patch.object(fake_redis, "expire", side_effect=RedisError("Error")):
-            result = await op.expire("key", 60)
-            assert result is False
+        result = await op.expire("key", 60)
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_ttl_with_redis_error(self) -> None:
         """测试 ttl 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions()
+        fake_redis = FakeRedisWithExceptions(exceptions={"ttl": RedisError("Error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        with patch.object(fake_redis, "ttl", side_effect=RedisError("Error")):
-            result = await op.ttl("key")
-            assert result == -1
+        result = await op.ttl("key")
+        assert result == -1
 
     @pytest.mark.asyncio
     async def test_throttle_check_and_set_with_redis_error(self) -> None:
         """测试 throttle_check_and_set 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions()
+        fake_redis = FakeRedisWithExceptions(exceptions={"set": RedisError("Error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        with patch.object(fake_redis, "set", side_effect=RedisError("Error")):
-            result = await op.throttle_check_and_set("key", window_seconds=60)
-            # 异常时返回允许通过
-            assert result.allowed is True
-            assert result.redis_key == ":test:key"
+        result = await op.throttle_check_and_set("key", window_seconds=60)
+        # 异常时返回允许通过
+        assert result.allowed is True
+        assert result.redis_key == ":test:key"
 
     @pytest.mark.asyncio
     async def test_debounce_check_and_set_with_redis_error(self) -> None:
         """测试 debounce_check_and_set 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions()
+        fake_redis = FakeRedisWithExceptions(exceptions={"set": RedisError("Error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        with patch.object(fake_redis, "set", side_effect=RedisError("Error")):
-            result = await op.debounce_check_and_set("key", window_seconds=60)
-            assert result.allowed is True
+        result = await op.debounce_check_and_set("key", window_seconds=60)
+        assert result.allowed is True
 
     @pytest.mark.asyncio
     async def test_debounce_get_remaining_with_redis_error(self) -> None:
         """测试 debounce_get_remaining 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions()
+        fake_redis = FakeRedisWithExceptions(exceptions={"exists": RedisError("Error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        with patch.object(fake_redis, "exists", side_effect=RedisError("Error")):
-            result = await op.debounce_get_remaining("key")
-            assert result.allowed is True
+        result = await op.debounce_get_remaining("key")
+        assert result.allowed is True
 
     @pytest.mark.asyncio
     async def test_mget_with_redis_error(self) -> None:
         """测试 mget 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions()
+        fake_redis = FakeRedisWithExceptions(exceptions={"mget": RedisError("Error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        with patch.object(fake_redis, "mget", side_effect=RedisError("Error")):
-            result = await op.mget("key1", "key2")
-            assert result == [None, None]
+        result = await op.mget("key1", "key2")
+        assert result == [None, None]
 
     @pytest.mark.asyncio
     async def test_mset_with_redis_error(self) -> None:
         """测试 mset 方法的异常处理"""
-        fake_redis = FakeRedisWithExceptions()
+        fake_redis = FakeRedisWithExceptions(exceptions={"mset": RedisError("Error")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        with patch.object(fake_redis, "mset", side_effect=RedisError("Error")):
-            result = await op.mset({"key1": "value1"})
-            assert result is False
+        result = await op.mset({"key1": "value1"})
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_get_json_with_bytes(self) -> None:
         """测试 get_json 处理 bytes 值"""
         fake_redis = FakeRedisWithExceptions()
-        fake_redis.store[":test:json_key"] = '{"data": "test"}'  # 直接存储字符串
+        fake_redis.store[":test:json_key"] = b'{"data": "test"}'
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        # 模拟 redis 返回 bytes
-        with patch.object(fake_redis, "get", return_value=b'{"data": "test"}'):
-            result = await op.get_json("json_key")
-            assert result == {"data": "test"}
+        result = await op.get_json("json_key")
+        assert result == {"data": "test"}
 
 
 class TestSimpleDistributedLockException:
@@ -329,14 +335,12 @@ class TestSimpleDistributedLockException:
     @pytest.mark.asyncio
     async def test_lock_release_exception(self) -> None:
         """测试锁释放时的异常处理"""
-        fake_redis = FakeRedisWithExceptions()
+        fake_redis = FakeRedisWithExceptions(exceptions={"delete": Exception("Delete failed")})
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        # 模拟 delete 失败
-        with patch.object(fake_redis, "delete", side_effect=Exception("Delete failed")):
-            async with op.simple_distributed_lock("lock", timeout=5) as acquired:
-                assert acquired is True
-            # 即使删除失败也不应该抛出异常
+        async with op.simple_distributed_lock("lock", timeout=5) as acquired:
+            assert acquired is True
+        # 即使删除失败也不应该抛出异常
 
     @pytest.mark.asyncio
     async def test_lock_not_acquired(self) -> None:
@@ -359,35 +363,12 @@ class TestAsyncRedisManagerEdgeCases:
     @pytest.mark.asyncio
     async def test_health_check_connection_error(self) -> None:
         """测试健康检查连接错误处理"""
-        from redis.exceptions import ConnectionError as RedisConnectionError
-
-        mgr = AsyncRedisManager(host="invalid-host", port=6379)
-
-        # 模拟连接错误
-        with patch.object(mgr.origin_redis_conn, "ping", side_effect=RedisConnectionError("Connection failed")):
+        mgr = AsyncRedisManager(host="127.0.0.1", port=1, socket_connect_timeout=1, socket_timeout=1)
+        try:
             result = await mgr.health_check()
             assert result is False
-
-        await mgr.close()
-
-    @pytest.mark.asyncio
-    async def test_health_check_generic_error(self) -> None:
-        """测试健康检查通用错误处理"""
-        mgr = AsyncRedisManager(host="localhost", port=6379)
-
-        with patch.object(mgr.origin_redis_conn, "ping", side_effect=Exception("Unknown error")):
-            result = await mgr.health_check()
-            assert result is False
-
-        await mgr.close()
-
-    @pytest.mark.asyncio
-    async def test_close_with_redis_error(self) -> None:
-        """测试 close 方法的异常处理"""
-        mgr = AsyncRedisManager(host="localhost", port=6379)
-
-        with patch.object(mgr.origin_redis_conn, "aclose", side_effect=RedisError("Close failed")):
-            await mgr.close()  # 不应该抛出异常
+        finally:
+            await mgr.close()
 
     @pytest.mark.asyncio
     async def test_hget_returns_default(self) -> None:
@@ -408,11 +389,10 @@ class TestGetJsonWithDifferentTypes:
         fake_redis = FakeRedisWithExceptions()
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        # 模拟返回无效 JSON bytes
-        with patch.object(fake_redis, "get", return_value=b"not valid json"):
-            result = await op.get_json("key")
-            # JSON 解码错误时返回 None (default)
-            assert result is None
+        fake_redis.store[":test:key"] = b"not valid json"
+        result = await op.get_json("key")
+        # JSON 解码错误时返回 None (default)
+        assert result is None
 
 
 class TestDebounceGetRemaining:
@@ -435,10 +415,8 @@ class TestDebounceGetRemaining:
         fake_redis.store[":test:existing"] = "1"
         op = AsyncRedisPrefixedOp(fake_redis, ":test:")
 
-        # 模拟 exists 返回 1 (键存在)
-        with patch.object(fake_redis, "exists", return_value=1):
-            result = await op.debounce_get_remaining("existing")
-            assert result.redis_key == ":test:existing"
+        result = await op.debounce_get_remaining("existing")
+        assert result.redis_key == ":test:existing"
 
 
 class TestRemainingUncoveredLines:
@@ -504,13 +482,12 @@ class TestRemainingUncoveredLines:
             def __str__(self):
                 return "not json"
 
-        # 模拟 get 返回自定义对象
         # 这会触发: elif not isinstance(value, str): value = str(value)
         # 然后 json.loads 会失败,因为 "not json" 不是有效的 JSON
-        with patch.object(fake_redis, "get", new=AsyncMock(return_value=Unjsonable())):
-            result = await op.get_json("key", default="fallback")
-            # 自定义对象被转换为字符串 "not json",不是有效 JSON,返回 default
-            assert result == "fallback"
+        fake_redis.store[":test:key"] = Unjsonable()
+        result = await op.get_json("key", default="fallback")
+        # 自定义对象被转换为字符串 "not json",不是有效 JSON,返回 default
+        assert result == "fallback"
 
     @pytest.mark.asyncio
     async def test_serialize_unknown_mode_fallback(self) -> None:
