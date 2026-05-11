@@ -18,7 +18,4 @@ def require_async() -> None:
     以便用户看到清晰的错误信息而非深层调用栈中的 ``AttributeError``.
     """
     if not _HAS_ASYNC:
-        raise ImportError(
-            "Async support requires 'sqlalchemy[asyncio]' (greenlet). "
-            "Install with: pip install 'lush-sqlalchemyx[asyncio]'"
-        )
+        raise ImportError("Async support requires 'sqlalchemy[asyncio]' (greenlet). Install with: pip install 'lush-sqlalchemyx[asyncio]'")

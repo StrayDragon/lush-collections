@@ -10,18 +10,14 @@ import logging
 import random
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar, Final, Generic, TypeVar, cast
+from typing import Any, ClassVar, Final, Generic, TypeVar, cast
 
 import sqlalchemy as sa
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import ColumnExpressionArgument
 from sqlalchemy import event as sa_event
 from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
-from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute, Mapped, ORMExecuteState, mapped_column, with_loader_criteria
+from sqlalchemy.orm import DeclarativeBase, Mapped, ORMExecuteState, mapped_column, with_loader_criteria
 from sqlalchemy.orm import Session as SyncSession
-
-if TYPE_CHECKING:
-    from sqlalchemy.engine.interfaces import _CoreAnyExecuteParams  # pragma: no cover # pyright: ignore[reportPrivateUsage]
 
 READONLY_SESSION_FLAG: Final[str] = "__lush_sqlalchemyx__readonly_session__"
 
@@ -317,6 +313,7 @@ __all__ = (
     "OPTIMISTIC_LOCK_ERROR_MSG_TRAIT",
     "PESSIMISTIC_LOCK_ERROR_MSG_TRAIT",
     "READONLY_SESSION_FLAG",
+    "_LOGGER",
     "BaseCU",
     "BaseDTO",
     "BaseModelT",
@@ -333,7 +330,6 @@ __all__ = (
     "StdBaseDTO",
     "T",
     "V",
-    "_LOGGER",
     "_ensure_strict_fields",
     "escape_like",
     "filtered_in_sql_values",

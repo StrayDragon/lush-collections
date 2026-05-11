@@ -8,8 +8,8 @@ import pytest
 import sqlalchemy as sa
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import event, select, text
-from sqlalchemy.orm import InstrumentedAttribute, Mapped, Session, mapped_column
+from sqlalchemy import event, text
+from sqlalchemy.orm import Mapped, Session, mapped_column
 from sqlalchemy.pool import NullPool
 
 from lush_sqlalchemyx.base.dal import (
@@ -26,19 +26,15 @@ from lush_sqlalchemyx.base.dal import (
     SyncSqlATableBase,
     SyncWriteDAL,
     SyncXDALOp,
-    escape_like,
     sync_temp_set_lock_wait_timeout,
     sync_with_retry,
 )
 from lush_sqlalchemyx.base.dal._common import (
     READONLY_SESSION_FLAG,
-    ReadOnlyMixin,
     RetryConfig,
-    SoftDeleteTableMixin,
-    filtered_in_sql_values,
 )
 from lush_sqlalchemyx.base.dal._sync import BasicSyncBaseTable
-from lush_sqlalchemyx.mgrs.mysql.sync_manager import SyncMySQLManager, configured_session_temporarily, must_rollback_if_in_transaction
+from lush_sqlalchemyx.mgrs.mysql.sync_manager import SyncMySQLManager
 
 # ========== Test models ==========
 
@@ -198,15 +194,15 @@ def sync_session(sync_manager: SyncMySQLManager) -> Generator[Session, None, Non
 
 # ========== Readonly helper ==========
 
+
 def _create_readonly_test_data(session: Session, name: str, value: int) -> int:
     import lush_sqlalchemyx.base.dal._common as common_mod
 
-    listener = getattr(common_mod, "_CommonModule__prevent_readonly_write", None) or getattr(
-        common_mod, "__prevent_readonly_write", None
-    )
+    listener = getattr(common_mod, "_CommonModule__prevent_readonly_write", None) or getattr(common_mod, "__prevent_readonly_write", None)
 
     if listener:
         from sqlalchemy.orm import Session as SyncSession
+
         event.remove(SyncSession, "before_flush", listener)
         try:
             entity = _SyncReadOnlyTable(name=name, value=value)
@@ -299,7 +295,9 @@ class TestSyncCRUD:
 
         partial_cu = _SyncTestCU(name="partial-after")
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, partial_cu,
+            sync_session,
+            entity.id,
+            partial_cu,
             fields={_SyncTestTable.name},
         )
         assert updated is not None
@@ -317,7 +315,9 @@ class TestSyncCRUD:
 
         partial_cu = _SyncTestCU(name="ignore-none", description=None)
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, partial_cu,
+            sync_session,
+            entity.id,
+            partial_cu,
             none_policy="ignore",
         )
         assert updated is not None
@@ -329,7 +329,9 @@ class TestSyncCRUD:
 
         partial_cu = _SyncTestCU(name="allow-none", description=None)
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, partial_cu,
+            sync_session,
+            entity.id,
+            partial_cu,
             none_policy="allow",
         )
         assert updated is not None
@@ -342,7 +344,9 @@ class TestSyncCRUD:
         partial_cu = _SyncTestCU(name="forbid-none", description=None)
         with pytest.raises(ValueError, match="字段不允许置空"):
             _SyncTestDAL.update_partial_by_id(
-                sync_session, entity.id, partial_cu,
+                sync_session,
+                entity.id,
+                partial_cu,
                 none_policy="forbid",
             )
 
@@ -352,7 +356,9 @@ class TestSyncCRUD:
 
         partial_cu = _SyncTestCU(name="override", description=None)
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, partial_cu,
+            sync_session,
+            entity.id,
+            partial_cu,
             none_policy="ignore",
             none_policy_overrides={_SyncTestTable.description: "allow"},
         )
@@ -366,7 +372,9 @@ class TestSyncCRUD:
         partial_cu = _SyncTestCU(name="strict", value=2, description="bad")
         with pytest.raises(ValueError, match="出现未允许更新的字段"):
             _SyncTestDAL.update_partial_by_id(
-                sync_session, entity.id, partial_cu,
+                sync_session,
+                entity.id,
+                partial_cu,
                 fields={_SyncTestTable.name},
                 strict=True,
             )
@@ -378,7 +386,9 @@ class TestSyncCRUD:
         partial_cu = _SyncTestCU(name="col-field-updated")
         col = _SyncTestTable.__table__.c.name
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, partial_cu,
+            sync_session,
+            entity.id,
+            partial_cu,
             fields={col},
         )
         assert updated is not None
@@ -391,7 +401,9 @@ class TestSyncCRUD:
         partial_cu = _SyncTestCU(name="col-override", description=None)
         col = _SyncTestTable.__table__.c.description
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, partial_cu,
+            sync_session,
+            entity.id,
+            partial_cu,
             none_policy="ignore",
             none_policy_overrides={col: "allow"},
         )
@@ -404,7 +416,9 @@ class TestSyncCRUD:
 
         partial_cu = _SyncTestCU(name="str-field-updated")
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, partial_cu,
+            sync_session,
+            entity.id,
+            partial_cu,
             fields={"name"},
         )
         assert updated is not None
@@ -416,7 +430,9 @@ class TestSyncCRUD:
 
         partial_cu = _SyncTestCU(name="str-override", description=None)
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, partial_cu,
+            sync_session,
+            entity.id,
+            partial_cu,
             none_policy="ignore",
             none_policy_overrides={"description": "allow"},
         )
@@ -488,20 +504,26 @@ class TestSyncBatch:
     def test_batch_get_field__entity(self, sync_session: Session):
         _SyncTestDAL.create(sync_session, _SyncTestCU(name="field-batch"))
         result = _SyncTestDAL.batch_get_field__entity(
-            sync_session, field_name="name", field_values=["field-batch"],
+            sync_session,
+            field_name="name",
+            field_values=["field-batch"],
         )
         assert "field-batch" in result
 
     def test_batch_get_field__entity_empty(self, sync_session: Session):
         result = _SyncTestDAL.batch_get_field__entity(
-            sync_session, field_name="name", field_values=[],
+            sync_session,
+            field_name="name",
+            field_values=[],
         )
         assert result == {}
 
     def test_batch_get_field__dto(self, sync_session: Session):
         _SyncTestDAL.create(sync_session, _SyncTestCU(name="field-dto"))
         result = _SyncTestDAL.batch_get_field__dto(
-            sync_session, field_name="name", field_values=["field-dto"],
+            sync_session,
+            field_name="name",
+            field_values=["field-dto"],
         )
         assert "field-dto" in result
 
@@ -518,7 +540,9 @@ class TestSyncBatch:
 
     def test_batch_update_by_ids_empty(self, sync_session: Session):
         affected = _SyncTestDAL.batch_update_by_ids(
-            sync_session, entity_ids=[], update_data={_SyncTestTable.value: 1},
+            sync_session,
+            entity_ids=[],
+            update_data={_SyncTestTable.value: 1},
         )
         assert affected == 0
 
@@ -582,9 +606,12 @@ class TestSyncIterators:
 
     def test_iter_records_with_where(self, sync_session: Session):
         _SyncTestDAL.create(sync_session, _SyncTestCU(name="where-iter", value=12345))
-        records = list(_SyncTestDAL.iter_records(
-            sync_session, where_clauses=[_SyncTestTable.value == 12345],
-        ))
+        records = list(
+            _SyncTestDAL.iter_records(
+                sync_session,
+                where_clauses=[_SyncTestTable.value == 12345],
+            )
+        )
         assert all(r.value == 12345 for r in records)
 
     def test_iter_records_no_id_field(self, sync_session: Session):
@@ -605,7 +632,10 @@ class TestSyncOptimisticLock:
 
         update_cu = _SyncVersionCU(name="opt-ok-updated", value=20)
         updated = _SyncVersionDAL.update_only_set_with_optimistic_lock(
-            sync_session, entity.id, update_cu, expected_version=0,
+            sync_session,
+            entity.id,
+            update_cu,
+            expected_version=0,
         )
         assert updated is not None
         assert updated.name == "opt-ok-updated"
@@ -617,7 +647,10 @@ class TestSyncOptimisticLock:
         update_cu = _SyncVersionCU(name="opt-conflict-updated")
         with pytest.raises(DBRetryableError, match="乐观锁更新失败"):
             _SyncVersionDAL.update_only_set_with_optimistic_lock(
-                sync_session, entity.id, update_cu, expected_version=999,
+                sync_session,
+                entity.id,
+                update_cu,
+                expected_version=999,
             )
 
     def test_optimistic_lock_no_version_field(self, sync_session: Session):
@@ -626,7 +659,10 @@ class TestSyncOptimisticLock:
 
         with pytest.raises(AttributeError, match="不包含 version 字段"):
             _SyncTestDAL.update_only_set_with_optimistic_lock(
-                sync_session, entity.id, cu, expected_version=0,
+                sync_session,
+                entity.id,
+                cu,
+                expected_version=0,
             )
 
     def test_optimistic_lock_empty_update(self, sync_session: Session):
@@ -642,7 +678,10 @@ class TestSyncOptimisticLock:
 
         empty_cu = _EmptyVersionCU()
         result = _SyncVersionDAL.update_only_set_with_optimistic_lock(
-            sync_session, entity.id, empty_cu, expected_version=0,
+            sync_session,
+            entity.id,
+            empty_cu,
+            expected_version=0,
         )
         assert result is not None
 
@@ -652,7 +691,11 @@ class TestSyncOptimisticLock:
 
         update_cu = _SyncVersionCU(name="opt-refresh-updated")
         updated = _SyncVersionDAL.update_only_set_with_optimistic_lock(
-            sync_session, entity.id, update_cu, expected_version=0, need_refresh=True,
+            sync_session,
+            entity.id,
+            update_cu,
+            expected_version=0,
+            need_refresh=True,
         )
         assert updated is not None
 
@@ -704,7 +747,10 @@ class TestSyncReadonly:
         sync_session.info[READONLY_SESSION_FLAG] = True
         with pytest.raises(TypeError, match="只读"):
             _SyncVersionDAL.update_only_set_with_optimistic_lock(
-                sync_session, entity.id, cu, expected_version=0,
+                sync_session,
+                entity.id,
+                cu,
+                expected_version=0,
             )
 
 
@@ -867,7 +913,8 @@ class TestSyncForUpdate:
     def test_get_one_for_update(self, sync_session: Session):
         entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="one-fu", value=54321))
         result = _SyncTestDAL.get_one_for_update(
-            sync_session, where_clauses=[_SyncTestTable.value == 54321],
+            sync_session,
+            where_clauses=[_SyncTestTable.value == 54321],
         )
         assert result is not None
         assert result.id == entity.id
@@ -878,6 +925,7 @@ class TestSyncLockTimeoutErrors:
 
     def test_get_by_id_for_update_lock_timeout(self, sync_session: Session):
         from unittest.mock import patch
+
         from sqlalchemy.exc import OperationalError as SAOpError
 
         entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="lock-timeout"))
@@ -893,6 +941,7 @@ class TestSyncLockTimeoutErrors:
 
     def test_get_by_id_for_update_other_operational_error(self, sync_session: Session):
         from unittest.mock import patch
+
         from sqlalchemy.exc import OperationalError as SAOpError
 
         entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="other-error"))
@@ -904,6 +953,7 @@ class TestSyncLockTimeoutErrors:
 
     def test_batch_get_for_update_lock_timeout(self, sync_session: Session):
         from unittest.mock import patch
+
         from sqlalchemy.exc import OperationalError as SAOpError
 
         e = _SyncTestDAL.create(sync_session, _SyncTestCU(name="batch-lock"))
@@ -915,6 +965,7 @@ class TestSyncLockTimeoutErrors:
 
     def test_batch_get_for_update_other_error(self, sync_session: Session):
         from unittest.mock import patch
+
         from sqlalchemy.exc import OperationalError as SAOpError
 
         e = _SyncTestDAL.create(sync_session, _SyncTestCU(name="batch-other"))
@@ -926,6 +977,7 @@ class TestSyncLockTimeoutErrors:
 
     def test_get_one_for_update_lock_timeout(self, sync_session: Session):
         from unittest.mock import patch
+
         from sqlalchemy.exc import OperationalError as SAOpError
 
         _SyncTestDAL.create(sync_session, _SyncTestCU(name="one-lock", value=99999))
@@ -934,11 +986,13 @@ class TestSyncLockTimeoutErrors:
         with patch.object(sync_session, "execute", side_effect=SAOpError("", [], orig)):
             with pytest.raises(DBRetryableError, match="悲观锁"):
                 _SyncTestDAL.get_one_for_update(
-                    sync_session, where_clauses=[_SyncTestTable.value == 99999],
+                    sync_session,
+                    where_clauses=[_SyncTestTable.value == 99999],
                 )
 
     def test_get_one_for_update_other_error(self, sync_session: Session):
         from unittest.mock import patch
+
         from sqlalchemy.exc import OperationalError as SAOpError
 
         orig = Exception("Connection lost")
@@ -946,11 +1000,13 @@ class TestSyncLockTimeoutErrors:
         with patch.object(sync_session, "execute", side_effect=SAOpError("", [], orig)):
             with pytest.raises(SAOpError):
                 _SyncTestDAL.get_one_for_update(
-                    sync_session, where_clauses=[_SyncTestTable.value == 99999],
+                    sync_session,
+                    where_clauses=[_SyncTestTable.value == 99999],
                 )
 
     def test_lock_timeout_with_1205_code(self, sync_session: Session):
         from unittest.mock import patch
+
         from sqlalchemy.exc import OperationalError as SAOpError
 
         entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="code-1205"))
@@ -989,7 +1045,10 @@ class TestSyncOptimisticLockNoIdField:
         entity = _NoIdVersionDAL.create(sync_session, cu)
         with pytest.raises(AttributeError, match="不包含 version 字段"):
             _NoIdVersionDAL.update_only_set_with_optimistic_lock(
-                sync_session, entity.id, cu, expected_version=0,
+                sync_session,
+                entity.id,
+                cu,
+                expected_version=0,
             )
 
 
@@ -1007,7 +1066,10 @@ class TestSyncUpdateEdgeCases:
         entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="extra-field", value=1))
         cu = _ExtraFieldCU(name="extra-updated")
         updated = _SyncTestDAL.update_full_by_id(
-            sync_session, entity.id, cu, strict_missing=False,
+            sync_session,
+            entity.id,
+            cu,
+            strict_missing=False,
         )
         assert updated is not None
         assert updated.name == "extra-updated"
@@ -1023,7 +1085,10 @@ class TestSyncUpdateEdgeCases:
         entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="partial-phantom", value=1))
         cu = _ExtraPartialCU(name="partial-phantom-updated", phantom_field="z")
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, cu, none_policy="allow",
+            sync_session,
+            entity.id,
+            cu,
+            none_policy="allow",
         )
         assert updated is not None
         assert updated.name == "partial-phantom-updated"
@@ -1039,7 +1104,10 @@ class TestSyncUpdateEdgeCases:
         entity = _SyncVersionDAL.create(sync_session, _SyncVersionCU(name="opt-phantom"))
         cu = _ExtraVersionCU(name="opt-phantom-updated", phantom_col="y")
         updated = _SyncVersionDAL.update_only_set_with_optimistic_lock(
-            sync_session, entity.id, cu, expected_version=0,
+            sync_session,
+            entity.id,
+            cu,
+            expected_version=0,
         )
         assert updated is not None
 
@@ -1079,7 +1147,10 @@ class TestSyncRefreshBranches:
         entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="ref-full", value=1))
         cu = _SyncTestCU(name="ref-full-updated", value=2)
         updated = _SyncTestDAL.update_full_by_id(
-            sync_session, entity.id, cu, need_refresh=True,
+            sync_session,
+            entity.id,
+            cu,
+            need_refresh=True,
         )
         assert updated is not None
         assert updated.name == "ref-full-updated"
@@ -1088,7 +1159,10 @@ class TestSyncRefreshBranches:
         entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="ref-partial", value=1))
         cu = _SyncTestCU(name="ref-partial-updated")
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, cu, need_refresh=True,
+            sync_session,
+            entity.id,
+            cu,
+            need_refresh=True,
         )
         assert updated is not None
 
@@ -1114,7 +1188,10 @@ class TestSyncRefreshBranches:
         entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="no-strict", value=1))
         cu = _SyncTestCU(name="no-strict-updated")
         updated = _SyncTestDAL.update_full_by_id(
-            sync_session, entity.id, cu, strict_missing=False,
+            sync_session,
+            entity.id,
+            cu,
+            strict_missing=False,
         )
         assert updated is not None
 
@@ -1123,7 +1200,9 @@ class TestSyncRefreshBranches:
         entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="skip-field", value=1))
         cu = _SyncTestCU(name="skip-field-updated", value=99)
         updated = _SyncTestDAL.update_partial_by_id(
-            sync_session, entity.id, cu,
+            sync_session,
+            entity.id,
+            cu,
             fields={_SyncTestTable.name},
         )
         assert updated is not None
@@ -1163,7 +1242,10 @@ class TestSyncRefreshBranches:
 
         cu = _NoDateCU(name="no-date-updated")
         updated = _NoDateDAL.update_only_set_with_optimistic_lock(
-            sync_session, entity.id, cu, expected_version=0,
+            sync_session,
+            entity.id,
+            cu,
+            expected_version=0,
         )
         assert updated is not None
 

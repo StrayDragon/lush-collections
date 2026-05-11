@@ -7,6 +7,7 @@
 
     from lush_dal_protocol.protocols.api_contracts import SyncDALConformanceTests
 
+
     class TestMySQLAlchemyDAL(SyncDALConformanceTests):
         @pytest.fixture
         def dal_class(self):

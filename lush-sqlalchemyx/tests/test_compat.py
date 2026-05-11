@@ -1,6 +1,5 @@
 """Tests for _compat module."""
 
-import importlib
 from unittest.mock import patch
 
 import pytest

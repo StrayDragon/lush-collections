@@ -4,6 +4,34 @@
 """
 
 # --- shared (sync/async agnostic) ---
+# --- lush-dal-protocol protocols (ORM 无关的抽象层) ---
+from lush_dal_protocol import (
+    AsyncBaseDALProtocol,
+    AsyncReadDALProtocol,
+    AsyncWriteDALProtocol,
+    SyncBaseDALProtocol,
+    SyncReadDALProtocol,
+    SyncWriteDALProtocol,
+)
+
+# --- async (requires sqlalchemy[asyncio]) ---
+from ._async import (
+    AsyncBaseDAL,
+    AsyncRawDAL,
+    AsyncRawReadDAL,
+    AsyncReadDAL,
+    AsyncSqlATableBase,
+    AsyncSQLATableT,
+    AsyncWriteDAL,
+    AsyncXDALOp,
+    BasicAsyncBaseTable,
+    ReadOnlyAsyncBaseDAL,
+    ReadOnlyBasicAsyncBaseTable,
+    StdAsyncBaseTable,
+    StdReadOnlyBasicAsyncBaseTable,
+    async_temp_set_lock_wait_timeout,
+    async_with_retry,
+)
 from ._common import (
     DEFAULT_RETRY_CONFIG,
     OPTIMISTIC_LOCK_ERROR_MSG_TRAIT,
@@ -18,8 +46,8 @@ from ._common import (
     FieldMixin,
     ReadOnlyMixin,
     RetryConfig,
-    SQLATableT,
     SoftDeleteTableMixin,
+    SQLATableT,
     StdBaseCU,
     StdBaseDTO,
     T,
@@ -30,37 +58,8 @@ from ._common import (
 )
 
 # Event listener references — accessed by tests via getattr(module, name).
-from ._common import __prevent_readonly_write as __prevent_readonly_write  # noqa: F401, PLC2701
-from ._common import __receive_before_flush as __receive_before_flush  # noqa: F401, PLC2701
-
-# --- async (requires sqlalchemy[asyncio]) ---
-from ._async import (
-    AsyncBaseDAL,
-    AsyncRawDAL,
-    AsyncRawReadDAL,
-    AsyncReadDAL,
-    AsyncSQLATableT,
-    AsyncSqlATableBase,
-    AsyncWriteDAL,
-    AsyncXDALOp,
-    BasicAsyncBaseTable,
-    ReadOnlyAsyncBaseDAL,
-    ReadOnlyBasicAsyncBaseTable,
-    StdAsyncBaseTable,
-    StdReadOnlyBasicAsyncBaseTable,
-    async_temp_set_lock_wait_timeout,
-    async_with_retry,
-)
-
-# --- lush-dal-protocol protocols (ORM 无关的抽象层) ---
-from lush_dal_protocol import (
-    AsyncBaseDALProtocol,
-    AsyncReadDALProtocol,
-    AsyncWriteDALProtocol,
-    SyncBaseDALProtocol,
-    SyncReadDALProtocol,
-    SyncWriteDALProtocol,
-)
+from ._common import __prevent_readonly_write as __prevent_readonly_write
+from ._common import __receive_before_flush as __receive_before_flush
 
 # --- sync ---
 from ._sync import (
@@ -73,8 +72,8 @@ from ._sync import (
     SyncRawDAL,
     SyncRawReadDAL,
     SyncReadDAL,
-    SyncSQLATableT,
     SyncSqlATableBase,
+    SyncSQLATableT,
     SyncWriteDAL,
     SyncXDALOp,
     sync_temp_set_lock_wait_timeout,
