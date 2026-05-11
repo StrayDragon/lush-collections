@@ -678,7 +678,7 @@ wheels = [
 [[package]]
 name = "lush-dal-protocol"
 version = "0.1.0"
-source = { directory = "../lush-dalx" }
+source = { directory = "../lush-dal-protocol" }
 dependencies = [
     { name = "pydantic" },
     { name = "typing-extensions" },
@@ -753,7 +753,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "flask-sqlalchemy", marker = "extra == 'flask'", specifier = ">=3.1.1" },
-    { name = "lush-dal-protocol", directory = "../lush-dalx" },
+    { name = "lush-dal-protocol", directory = "../lush-dal-protocol" },
     { name = "lush-pydanticx", directory = "../lush-pydanticx" },
     { name = "lush-stdx", directory = "../lush-stdx" },
     { name = "pydantic", specifier = ">=2.11.0,<3.0.0" },

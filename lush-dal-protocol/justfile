@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-# Package `lush-dalx` 的本地开发命令.
+# Package `lush-dal-protocol` 的本地开发命令.
 # 约定: Python 3.10+, 使用 uv 管理依赖/锁文件.
 
 # `python`: 用于 uv/pytest 的 Python 版本(与 `.python-version` 保持一致).
