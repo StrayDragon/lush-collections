@@ -3,6 +3,6 @@
 需要安装 ``flask`` 额外依赖:  ``pip install lush-sqlalchemyx[flask]``
 """
 
-from .ext import LushFlaskSQLAlchemy, MySQLManagerMapperFlaskDepends
+from .ext import FlaskSessionDALAdapter, LushFlaskSQLAlchemy, MySQLManagerMapperFlaskDepends
 
-__all__ = ["LushFlaskSQLAlchemy", "MySQLManagerMapperFlaskDepends"]
+__all__ = ["FlaskSessionDALAdapter", "LushFlaskSQLAlchemy", "MySQLManagerMapperFlaskDepends"]

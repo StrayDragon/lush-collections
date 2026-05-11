@@ -1,15 +1,22 @@
 """Flask-SQLAlchemy 桥接模块.
 
-将 ``flask_sqlalchemy.SQLAlchemy`` 实例（或其底层 ``Engine``）包装为
-``SyncMySQLManager``, 使 *lush-sqlalchemyx* 栈（DAL、Mapper 等）可以在
-Flask 应用中透明运行, 同时保留 Flask-SQLAlchemy 的会话作用域管理.
+提供两条集成路径:
+
+**路径 1 — 独立 Engine** (``LushFlaskSQLAlchemy`` / ``MySQLManagerMapperFlaskDepends``):
+将 Flask-SQLAlchemy 的 ``Engine`` 包装为 ``SyncMySQLManager``, 由 lush 自行管理 session 生命周期.
+适用于新建项目或完全迁移到 lush DAL 的场景.
+
+**路径 2 — 复用 db.session** (``FlaskSessionDALAdapter``):
+直接复用 Flask-SQLAlchemy 已有的 ``db.session`` (request-scoped), 以适配器模式
+将 lush 的 classmethod DAL 包装为实例方法. 适用于已有 Flask 项目渐进集成.
+事务管理仍由 Flask-SQLAlchemy 的 ``auto_commit``/``db.session`` 控制.
 
 本模块为 **可选模块** — 未安装 ``flask-sqlalchemy`` 时导入会抛出清晰的 ``ImportError``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator, Iterable, Iterator
 from contextlib import contextmanager
 from enum import Enum
 from typing import Any, ClassVar, Generic, TypeVar
@@ -26,10 +33,17 @@ except ImportError as _exc:  # pragma: no cover
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from lush_sqlalchemyx.base.dal._common import BaseCU, BaseDTO, CUModelT, DTOModelT, SQLATableT
+from lush_sqlalchemyx.base.dal._sync import SyncBaseDAL, SyncReadDAL, SyncWriteDAL
 from lush_sqlalchemyx.mgrs.mysql.sync_manager import SyncMySQLManager
 from lush_sqlalchemyx.mgrs.mysql.sync_mapper import SyncMySQLManagersMapper
 
 FlaskDBEnumT = TypeVar("FlaskDBEnumT", bound=Enum)
+
+
+# ---------------------------------------------------------------------------
+# 路径 1: 独立 Engine 管理
+# ---------------------------------------------------------------------------
 
 
 class LushFlaskSQLAlchemy:
@@ -62,11 +76,13 @@ class LushFlaskSQLAlchemy:
 
     @property
     def manager(self) -> SyncMySQLManager:
+        """获取 SyncMySQLManager 实例, 未初始化时抛出 RuntimeError."""
         if self._manager is None:
             raise RuntimeError("LushFlaskSQLAlchemy not initialized — call init_db(db) first")
         return self._manager
 
     def get_manager(self) -> SyncMySQLManager:
+        """获取 SyncMySQLManager 实例 (manager 属性的方法版)."""
         return self.manager
 
 
@@ -82,6 +98,7 @@ class MySQLManagerMapperFlaskDepends(Generic[FlaskDBEnumT]):
 
     @classmethod
     def get_mapper(cls) -> SyncMySQLManagersMapper[FlaskDBEnumT]:
+        """从 flask.g 获取预注入的 mapper."""
         mapper = getattr(g, cls.g_attr_name, None)
         if mapper is None:
             raise RuntimeError(
@@ -92,22 +109,132 @@ class MySQLManagerMapperFlaskDepends(Generic[FlaskDBEnumT]):
 
     @classmethod
     def get_manager_by_bind(cls, bind: FlaskDBEnumT) -> SyncMySQLManager:
+        """根据 bind 枚举获取对应的管理器."""
         return cls.get_mapper().get_manager(bind)
 
     @classmethod
     @contextmanager
     def get_manual_session(cls, bind: FlaskDBEnumT) -> Generator[Session, None, None]:
+        """获取手动管理的 session (不自动 commit)."""
         with cls.get_manager_by_bind(bind).got_manual_session() as session:
             yield session
 
     @classmethod
     @contextmanager
     def get_tx_session(cls, bind: FlaskDBEnumT) -> Generator[Session, None, None]:
+        """获取自动提交的事务 session."""
         with cls.get_manager_by_bind(bind).got_soft_impl_auto_commit_session() as session:
             yield session
 
     @classmethod
     @contextmanager
     def get_ro_session(cls, bind: FlaskDBEnumT) -> Generator[Session, None, None]:
+        """获取只读 session."""
         with cls.get_manager_by_bind(bind).got_readonly_session() as session:
             yield session
+
+
+# ---------------------------------------------------------------------------
+# 路径 2: 复用 Flask-SQLAlchemy 的 db.session
+# ---------------------------------------------------------------------------
+
+
+class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
+    """Flask-SQLAlchemy session 适配器 — 将 lush classmethod DAL 桥接为实例方法.
+
+    适用于已有 Flask 项目中, 希望复用 Flask-SQLAlchemy 的 ``db.session``
+    (request-scoped) 而非创建独立 Engine 的场景.
+
+    使用方式::
+
+        # 1. 定义 DAL (继承 lush 的 SyncWriteDAL)
+        class UserDAL(SyncWriteDAL[UserTable, UserDTO, UserCU]):
+            _Table = UserTable
+            _DTO = UserDTO
+
+        # 2. 创建适配器
+        class UserFlaskDAL(FlaskSessionDALAdapter[UserTable, UserDTO, UserCU]):
+            _dal_class = UserDAL
+
+        # 3. 在服务启动时绑定 db
+        FlaskSessionDALAdapter.bind_db(db)
+
+        # 4. 在 BLL 中使用 (自动使用 db.session)
+        user_dal = UserFlaskDAL()
+        entity = user_dal.create(UserCU(name="test"))  # 自动用 db.session
+        user = user_dal.get_by_id(1)
+
+        # 5. 事务管理仍用 Flask 的方式
+        with db.auto_commit():
+            user_dal.create(UserCU(name="a"))
+            user_dal.create(UserCU(name="b"))
+    """
+
+    _dal_class: ClassVar[type[SyncBaseDAL[Any, Any, Any] | SyncWriteDAL[Any, Any, Any] | SyncReadDAL[Any, Any]]]  # pyright: ignore[reportGeneralTypeIssues]
+    _db: ClassVar[SQLAlchemy | None] = None
+
+    @classmethod
+    def bind_db(cls, db: SQLAlchemy) -> None:
+        """绑定 Flask-SQLAlchemy 实例 (应在应用启动时调用一次).
+
+        所有子类共享同一个 ``db`` 引用.
+        """
+        FlaskSessionDALAdapter._db = db
+
+    @property
+    def session(self) -> Session:
+        """获取当前 Flask request 作用域的 session."""
+        if self._db is None:
+            raise RuntimeError(
+                "FlaskSessionDALAdapter not bound to db. "
+                "Call FlaskSessionDALAdapter.bind_db(db) during app init."
+            )
+        return self._db.session
+
+    def get_by_id(self, entity_id: int) -> SQLATableT | None:
+        """根据主键 ID 获取实体."""
+        return self._dal_class.get_by_id(self.session, entity_id)
+
+    def get_all(self, skip: int = 0, limit: int = 100) -> list[DTOModelT]:
+        """分页获取实体列表 (DTO)."""
+        return self._dal_class.get_all(self.session, skip=skip, limit=limit)
+
+    def count(self) -> int:
+        """统计实体总数."""
+        return self._dal_class.count(self.session)
+
+    def exists(self, entity_id: int) -> bool:
+        """判断实体是否存在."""
+        return self._dal_class.exists(self.session, entity_id)
+
+    def ret_dto_after_get_by_id(self, entity_id: int, need_refresh: bool = True) -> DTOModelT | None:
+        """获取实体并转为 DTO."""
+        return self._dal_class.ret_dto_after_get_by_id(self.session, entity_id, need_refresh=need_refresh)
+
+    def batch_get_id__entity(self, entity_ids: Iterable[int]) -> dict[int, SQLATableT]:
+        """批量获取 {id: entity} 字典."""
+        return self._dal_class.batch_get_id__entity(self.session, entity_ids)
+
+    def batch_get_id__dto(self, entity_ids: Iterable[int]) -> dict[int, DTOModelT]:
+        """批量获取 {id: DTO} 字典."""
+        return self._dal_class.batch_get_id__dto(self.session, entity_ids)
+
+    def create(self, cu: CUModelT, need_refresh: bool = True) -> SQLATableT:
+        """创建实体 (flush 但不 commit, 事务由调用方控制)."""
+        return self._dal_class.create(self.session, cu, need_refresh=need_refresh)
+
+    def ret_dto_after_create(self, cu: CUModelT, need_refresh: bool = True) -> DTOModelT:
+        """创建实体并返回 DTO."""
+        return self._dal_class.ret_dto_after_create(self.session, cu, need_refresh=need_refresh)
+
+    def update_only_set_by_id(self, entity_id: int, cu: CUModelT, need_refresh: bool = False) -> SQLATableT | None:
+        """仅更新 CU 中已设置的字段."""
+        return self._dal_class.update_only_set_by_id(self.session, entity_id, cu, need_refresh=need_refresh)
+
+    def delete_by_id(self, entity_id: int) -> bool:
+        """根据 ID 删除实体."""
+        return self._dal_class.delete_by_id(self.session, entity_id)
+
+    def iter_record_dtos(self, *, batch_size: int = 500) -> Iterator[DTOModelT]:
+        """以迭代器方式返回全部记录的 DTO."""
+        return self._dal_class.iter_record_dtos(self.session, batch_size=batch_size)
