@@ -4321,3 +4321,25 @@ class TestFieldMixinDataJsonBytes:
         assert isinstance(result, DM)
         assert result.a == 0
         assert result.b == ""
+
+
+# ========== lush-dal-protocol conformance suite ==========
+
+
+from lush_dal_protocol.protocols.api_contracts import AsyncDALConformanceTests
+
+
+class TestAsyncDALConformance(AsyncDALConformanceTests):
+    """继承 lush-dal-protocol 一致性套件, 验证 AsyncBaseDAL 符合协议约定."""
+
+    @pytest.fixture
+    def dal_class(self):
+        return _TestSimpleDAL
+
+    @pytest.fixture
+    async def session(self, async_session: AsyncSession):
+        return async_session
+
+    @pytest.fixture
+    def sample_cu(self):
+        return _TestSimpleVO(name="conformance-test")

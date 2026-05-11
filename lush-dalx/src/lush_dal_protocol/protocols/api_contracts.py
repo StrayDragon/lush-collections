@@ -1,11 +1,11 @@
 """DAL 一致性验证测试套件.
 
 提供可复用的测试 mixin 类, 下游 ORM 适配包可以继承这些测试类
-并注入具体的 session、DAL、CU、DTO 来验证实现是否符合 ``lush-dalx`` 协议约定.
+并注入具体的 session、DAL、CU、DTO 来验证实现是否符合协议约定.
 
 使用方式::
 
-    from lush_dalx.testing import SyncDALConformanceTests
+    from lush_dal_protocol.protocols.api_contracts import SyncDALConformanceTests
 
     class TestMySQLAlchemyDAL(SyncDALConformanceTests):
         @pytest.fixture
@@ -231,6 +231,13 @@ class AsyncDALConformanceTests:
         assert isinstance(result, list)
         assert len(result) >= 1
 
+    async def test_get_all_with_pagination(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """get_all(skip, limit) 应正确分页."""
+        await dal_class.create(session, sample_cu)
+        await dal_class.create(session, sample_cu)
+        page1 = await dal_class.get_all(session, skip=0, limit=1)
+        assert len(page1) == 1
+
     async def test_count_returns_int(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
         """count() 应返回非负整数."""
         initial = await dal_class.count(session)
@@ -290,3 +297,18 @@ class AsyncDALConformanceTests:
     async def test_delete_by_id_nonexistent(self, dal_class: Any, session: Any) -> None:
         """delete_by_id() 对不存在的 ID 应返回 False."""
         assert await dal_class.delete_by_id(session, 999999) is False
+
+    async def test_delete_then_get_returns_none(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """删除后再 get_by_id 应返回 None (验证软删除/物理删除生效)."""
+        entity = await dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        await dal_class.delete_by_id(session, eid)
+        session.expire_all()
+        result = await dal_class.get_by_id(session, eid)
+        assert result is None
+
+    async def test_iter_record_dtos_yields(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """iter_record_dtos() 应以异步迭代器方式返回 DTO."""
+        await dal_class.create(session, sample_cu)
+        records = [dto async for dto in dal_class.iter_record_dtos(session, batch_size=10)]
+        assert len(records) >= 1

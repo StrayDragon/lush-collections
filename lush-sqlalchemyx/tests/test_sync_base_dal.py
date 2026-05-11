@@ -1252,3 +1252,25 @@ class TestSyncFieldMixin:
         result = obj.x_data_json
         assert result is not None
         assert result.text == "from-str"
+
+
+# ========== lush-dal-protocol conformance suite ==========
+
+
+from lush_dal_protocol.protocols.api_contracts import SyncDALConformanceTests
+
+
+class TestSyncDALConformance(SyncDALConformanceTests):
+    """继承 lush-dal-protocol 一致性套件, 验证 SyncBaseDAL 符合协议约定."""
+
+    @pytest.fixture
+    def dal_class(self):
+        return _SyncSimpleDAL
+
+    @pytest.fixture
+    def session(self, sync_session: Session):
+        return sync_session
+
+    @pytest.fixture
+    def sample_cu(self):
+        return _SyncSimpleCU(name="conformance-test")

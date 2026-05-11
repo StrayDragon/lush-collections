@@ -1,4 +1,4 @@
-# lush-dalx
+# lush-dal-protocol
 
 ORM 无关的数据访问层 (DAL) 协议抽象包。
 

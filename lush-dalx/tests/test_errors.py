@@ -1,6 +1,6 @@
 """errors 模块测试."""
 
-from lush_dalx.errors import (
+from lush_dal_protocol.errors import (
     OPTIMISTIC_LOCK_ERROR_MSG_TRAIT,
     PESSIMISTIC_LOCK_ERROR_MSG_TRAIT,
     DBRetryableError,

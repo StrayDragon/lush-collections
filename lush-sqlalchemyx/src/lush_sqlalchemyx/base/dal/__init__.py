@@ -52,8 +52,8 @@ from ._async import (
     async_with_retry,
 )
 
-# --- lush-dalx protocols (ORM 无关的抽象层) ---
-from lush_dalx import (
+# --- lush-dal-protocol protocols (ORM 无关的抽象层) ---
+from lush_dal_protocol import (
     AsyncBaseDALProtocol,
     AsyncReadDALProtocol,
     AsyncWriteDALProtocol,
@@ -137,7 +137,7 @@ __all__ = (
     "SyncXDALOp",
     "sync_temp_set_lock_wait_timeout",
     "sync_with_retry",
-    # lush-dalx protocols
+    # lush-dal-protocol protocols
     "AsyncBaseDALProtocol",
     "AsyncReadDALProtocol",
     "AsyncWriteDALProtocol",

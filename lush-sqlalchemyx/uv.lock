@@ -676,7 +676,7 @@ wheels = [
 ]
 
 [[package]]
-name = "lush-dalx"
+name = "lush-dal-protocol"
 version = "0.1.0"
 source = { directory = "../lush-dalx" }
 dependencies = [
@@ -720,7 +720,7 @@ name = "lush-sqlalchemyx"
 version = "0.1.1"
 source = { editable = "." }
 dependencies = [
-    { name = "lush-dalx" },
+    { name = "lush-dal-protocol" },
     { name = "lush-pydanticx" },
     { name = "lush-stdx" },
     { name = "pydantic" },
@@ -753,7 +753,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "flask-sqlalchemy", marker = "extra == 'flask'", specifier = ">=3.1.1" },
-    { name = "lush-dalx", directory = "../lush-dalx" },
+    { name = "lush-dal-protocol", directory = "../lush-dalx" },
     { name = "lush-pydanticx", directory = "../lush-pydanticx" },
     { name = "lush-stdx", directory = "../lush-stdx" },
     { name = "pydantic", specifier = ">=2.11.0,<3.0.0" },

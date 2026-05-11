@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Iterable, Iterator
 from typing import Any, Protocol, TypeVar, runtime_checkable
 
-from .dto import CUModelT, DTOModelT
+from ..dto import CUModelT, DTOModelT
 
 SessionT = TypeVar("SessionT", contravariant=True)
 EntityT = TypeVar("EntityT")

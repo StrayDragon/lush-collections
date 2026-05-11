@@ -2,7 +2,7 @@
 
 import pytest
 
-from lush_dalx.retry import DEFAULT_RETRY_CONFIG, RetryConfig
+from lush_dal_protocol.utils.retry import DEFAULT_RETRY_CONFIG, RetryConfig
 
 
 class TestRetryConfig:
