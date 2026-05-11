@@ -1,0 +1,19 @@
+# prek / pre-commit configuration
+# Install:  prek install
+# Run:      prek run --all-files
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      - id: ruff-format
+      - id: ruff-check
+        args: [--fix, --exit-non-zero-on-fix]
+
+  - repo: local
+    hooks:
+      - id: check-docstring-contracts
+        name: check-docstring-contracts (中文 docstring 约定)
+        entry: python3 scripts/check-docstring-contracts.py
+        language: system
+        pass_filenames: false

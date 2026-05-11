@@ -18,15 +18,15 @@ from .protocols.api_contracts import AsyncDALConformanceTests, SyncDALConformanc
 from .utils import DEFAULT_RETRY_CONFIG, RetryConfig, escape_like, filtered_in_sql_values
 
 __all__ = [
-    "AsyncDALConformanceTests",
+    "DEFAULT_RETRY_CONFIG",
     "AsyncBaseDALProtocol",
+    "AsyncDALConformanceTests",
     "AsyncReadDALProtocol",
     "AsyncWriteDALProtocol",
     "BaseCU",
     "BaseDTO",
     "CUModelT",
     "DBRetryableError",
-    "DEFAULT_RETRY_CONFIG",
     "DTOModelT",
     "RetryConfig",
     "StdBaseCU",

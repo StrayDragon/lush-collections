@@ -25,15 +25,11 @@ try:
     from flask import g
     from flask_sqlalchemy import SQLAlchemy
 except ImportError as _exc:  # pragma: no cover
-    raise ImportError(
-        "Flask integration requires 'flask-sqlalchemy'. "
-        "Install with: pip install 'lush-sqlalchemyx[flask]'"
-    ) from _exc
+    raise ImportError("Flask integration requires 'flask-sqlalchemy'. Install with: pip install 'lush-sqlalchemyx[flask]'") from _exc
 
-from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from lush_sqlalchemyx.base.dal._common import BaseCU, BaseDTO, CUModelT, DTOModelT, SQLATableT
+from lush_sqlalchemyx.base.dal._common import CUModelT, DTOModelT, SQLATableT
 from lush_sqlalchemyx.base.dal._sync import SyncBaseDAL, SyncReadDAL, SyncWriteDAL
 from lush_sqlalchemyx.mgrs.mysql.sync_manager import SyncMySQLManager
 from lush_sqlalchemyx.mgrs.mysql.sync_mapper import SyncMySQLManagersMapper
@@ -102,8 +98,7 @@ class MySQLManagerMapperFlaskDepends(Generic[FlaskDBEnumT]):
         mapper = getattr(g, cls.g_attr_name, None)
         if mapper is None:
             raise RuntimeError(
-                f"SyncMySQLManagersMapper not found on flask.g.{cls.g_attr_name}. "
-                "Ensure it is set in a before_request hook."
+                f"SyncMySQLManagersMapper not found on flask.g.{cls.g_attr_name}. Ensure it is set in a before_request hook."
             )
         return mapper
 
@@ -152,9 +147,11 @@ class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
             _Table = UserTable
             _DTO = UserDTO
 
+
         # 2. 创建适配器
         class UserFlaskDAL(FlaskSessionDALAdapter[UserTable, UserDTO, UserCU]):
             _dal_class = UserDAL
+
 
         # 3. 在服务启动时绑定 db
         FlaskSessionDALAdapter.bind_db(db)
@@ -185,10 +182,7 @@ class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
     def session(self) -> Session:
         """获取当前 Flask request 作用域的 session."""
         if self._db is None:
-            raise RuntimeError(
-                "FlaskSessionDALAdapter not bound to db. "
-                "Call FlaskSessionDALAdapter.bind_db(db) during app init."
-            )
+            raise RuntimeError("FlaskSessionDALAdapter not bound to db. Call FlaskSessionDALAdapter.bind_db(db) during app init.")
         return self._db.session
 
     def get_by_id(self, entity_id: int) -> SQLATableT | None:

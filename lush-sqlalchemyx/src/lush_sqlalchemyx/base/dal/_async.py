@@ -25,13 +25,10 @@ from ._common import (
     OPTIMISTIC_LOCK_ERROR_MSG_TRAIT,
     PESSIMISTIC_LOCK_ERROR_MSG_TRAIT,
     READONLY_SESSION_FLAG,
-    BaseCU,
-    BaseDTO,
     BaseModelT,
     CUModelT,
     DBRetryableError,
     DTOModelT,
-    FieldMixin,
     ReadOnlyMixin,
     RetryConfig,
     SoftDeleteTableMixin,
@@ -231,7 +228,7 @@ class AsyncRawReadDAL:
         cls,
         session: AsyncSession,
         sql: str | sa.TextClause,
-        params: "_CoreAnyExecuteParams | None" = None,
+        params: _CoreAnyExecuteParams | None = None,
     ) -> sa.Result[Any]:
         if params is None:
             params = {}
@@ -500,7 +497,7 @@ class AsyncRawDAL:
         cls,
         session: AsyncSession,
         sql: str | sa.TextClause,
-        params: "_CoreAnyExecuteParams | None" = None,
+        params: _CoreAnyExecuteParams | None = None,
     ) -> sa.Result[Any]:
         if params is None:
             params = {}

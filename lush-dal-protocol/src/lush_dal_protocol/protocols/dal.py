@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterable, Iterator
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
 
 from ..dto import CUModelT, DTOModelT
 
@@ -260,7 +260,6 @@ class SyncBaseDALProtocol(
     组合了 ``SyncReadDALProtocol`` 和 ``SyncWriteDALProtocol`` 的全部方法.
     """
 
-    ...
 
 
 @runtime_checkable
@@ -331,9 +330,7 @@ class AsyncWriteDALProtocol(Protocol[SessionT, EntityT, DTOModelT, CUModelT]):
         ...
 
     @classmethod
-    async def update_only_set_by_id(
-        cls, session: SessionT, entity_id: int, cu: CUModelT, need_refresh: bool = False
-    ) -> EntityT | None:
+    async def update_only_set_by_id(cls, session: SessionT, entity_id: int, cu: CUModelT, need_refresh: bool = False) -> EntityT | None:
         """仅更新 CU 中已设置的字段 (异步版)."""
         ...
 
@@ -354,4 +351,3 @@ class AsyncBaseDALProtocol(
     组合了 ``AsyncReadDALProtocol`` 和 ``AsyncWriteDALProtocol`` 的全部方法.
     """
 
-    ...

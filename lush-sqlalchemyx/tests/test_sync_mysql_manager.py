@@ -7,7 +7,7 @@ import pytest
 import sqlalchemy as sa
 import yaml
 from sqlalchemy import text
-from sqlalchemy.orm import Mapped, Session, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.pool import NullPool, StaticPool
 
 from lush_sqlalchemyx.base.dal._sync import SyncSqlATableBase
@@ -163,6 +163,7 @@ class TestSyncMySQLManager:
 class TestExecuteSQL:
     def test_execute_sql_function(self):
         from sqlalchemy import create_engine
+
         engine = create_engine("sqlite:///:memory:")
         with engine.connect() as conn:
             result = execute_sql(conn, "SELECT 1")
@@ -170,6 +171,7 @@ class TestExecuteSQL:
 
     def test_execute_sql_text_clause(self):
         from sqlalchemy import create_engine
+
         engine = create_engine("sqlite:///:memory:")
         with engine.connect() as conn:
             result = execute_sql(conn, text("SELECT 1"))
