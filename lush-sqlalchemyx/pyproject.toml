@@ -1,7 +1,7 @@
 [project]
 name = "lush-sqlalchemyx"
 version = "0.1.1"
-description = "SQLAlchemy helpers (DAL) and async MySQL managers, with FastAPI integrations."
+description = "SQLAlchemy helpers (DAL) and async MySQL managers, with some web frameworks integrations"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "straydragon", email = "straydragonl@foxmail.com" }]
@@ -16,7 +16,7 @@ dependencies = [
     "typing-extensions>=4.12.2",
     "lush-pydanticx>=0.1.0",
     "lush-stdx>=0.1.0",
-    "lush-dalx>=0.1.0",
+    "lush-dal-protocol>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -33,7 +33,7 @@ package = true
 [tool.uv.sources]
 lush-pydanticx = { path = "../lush-pydanticx" }
 lush-stdx = { path = "../lush-stdx" }
-lush-dalx = { path = "../lush-dalx" }
+lush-dal-protocol = { path = "../lush-dalx" }
 
 [dependency-groups]
 dev = [

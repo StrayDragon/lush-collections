@@ -1,62 +1,95 @@
-"""testing 模块测试 — 验证一致性测试套件自身可用."""
+"""api_contracts 模块测试 — 验证一致性测试套件覆盖所有协议方法."""
 
-from lush_dalx.testing import AsyncDALConformanceTests, SyncDALConformanceTests
+import inspect
+
+from lush_dal_protocol.protocols.api_contracts import (
+    AsyncDALConformanceTests,
+    SyncDALConformanceTests,
+)
+from lush_dal_protocol.protocols.dal import (
+    AsyncBaseDALProtocol,
+    SyncBaseDALProtocol,
+)
 
 
-class TestConformanceSuitesExist:
-    def test_sync_suite_has_test_methods(self):
-        methods = [m for m in dir(SyncDALConformanceTests) if m.startswith("test_")]
-        assert len(methods) >= 15
+def _protocol_public_methods(proto_cls: type) -> set[str]:
+    """提取 Protocol 类链上声明的公开操作方法名."""
+    skip_names = {"Protocol", "Generic", "object"}
+    methods = set()
+    for cls in proto_cls.__mro__:
+        if cls.__name__ in skip_names:
+            continue
+        for name in vars(cls):
+            if name.startswith("_"):
+                continue
+            obj = vars(cls)[name]
+            if isinstance(obj, (classmethod, staticmethod)) or inspect.isfunction(obj):
+                methods.add(name)
+    return methods
 
-    def test_async_suite_has_test_methods(self):
-        methods = [m for m in dir(AsyncDALConformanceTests) if m.startswith("test_")]
-        assert len(methods) >= 13
 
-    def test_sync_suite_methods_match_protocol(self):
-        expected = {
-            "test_create_returns_entity",
-            "test_create_no_refresh",
-            "test_get_by_id_existing",
-            "test_get_by_id_nonexistent",
-            "test_ret_dto_after_get_by_id",
-            "test_ret_dto_after_get_by_id_nonexistent",
-            "test_get_all_default_pagination",
-            "test_get_all_with_pagination",
-            "test_count_returns_int",
-            "test_exists_true_for_existing",
-            "test_exists_false_for_nonexistent",
-            "test_batch_get_id__entity",
-            "test_batch_get_id__dto",
-            "test_ret_dto_after_create",
-            "test_update_only_set_by_id_existing",
-            "test_update_only_set_by_id_nonexistent",
-            "test_delete_by_id_existing",
-            "test_delete_by_id_nonexistent",
-            "test_delete_then_get_returns_none",
-            "test_iter_record_dtos_yields",
-        }
-        actual = {m for m in dir(SyncDALConformanceTests) if m.startswith("test_")}
-        assert expected == actual
+def _test_method_names(suite_cls: type) -> set[str]:
+    return {m for m in dir(suite_cls) if m.startswith("test_")}
 
-    def test_async_suite_methods_match_protocol(self):
-        expected = {
-            "test_create_returns_entity",
-            "test_create_no_refresh",
-            "test_get_by_id_existing",
-            "test_get_by_id_nonexistent",
-            "test_ret_dto_after_get_by_id",
-            "test_ret_dto_after_get_by_id_nonexistent",
-            "test_get_all_default_pagination",
-            "test_count_returns_int",
-            "test_exists_true_for_existing",
-            "test_exists_false_for_nonexistent",
-            "test_batch_get_id__entity",
-            "test_batch_get_id__dto",
-            "test_ret_dto_after_create",
-            "test_update_only_set_by_id_existing",
-            "test_update_only_set_by_id_nonexistent",
-            "test_delete_by_id_existing",
-            "test_delete_by_id_nonexistent",
-        }
-        actual = {m for m in dir(AsyncDALConformanceTests) if m.startswith("test_")}
-        assert expected == actual
+
+class TestSyncConformanceSuiteCoverage:
+    """验证同步一致性套件覆盖了全部协议方法."""
+
+    def test_every_protocol_method_has_conformance_test(self):
+        """SyncBaseDALProtocol 的每个方法都应有至少一个对应的一致性测试."""
+        proto_methods = _protocol_public_methods(SyncBaseDALProtocol)
+        test_names = _test_method_names(SyncDALConformanceTests)
+
+        uncovered = []
+        for method in sorted(proto_methods):
+            if not any(method in t for t in test_names):
+                uncovered.append(method)
+        assert not uncovered, f"协议方法缺少一致性测试: {uncovered}"
+
+    def test_suite_is_inheritable_as_mixin(self):
+        """套件应可作为 mixin 被子类继承, 子类自动获得全部测试方法."""
+
+        class _Sub(SyncDALConformanceTests):
+            pass
+
+        assert issubclass(_Sub, SyncDALConformanceTests)
+        assert _test_method_names(_Sub) == _test_method_names(SyncDALConformanceTests)
+
+    def test_all_test_methods_accept_fixture_params(self):
+        """所有测试方法应为实例方法, 且至少接受 fixture 参数."""
+        for name in _test_method_names(SyncDALConformanceTests):
+            method = getattr(SyncDALConformanceTests, name)
+            sig = inspect.signature(method)
+            params = list(sig.parameters)
+            assert "self" in params, f"{name} 应为实例方法"
+            assert len(params) >= 2, f"{name} 应至少接受一个 fixture 参数"
+
+
+class TestAsyncConformanceSuiteCoverage:
+    """验证异步一致性套件覆盖了全部协议方法."""
+
+    def test_every_protocol_method_has_conformance_test(self):
+        """AsyncBaseDALProtocol 的每个方法都应有至少一个对应的一致性测试."""
+        proto_methods = _protocol_public_methods(AsyncBaseDALProtocol)
+        test_names = _test_method_names(AsyncDALConformanceTests)
+
+        uncovered = []
+        for method in sorted(proto_methods):
+            if not any(method in t for t in test_names):
+                uncovered.append(method)
+        assert not uncovered, f"协议方法缺少一致性测试: {uncovered}"
+
+    def test_suite_is_inheritable_as_mixin(self):
+        """套件应可作为 mixin 被子类继承, 子类自动获得全部测试方法."""
+
+        class _Sub(AsyncDALConformanceTests):
+            pass
+
+        assert issubclass(_Sub, AsyncDALConformanceTests)
+        assert _test_method_names(_Sub) == _test_method_names(AsyncDALConformanceTests)
+
+    def test_all_test_methods_are_coroutines(self):
+        """异步套件的所有测试方法应为 async def (协程函数)."""
+        for name in _test_method_names(AsyncDALConformanceTests):
+            method = getattr(AsyncDALConformanceTests, name)
+            assert inspect.iscoroutinefunction(method), f"{name} 应为 async def"

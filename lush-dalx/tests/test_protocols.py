@@ -5,7 +5,7 @@
 
 from collections.abc import AsyncIterator, Iterator
 
-from lush_dalx.protocols import (
+from lush_dal_protocol.protocols import (
     AsyncBaseDALProtocol,
     AsyncReadDALProtocol,
     AsyncWriteDALProtocol,

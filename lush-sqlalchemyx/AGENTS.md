@@ -11,7 +11,7 @@ src/lush_sqlalchemyx/
 │   ├── _common.py                     # async/sync 共享: 类型变量、Mixin、工具函数
 │   ├── _async.py                      # Async DAL 层 (RawRead/Read/Write/Base)
 │   ├── _sync.py                       # Sync DAL 层 (RawRead/Read/Write/Base)
-│   └── __init__.py                    # 统一导出 + lush-dalx Protocol 重导出
+│   └── __init__.py                    # 统一导出 + lush-dal-protocol Protocol 重导出
 ├── mgrs/mysql/
 │   ├── manager.py / mapper.py         # Async MySQL Manager / Mapper
 │   └── sync_manager.py / sync_mapper.py  # Sync 镜像
@@ -23,7 +23,7 @@ src/lush_sqlalchemyx/
 
 ## DAL 设计
 
-- 实现 `lush-dalx` Protocol (`SyncReadDALProtocol` / `AsyncWriteDALProtocol` 等).
+- 实现 `lush-dal-protocol` Protocol (`SyncReadDALProtocol` / `AsyncWriteDALProtocol` 等).
 - async 和 sync API **一一镜像**, 方法签名和行为语义一致.
 - DAL 方法为 **classmethod**, 接收 `session` 作为第一参数.
 
@@ -34,7 +34,7 @@ src/lush_sqlalchemyx/
 
 ## 依赖
 
-- 核心: `sqlalchemy>=2.0.21`, `pydantic`, `lush-dalx>=0.1.0`, `lush-stdx`, `lush-pydanticx`
+- 核心: `sqlalchemy>=2.0.21`, `pydantic`, `lush-dal-protocol>=0.1.0`, `lush-stdx`, `lush-pydanticx`
 - 可选:
   - `[asyncio]`: `sqlalchemy[asyncio]>=2.0.43`
   - `[flask]`: `flask-sqlalchemy>=3.1.1`

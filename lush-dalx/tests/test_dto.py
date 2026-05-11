@@ -5,7 +5,7 @@ from typing import ClassVar
 
 from pydantic import ConfigDict
 
-from lush_dalx.dto import BaseCU, BaseDTO, StdBaseCU, StdBaseDTO
+from lush_dal_protocol.dto import BaseCU, BaseDTO, StdBaseCU, StdBaseDTO
 
 
 class _FakeOrm:

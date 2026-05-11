@@ -178,7 +178,7 @@ wheels = [
 ]
 
 [[package]]
-name = "lush-dalx"
+name = "lush-dal-protocol"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

@@ -33,7 +33,7 @@
 
 ### 一致性测试套件
 
-- `lush-dalx` 提供 `lush_dalx.testing` 一致性测试 mixin.
+- `lush-dal-protocol` 提供 `lush_dal_protocol.protocols.api_contracts` 一致性测试 mixin.
 - 所有 DAL 实现包 **必须** 继承并运行该套件.
 
 ## CI / Publishing

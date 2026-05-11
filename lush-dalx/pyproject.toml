@@ -1,7 +1,7 @@
 [project]
-name = "lush-dalx"
+name = "lush-dal-protocol"
 version = "0.1.0"
-description = "DAL (Data Access Layer) 协议抽象层 — ORM 无关的纯接口定义."
+description = "DAL (Data Access Layer) protocol for the lush ecosystem"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "straydragon", email = "straydragonl@foxmail.com" }]
@@ -30,7 +30,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib --cov=lush_dalx --cov-branch --cov-report=term-missing --cov-fail-under=100"
+addopts = "--import-mode=importlib --cov=lush_dal_protocol --cov-branch --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -39,7 +39,7 @@ asyncio_default_test_loop_scope = "function"
 [tool.coverage.run]
 branch = true
 omit = [
-    "src/lush_dalx/testing.py",
+    "src/lush_dal_protocol/protocols/api_contracts.py",
 ]
 
 [tool.coverage.report]

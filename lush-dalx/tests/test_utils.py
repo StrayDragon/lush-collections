@@ -1,6 +1,6 @@
 """utils 模块测试."""
 
-from lush_dalx.utils import escape_like, filtered_in_sql_values
+from lush_dal_protocol.utils.sql import escape_like, filtered_in_sql_values
 
 
 class TestFilteredInSqlValues:
