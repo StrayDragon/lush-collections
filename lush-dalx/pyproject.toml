@@ -1,0 +1,158 @@
+[project]
+name = "lush-dalx"
+version = "0.1.0"
+description = "DAL (Data Access Layer) 协议抽象层 — ORM 无关的纯接口定义."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "straydragon", email = "straydragonl@foxmail.com" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+]
+dependencies = [
+    "pydantic>=2.11.0,<3.0.0",
+    "typing-extensions>=4.12.2",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.12,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib --cov=lush_dalx --cov-branch --cov-report=term-missing --cov-fail-under=100"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",
+    "\\.\\.\\.",
+]
+
+[tool.ruff]
+line-length = 140
+indent-width = 4
+target-version = "py310"
+
+[tool.ruff.lint]
+fixable = ["F401", "ALL"]
+unfixable = []
+
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+select = ["ALL"]
+ignore = [
+    "C901",
+    "PLR0912", "PLR0913", "PLR0915", "PLR0911", "PLR2004",
+    "SIM108",
+    "ANN002", "ANN003", "ANN401",
+    "FBT001", "FBT002",
+    "N805",
+    "BLE001",
+    "TRY003", "TRY004",
+    "SIM102",
+    "COM812",
+    "E501",
+    "G004",
+    "TC001", "TC002", "TC003",
+    "ERA001",
+    "SLF001",
+    "DTZ001", "DTZ005",
+    "T201",
+    "TD002", "TD003",
+    "D",
+    "EM",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "B011", "B008",
+    "ARG001", "ARG002", "ARG005",
+    "F841",
+    "B018",
+    "N806", "N802",
+    "W293",
+    "PERF401",
+    "PT",
+    "S101", "S105", "S201", "S301", "S311",
+    "BLE001", "B017", "PT011", "PT017", "EM101",
+    "C901", "PLR2004",
+    "PLC0415",
+    "ANN", "TC",
+    "FBT001", "FBT002", "FBT003",
+    "TRY003",
+    "SIM117",
+    "E501",
+    "G004",
+    "T201",
+    "D",
+    "SLF001",
+    "RUF001",
+    "PTH",
+    "DTZ001", "DTZ005",
+    "ERA001",
+    "RUF",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.basedpyright]
+pythonVersion = "3.10"
+
+reportUnannotatedClassAttribute = "none"
+reportUnreachable = "none"
+reportUnnecessaryIsInstance = "none"
+reportAny = "none"
+reportExplicitAny = "none"
+reportConstantRedefinition = "none"
+reportUnnecessaryComparison = "none"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+reportUnusedCallResult = false
+reportUnknownArgumentType = false
+reportUnknownParameterType = false
+reportMissingParameterType = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportExplicitAny = "none"
+reportAny = "none"
+reportUnusedParameter = false
+reportUnusedVariable = false
+reportMissingTypeArgument = false
+reportArgumentType = false
+reportOptionalMemberAccess = false
+reportAttributeAccessIssue = "none"
+reportGeneralTypeIssues = false
+reportCallIssue = false
+reportReturnType = false
+reportPrivateUsage = false
+reportUnusedClass = false
+
+
+[[tool.basedpyright.executionEnvironments]]
+root = "src"
