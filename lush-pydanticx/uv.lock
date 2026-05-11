@@ -179,7 +179,7 @@ wheels = [
 
 [[package]]
 name = "lush-pydanticx"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
@@ -193,7 +193,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.11.0,<3.0.0" }]
+requires-dist = [{ name = "pydantic", specifier = ">=2.3.0,<3.0.0" }]
 
 [package.metadata.requires-dev]
 dev = [
