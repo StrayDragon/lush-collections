@@ -15,9 +15,11 @@ from .protocols import (
     SyncWriteDALProtocol,
 )
 from .retry import DEFAULT_RETRY_CONFIG, RetryConfig
+from .testing import AsyncDALConformanceTests, SyncDALConformanceTests
 from .utils import escape_like, filtered_in_sql_values
 
 __all__ = [
+    "AsyncDALConformanceTests",
     "AsyncBaseDALProtocol",
     "AsyncReadDALProtocol",
     "AsyncWriteDALProtocol",
@@ -31,6 +33,7 @@ __all__ = [
     "StdBaseCU",
     "StdBaseDTO",
     "SyncBaseDALProtocol",
+    "SyncDALConformanceTests",
     "SyncReadDALProtocol",
     "SyncWriteDALProtocol",
     "escape_like",
