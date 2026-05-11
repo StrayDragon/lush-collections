@@ -3,7 +3,7 @@
 > 本文件是 monorepo 演进的唯一事实源. 具体包的业务细节见各子模块 AGENTS.md.
 
 子模块文档:
-- @lush-dalx/AGENTS.md
+- @lush-dal-protocol/AGENTS.md
 - @lush-sqlalchemyx/AGENTS.md
 
 ## Upgrade Policy

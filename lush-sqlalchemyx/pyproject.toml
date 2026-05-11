@@ -33,7 +33,7 @@ package = true
 [tool.uv.sources]
 lush-pydanticx = { path = "../lush-pydanticx" }
 lush-stdx = { path = "../lush-stdx" }
-lush-dal-protocol = { path = "../lush-dalx" }
+lush-dal-protocol = { path = "../lush-dal-protocol" }
 
 [dependency-groups]
 dev = [
