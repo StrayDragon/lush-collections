@@ -1,62 +1,60 @@
 # lush-collections — SSOT (Agent + Repo Conventions)
 
-> This file is the single source of truth for how we evolve this monorepo.
+> 本文件是 monorepo 演进的唯一事实源. 具体包的业务细节见各子模块 AGENTS.md.
 
-## Upgrade Policy (No Compatibility by Default)
+子模块文档:
+- @lush-dalx/AGENTS.md
+- @lush-sqlalchemyx/AGENTS.md
 
-- When iterating/refactoring, **do not** keep legacy/compat code paths unless the user explicitly asks for compatibility.
-- Prefer “upgrade everything to the new style” in one go, even if refactor cost is higher.
+## Upgrade Policy
 
-## Testing & Coverage Policy
+- 迭代/重构时 **不做兼容**, 除非用户明确要求.
+- 一步到位升级到新写法, 不保留旧路径.
 
-### Coverage Targets
+## Testing & Coverage
 
-- **All packages except `lush-wecom`**: require **100% coverage** with **branch coverage**.
-  - Tests must **fail** if coverage is not 100%.
-  - Implementation: package `pyproject.toml` uses pytest-cov with `--cov-branch` and `--cov-fail-under=100`.
-- **`lush-wecom` exception**:
-  - **No 100% coverage requirement**.
-  - Only maintain **partial, pure-function/unit tests**; do **not** require API/integration tests for it.
+### 覆盖率要求
 
-### External Dependencies in Tests
+- **除 `lush-wecom` 外**: 100% branch coverage, `--cov-fail-under=100`.
+- **`lush-wecom`**: 豁免 100%, 仅维护纯函数/模型单测.
+- `pragma: no cover` 仅用于 coverage.py 已知计量缺陷 (如异步协程边界)、防御性 unreachable 分支; **不得跳过可测逻辑**.
+- 新增 `[tool.coverage.run].omit` 条目前须在对应子模块 AGENTS.md 中记录理由.
 
-- If a package needs external services (e.g. Redis/MySQL), tests must be able to:
-  - **Auto-up** the dependency via Docker at test start.
-  - **Auto-down** (cleanup) at teardown.
-  - Be **idempotent** (no leftover containers / data causing flakiness).
-  - Use **randomized** namespaces/resources (e.g. random DB name / key prefix) and **auto-clean**.
-  - **Prefer local Docker images** to avoid pulling (fast path), but still work when pulling is needed.
+### 外部依赖
 
-Current fixtures:
-- Redis (used by `lush-redisx` tests):
-  - Env: `LUSH_TEST_REDIS_IMAGE` (pinned in CI), optional `REDIS_HOST/REDIS_PORT/...` for external Redis.
-- MySQL (used by `lush-sqlalchemyx` tests):
-  - Env: `LUSH_TEST_MYSQL_IMAGE` (pinned in CI), optional `LUSH_TEST_MYSQL_CONTAINER`, `LUSH_TEST_MYSQL_ROOT_PASSWORD`.
+- 需要外部服务 (Redis/MySQL) 的测试须: Docker auto-up/down, 幂等, 随机命名空间, 优先本地镜像.
+- CI 固定镜像: `LUSH_TEST_REDIS_IMAGE=redis:7.4-alpine`, `LUSH_TEST_MYSQL_IMAGE=mysql:8.0.40-debian`.
 
-### Mocking Policy
+### Mock 策略
 
-- Prefer **real behavior** (real code paths, real dependencies via Docker) over mocks.
-- Avoid `unittest.mock` / `patch` outside of `lush-sentryx`.
-- Allow minimal test doubles only when they are the most stable/low-cost way to cover:
-  - deterministically unreachable branches,
-  - optional dependency import branches,
-  - rare error paths that would otherwise require brittle environment manipulation.
-- **Explicit exception**: `lush-sentryx` may use monkeypatch / dummy modules to cover optional integrations and import-failure branches.
+- 优先 **真实行为** (真代码路径 + Docker 依赖), 避免 `unittest.mock`.
+- 仅允许最小 test double 覆盖: 不可达分支、可选依赖导入分支、罕见错误路径.
+- 例外: `lush-sentryx` 可用 monkeypatch/dummy 覆盖可选集成.
+
+### 一致性测试套件
+
+- `lush-dalx` 提供 `lush_dalx.testing` 一致性测试 mixin.
+- 所有 DAL 实现包 **必须** 继承并运行该套件.
 
 ## CI / Publishing
 
-- `.github/workflows/publish-pypi.yaml` runs `pytest` before publishing.
-- CI must use **pinned Docker images** (no floating tags) for deterministic runs:
-  - `LUSH_TEST_REDIS_IMAGE=redis:7.4-alpine`
-  - `LUSH_TEST_MYSQL_IMAGE=mysql:8.0.40-debian`
+- `.github/workflows/publish-pypi.yaml` — tag 模式 `lush-*-v*`, 所有包共用.
+- 新包上线 PyPI 前须手动配置 Trusted Publisher (GitHub Actions OIDC).
+- CI 使用固定 Docker 镜像 (不允许 floating tag).
 
-## Release (Best Practices)
+## Release
 
-- Use **one commit + one tag per package**:
-  - Commit message: `lush-<pkg>: bump version to <ver>`
-  - Tag format: `lush-<pkg>-v<ver>` (this is what `publish-pypi.yaml` expects).
-- Prefer pushing tags **one-by-one** via `git push origin <tag>` to reliably trigger `on.push.tags`.
-  - Avoid relying on `git push --follow-tags` for publishing triggers.
-- Use `just release-patch` for a safe, repeatable flow:
-  - Patch-bumps each selected package, runs `just test-one <pkg>` (unless `RELEASE_SKIP_TESTS=1`),
-  - creates the tag, pushes `main`, then pushes tags one-by-one and (by default) waits for GitHub Actions to complete.
+- 一包一提交一标签: commit `lush-<pkg>: bump version to <ver>`, tag `lush-<pkg>-v<ver>`.
+- 用 `git push origin <tag>` 逐个推送, 不依赖 `--follow-tags`.
+- 用 `just release-patch` 完成: bump → test → tag → push → watch CI.
+
+## Local Development
+
+- 每包有 `justfile` (lock/sync/test/build/clean/fmt/lint/bump 等).
+- 根 `justfile` 提供批量 (`just test`) 和单包 (`just test-one <pkg>`) 两种模式.
+- 提交前运行 `just test` 或 `just test-one <pkg>` 确保覆盖率通过.
+- 包间本地依赖用 `[tool.uv.sources] path = "../<pkg>"`, 发布时自动忽略.
+
+## Docstring 规范
+
+- 所有 library 源码 (非测试) 的 module/class/function docstring 使用 **中文**.
