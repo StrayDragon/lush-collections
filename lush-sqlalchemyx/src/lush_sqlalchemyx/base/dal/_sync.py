@@ -22,12 +22,10 @@ from ._common import (
     OPTIMISTIC_LOCK_ERROR_MSG_TRAIT,
     PESSIMISTIC_LOCK_ERROR_MSG_TRAIT,
     READONLY_SESSION_FLAG,
-    BaseCU,
     BaseModelT,
     CUModelT,
     DBRetryableError,
     DTOModelT,
-    FieldMixin,
     ReadOnlyMixin,
     RetryConfig,
     SoftDeleteTableMixin,
@@ -116,7 +114,7 @@ def sync_temp_set_lock_wait_timeout(
 # Sync Table bases
 # ---------------------------------------------------------------------------
 
-SyncSQLATableT = TypeVar("SyncSQLATableT", bound="SyncSqlATableBase")
+SyncSQLATableT = TypeVar("SyncSQLATableT", bound=DeclarativeBase)
 
 
 class SyncSqlATableBase(DeclarativeBase):
@@ -224,7 +222,7 @@ class SyncRawReadDAL:
         cls,
         session: Session,
         sql: str | sa.TextClause,
-        params: "_CoreAnyExecuteParams | None" = None,
+        params: _CoreAnyExecuteParams | None = None,
     ) -> sa.Result[Any]:
         if params is None:
             params = {}
@@ -490,7 +488,7 @@ class SyncRawDAL:
         cls,
         session: Session,
         sql: str | sa.TextClause,
-        params: "_CoreAnyExecuteParams | None" = None,
+        params: _CoreAnyExecuteParams | None = None,
     ) -> sa.Result[Any]:
         if params is None:
             params = {}
