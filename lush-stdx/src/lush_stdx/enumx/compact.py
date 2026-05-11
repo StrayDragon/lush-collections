@@ -9,16 +9,16 @@ else:
     # copied from https://github.com/python/cpython/blob/1ae900424b3c888d2b2cc97e6ef780717813d658/Lib/enum.py#L1365
     class ReprEnum(Enum):
         """
-        Only changes the repr(), leaving str() and format() to the mixed-in type.
+        仅修改 repr() 行为, str() 和 format() 仍由混入类型决定。
         """
 
     class StrEnum(str, ReprEnum):
         """
-        Enum where members are also (and must be) strings
+        成员必须是 (且同时也是) 字符串的枚举类型
         """
 
         def __new__(cls, *values: str) -> Self:
-            "values must already be of type `str`"
+            "值必须已经是 `str` 类型"
             if len(values) > 3:
                 raise TypeError(f"too many arguments for str(): {values!r}")
             if len(values) == 1:
@@ -41,6 +41,6 @@ else:
         @staticmethod
         def _generate_next_value_(name: str, _start: int, _count: int, _last_values: list[str]) -> str:  # pyright: ignore[reportIncompatibleMethodOverride, reportImplicitOverride]
             """
-            Return the lower-cased version of the member name.
+            返回成员名称的小写形式。
             """
             return name.lower()

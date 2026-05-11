@@ -11,10 +11,11 @@ _LOGGER = logging.getLogger(__name__)
 
 async def monitor_thread_limiter() -> NoReturn:
     """
-    check the running threads
+    监测运行中的线程数量
+
     ref: https://github.com/Kludex/fastapi-tips?tab=readme-ov-file#9-your-dependencies-may-be-running-on-threads
 
-    Example:
+    示例:
         ```python
         import uvicorn
 
@@ -45,7 +46,7 @@ async def monitor_thread_limiter() -> NoReturn:
 
 async def run_server_with_debugging(dev_uvicorn_params: dict[str, Any]) -> None:
     """
-    Example:
+    示例:
         ```python
         anyio.run(run_server_with_debugging, dev_uvicorn_params)
         ```

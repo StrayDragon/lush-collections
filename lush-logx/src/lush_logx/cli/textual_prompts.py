@@ -15,11 +15,11 @@ from typing_extensions import override
 
 
 class TextualPromptError(RuntimeError):
-    """Raised when a Textual prompt fails to run."""
+    """当 Textual 交互提示运行失败时抛出。"""
 
 
 class TextualPromptBackError(RuntimeError):
-    """Raised when a Textual prompt requests navigating back."""
+    """当 Textual 交互提示请求返回上一步时抛出。"""
 
 
 @dataclass(slots=True)

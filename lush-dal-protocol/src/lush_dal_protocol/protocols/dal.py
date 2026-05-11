@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Iterable, Iterator
 from typing import Protocol, TypeVar, runtime_checkable
 
-from ..dto import CUModelT, DTOModelT
+from lush_dal_protocol.dto import CUModelT, DTOModelT
 
 SessionT = TypeVar("SessionT", contravariant=True)
 EntityT = TypeVar("EntityT")
@@ -261,7 +261,6 @@ class SyncBaseDALProtocol(
     """
 
 
-
 @runtime_checkable
 class AsyncReadDALProtocol(Protocol[SessionT, EntityT, DTOModelT]):
     """异步只读 DAL 协议.
@@ -350,4 +349,3 @@ class AsyncBaseDALProtocol(
 
     组合了 ``AsyncReadDALProtocol`` 和 ``AsyncWriteDALProtocol`` 的全部方法.
     """
-
