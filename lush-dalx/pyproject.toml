@@ -38,6 +38,9 @@ asyncio_default_test_loop_scope = "function"
 
 [tool.coverage.run]
 branch = true
+omit = [
+    "src/lush_dalx/testing.py",
+]
 
 [tool.coverage.report]
 exclude_also = [
