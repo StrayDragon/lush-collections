@@ -12,7 +12,7 @@ classifiers = [
 ]
 dependencies = [
     "sqlalchemy>=2.0.21",
-    "pydantic>=2.11.0,<3.0.0",
+    "pydantic>=2.3.0,<3.0.0",
     "typing-extensions>=4.12.2",
     "lush-pydanticx>=0.1.0",
     "lush-stdx>=0.1.0",
@@ -138,6 +138,12 @@ ignore = [
     # === 其他 ===
     "D",  # 文档字符串相关规则
     "EM", # 错误消息相关规则
+
+    # === 新增 (ruff v0.15+) ===
+    "PLC0105", # TypeVar 命名约定 (重命名会破坏 API)
+    "PLW0127", # 自赋值重导出 (intentional re-export)
+    "RUF022",  # __all__ 排序 (intentional grouping)
+    "RUF002",  # 中文 docstring 中使用全角标点
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -155,6 +161,7 @@ ignore = [
     "N802",    # 函数名不规范
     "PERF401", # 性能相关
     "PT",      # assert 相关
+    "E402",    # 模块级导入不在顶部
 
     # === 测试安全相关 ===
     "S101", # assert语句(测试中使用)

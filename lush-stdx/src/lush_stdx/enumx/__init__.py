@@ -17,9 +17,9 @@ class XMetaInfo:
 
 class MetaInfoIntEnum(enum.IntEnum):
     """
-    IntEnum with XMetaInfo
+    带有 XMetaInfo 的 IntEnum
 
-    Most of behavior like IntEnum, and you can use ._x_meta to get the pre-defined XMetaInfo
+    行为与 IntEnum 基本一致, 可通过 ._x_meta 获取预定义的 XMetaInfo
     """
 
     def __new__(cls, value: int, meta: XMetaInfo) -> Self:
@@ -84,9 +84,9 @@ class MetaInfoIntEnum(enum.IntEnum):
 
 class MetaInfoStrEnum(str, enum.Enum):
     """
-    StrEnum with XMetaInfo
+    带有 XMetaInfo 的 StrEnum
 
-    Most of behavior like StrEnum, and you can use ._x_meta to get the pre-defined XMetaInfo
+    行为与 StrEnum 基本一致, 可通过 ._x_meta 获取预定义的 XMetaInfo
     """
 
     def __new__(cls, value: str, meta: XMetaInfo) -> Self:
@@ -153,9 +153,9 @@ class MetaInfoStrEnum(str, enum.Enum):
 
 class EnumField:
     """
-    EnumField is a field (descriptor) that can be used to validate and serialize enum values.
+    EnumField 是一个描述符字段, 用于校验和序列化枚举值。
 
-    It will automatically convert the value to the enum member, and you can use ._x_meta to get the pre-defined XMetaInfo
+    它会自动将值转换为对应的枚举成员, 可通过 ._x_meta 获取预定义的 XMetaInfo
     """
 
     def __init__(self, enum_cls: type[enum.Enum]) -> None:

@@ -11,7 +11,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    "pydantic>=2.11.0,<3.0.0",
+    "pydantic>=2.3.0,<3.0.0",
     "typing-extensions>=4.12.2",
 ]
 
@@ -65,6 +65,7 @@ select = ["ALL"]
 ignore = [
     "C901",
     "PLR0912", "PLR0913", "PLR0915", "PLR0911", "PLR2004",
+    "PLC0105",
     "SIM108",
     "ANN002", "ANN003", "ANN401",
     "FBT001", "FBT002",
@@ -86,9 +87,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"**/protocols/api_contracts.py" = ["S101"]
 "tests/**/*.py" = [
     "B011", "B008",
-    "ARG001", "ARG002", "ARG005",
+    "ARG001", "ARG002", "ARG003", "ARG005",
     "F841",
     "B018",
     "N806", "N802",

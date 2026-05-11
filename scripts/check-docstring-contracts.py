@@ -28,7 +28,9 @@ def _check_node(
     docstring = ast.get_docstring(node)
     if docstring and not _has_chinese(docstring):
         lineno = getattr(node, "lineno", 0)
-        violations.append(f"{filepath}:{lineno}: {kind} '{name}' docstring missing Chinese characters")
+        violations.append(
+            f"{filepath}:{lineno}: {kind} '{name}' docstring missing Chinese characters"
+        )
 
 
 def check_file(filepath: Path) -> list[str]:
