@@ -72,6 +72,7 @@ class _TestTableSimple(BasicAsyncBaseTable):
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
+    version: Mapped[int] = mapped_column(sa.BigInteger, nullable=False, default=1, server_default="1")
 
 
 class _TestTableWithVersion(StdAsyncBaseTable):
@@ -4384,6 +4385,11 @@ class TestAsyncDALV2Conformance(AsyncFullDALConformanceTests):
 
     def _post_write_refresh(self, session: Any) -> None:
         session.expire_all()
+
+    def _get_retryable_error_class(self) -> type[Exception]:
+        from lush_sqlalchemyx.base.dal._common import DBRetryableError
+
+        return DBRetryableError
 
     @pytest.fixture
     def dal_class(self):

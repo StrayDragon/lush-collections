@@ -80,6 +80,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
+from lush_dal_protocol.errors import DBRetryableError
+
 
 class _ConformanceHelpers:
     """共享辅助方法."""
@@ -97,6 +101,35 @@ class _ConformanceHelpers:
             if val is not None:
                 return val
         return None
+
+    def _get_entity_version(self, entity: Any) -> int:
+        """读取实体版本号.
+
+        默认读取 ``entity.version``. 下游如果字段名不同, 需覆写.
+        """
+        return getattr(entity, "version", 1)
+
+    def _make_update_data(self, field: str, value: Any) -> Any:
+        """构造批量更新数据.
+
+        默认返回 ``{field: value}`` 字典.
+        下游 ORM 包如需不同格式, 覆写此方法.
+        """
+        return {field: value}
+
+    def _get_retryable_error_class(self) -> type[Exception]:
+        """返回乐观锁冲突时的异常类型.
+
+        默认返回 ``lush_dal_protocol.errors.DBRetryableError``.
+        下游如使用自有异常类 (如 ``lush_sqlalchemyx`` 的 ``DBRetryableError``),
+        覆写此方法::
+
+            def _get_retryable_error_class(self):
+                from lush_sqlalchemyx.base.dal._common import DBRetryableError
+
+                return DBRetryableError
+        """
+        return DBRetryableError
 
     def _post_write_refresh(self, session: Any) -> None:
         """写操作后的 session 刷新钩子.
@@ -218,6 +251,32 @@ class SyncReadDALConformanceTests(_ConformanceHelpers):
         assert not dal_class.exists(session, 999999)
         assert dal_class.get_by_id(session, 999999) is None
 
+    def test_get_all_pagination_no_overlap(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """分页结果之间不应有 id 重叠."""
+        for _ in range(3):
+            dal_class.create(session, sample_cu)
+        page1 = dal_class.get_all(session, skip=0, limit=2)
+        page2 = dal_class.get_all(session, skip=2, limit=2)
+        ids1 = {dto.id for dto in page1}
+        ids2 = {dto.id for dto in page2}
+        assert ids1.isdisjoint(ids2)
+
+    def test_iter_count_matches_count(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """iter_record_dtos 总数应与 count() 一致."""
+        dal_class.create(session, sample_cu)
+        dal_class.create(session, sample_cu)
+        count = dal_class.count(session)
+        iter_count = len(list(dal_class.iter_record_dtos(session)))
+        assert iter_count == count
+
+    def test_batch_get_deduplicates(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """batch_get 传入重复 id 时, 结果集 key 不重复."""
+        entity = dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        result = dal_class.batch_get_id__entity(session, [eid, eid, eid])
+        assert len(result) == 1
+        assert eid in result
+
 
 class SyncWriteDALConformanceTests(_ConformanceHelpers):
     """同步 Write DAL 一致性测试."""
@@ -338,6 +397,16 @@ class SyncWriteDALConformanceTests(_ConformanceHelpers):
         assert dto is not None
         assert dto.id == eid
 
+    def test_create_unique_ids(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """多次 create 返回互不相同的 id."""
+        ids = {self._get_entity_id(dal_class.create(session, sample_cu)) for _ in range(5)}
+        assert len(ids) == 5
+
+    def test_ret_dto_after_create_id_findable(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """ret_dto_after_create 返回的 id 可通过 get_by_id 找回."""
+        dto = dal_class.ret_dto_after_create(session, sample_cu)
+        assert dal_class.get_by_id(session, dto.id) is not None
+
 
 class SyncFieldIsolationDALConformanceTests(_ConformanceHelpers):
     """同步字段级隔离性验证.
@@ -395,6 +464,19 @@ class SyncFieldIsolationDALConformanceTests(_ConformanceHelpers):
             assert found is not None
             assert self._get_entity_label(found) == label
 
+    def test_update_actually_changes_target_value(self, dal_class: Any, session: Any, make_cu: Any) -> None:
+        """update 后目标行的字段值确实发生了变更."""
+        entity = dal_class.create(session, make_cu("original"))
+        eid = self._get_entity_id(entity)
+        original_label = self._get_entity_label(entity)
+
+        dal_class.update_only_set_by_id(session, eid, make_cu("modified"))
+        self._post_write_refresh(session)
+
+        updated = dal_class.get_by_id(session, eid)
+        assert updated is not None
+        assert self._get_entity_label(updated) != original_label
+
 
 class SyncLockDALConformanceTests(_ConformanceHelpers):
     """同步锁操作 DAL 一致性测试.
@@ -434,6 +516,73 @@ class SyncLockDALConformanceTests(_ConformanceHelpers):
         count_before = dal_class.count(session)
         dal_class.get_by_id_for_update(session, self._get_entity_id(entity))
         assert dal_class.count(session) == count_before
+
+    def test_optimistic_lock_success(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """乐观锁: 版本匹配时更新成功."""
+        entity = dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        version = self._get_entity_version(entity)
+        updated = dal_class.update_only_set_with_optimistic_lock(
+            session,
+            eid,
+            sample_cu,
+            expected_version=version,
+        )
+        assert updated is not None
+        assert self._get_entity_id(updated) == eid
+
+    def test_optimistic_lock_version_mismatch(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """乐观锁: 版本不匹配时抛出可重试异常."""
+        entity = dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        err_cls = self._get_retryable_error_class()
+        with pytest.raises(err_cls):
+            dal_class.update_only_set_with_optimistic_lock(
+                session,
+                eid,
+                sample_cu,
+                expected_version=99999,
+            )
+
+    def test_optimistic_lock_increments_version(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """乐观锁: 成功后版本号递增 1."""
+        entity = dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        old_version = self._get_entity_version(entity)
+        updated = dal_class.update_only_set_with_optimistic_lock(
+            session,
+            eid,
+            sample_cu,
+            expected_version=old_version,
+        )
+        assert updated is not None
+        assert self._get_entity_version(updated) == old_version + 1
+
+    def test_optimistic_lock_nonexistent(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """乐观锁: 不存在的实体返回 None 或抛出可重试异常.
+
+        部分 ORM 实现 (如 SQLAlchemy UPDATE WHERE id=X AND version=Y) 无法区分
+        「实体不存在」与「版本不匹配」, 两种行为均可接受.
+        """
+        err_cls = self._get_retryable_error_class()
+        try:
+            result = dal_class.update_only_set_with_optimistic_lock(
+                session,
+                999999,
+                sample_cu,
+                expected_version=1,
+            )
+            assert result is None
+        except err_cls:
+            pass
+
+    def test_batch_get_for_update_partial_match(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """批量加锁: 部分 id 存在时只返回存在的实体."""
+        entity = dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        result = dal_class.batch_get_for_update(session, [eid, 999999])
+        assert len(result) == 1
+        assert self._get_entity_id(result[0]) == eid
 
 
 class SyncAdvancedWriteDALConformanceTests(_ConformanceHelpers):
@@ -480,6 +629,88 @@ class SyncAdvancedWriteDALConformanceTests(_ConformanceHelpers):
         count_before = dal_class.count(session)
         dal_class.update_partial_by_id(session, self._get_entity_id(entity), sample_cu)
         assert dal_class.count(session) == count_before
+
+    def test_batch_update_by_ids_returns_affected(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """batch_update_by_ids 返回实际受影响行数."""
+        e1 = dal_class.create(session, sample_cu)
+        e2 = dal_class.create(session, sample_cu)
+        affected = dal_class.batch_update_by_ids(
+            session,
+            entity_ids=[self._get_entity_id(e1), self._get_entity_id(e2)],
+            update_data=self._make_update_data("name", "batch-updated"),
+        )
+        assert affected == 2
+
+    def test_batch_update_by_ids_empty(self, dal_class: Any, session: Any) -> None:
+        """空 id 集合返回 0."""
+        assert (
+            dal_class.batch_update_by_ids(
+                session,
+                entity_ids=[],
+                update_data=self._make_update_data("name", "x"),
+            )
+            == 0
+        )
+
+    def test_batch_update_by_ids_nonexistent(self, dal_class: Any, session: Any) -> None:
+        """全部不存在的 id 返回 0."""
+        assert (
+            dal_class.batch_update_by_ids(
+                session,
+                entity_ids=[999998, 999999],
+                update_data=self._make_update_data("name", "x"),
+            )
+            == 0
+        )
+
+    def test_batch_update_by_ids_does_not_change_count(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """batch_update_by_ids 不改变总行数."""
+        dal_class.create(session, sample_cu)
+        dal_class.create(session, sample_cu)
+        count_before = dal_class.count(session)
+        dal_class.batch_update_by_ids(
+            session,
+            entity_ids=[self._get_entity_id(dal_class.create(session, sample_cu))],
+            update_data=self._make_update_data("name", "updated"),
+        )
+        assert dal_class.count(session) == count_before + 1
+
+    def test_batch_update_by_conditions_no_match(
+        self,
+        dal_class: Any,
+        session: Any,
+        make_cu: Any,
+        where_clause_factory: Any,
+    ) -> None:
+        """无匹配行时 batch_update_by_conditions 返回 0."""
+        target = dal_class.create(session, make_cu("will-delete"))
+        conditions = where_clause_factory(target)
+        dal_class.delete_by_id(session, self._get_entity_id(target))
+        self._post_write_refresh(session)
+        affected = dal_class.batch_update_by_conditions(
+            session,
+            conditions=conditions,
+            update_data=self._make_update_data("name", "nope"),
+        )
+        assert affected == 0
+
+    def test_batch_update_by_conditions_returns_affected(
+        self,
+        dal_class: Any,
+        session: Any,
+        make_cu: Any,
+        where_clause_factory: Any,
+    ) -> None:
+        """batch_update_by_conditions 返回正确的受影响行数."""
+        target = dal_class.create(session, make_cu("match-me"))
+        dal_class.create(session, make_cu("not-me"))
+        conditions = where_clause_factory(target)
+        affected = dal_class.batch_update_by_conditions(
+            session,
+            conditions=conditions,
+            update_data=self._make_update_data("name", "changed"),
+        )
+        assert affected == 1
 
 
 class SyncAdvancedWriteFieldIsolationDALConformanceTests(_ConformanceHelpers):
@@ -630,6 +861,32 @@ class AsyncReadDALConformanceTests(_ConformanceHelpers):
         assert not await dal_class.exists(session, 999999)
         assert await dal_class.get_by_id(session, 999999) is None
 
+    async def test_get_all_pagination_no_overlap(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """分页结果之间不应有 id 重叠."""
+        for _ in range(3):
+            await dal_class.create(session, sample_cu)
+        page1 = await dal_class.get_all(session, skip=0, limit=2)
+        page2 = await dal_class.get_all(session, skip=2, limit=2)
+        ids1 = {dto.id for dto in page1}
+        ids2 = {dto.id for dto in page2}
+        assert ids1.isdisjoint(ids2)
+
+    async def test_iter_count_matches_count(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """iter_record_dtos 总数应与 count() 一致."""
+        await dal_class.create(session, sample_cu)
+        await dal_class.create(session, sample_cu)
+        count = await dal_class.count(session)
+        iter_count = len([dto async for dto in dal_class.iter_record_dtos(session)])
+        assert iter_count == count
+
+    async def test_batch_get_deduplicates(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """batch_get 传入重复 id 时, 结果集 key 不重复."""
+        entity = await dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        result = await dal_class.batch_get_id__entity(session, [eid, eid, eid])
+        assert len(result) == 1
+        assert eid in result
+
 
 class AsyncWriteDALConformanceTests(_ConformanceHelpers):
     """异步 Write DAL 一致性测试."""
@@ -749,6 +1006,19 @@ class AsyncWriteDALConformanceTests(_ConformanceHelpers):
         assert dto is not None
         assert dto.id == eid
 
+    async def test_create_unique_ids(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """多次 create 返回互不相同的 id."""
+        ids = set()
+        for _ in range(5):
+            entity = await dal_class.create(session, sample_cu)
+            ids.add(self._get_entity_id(entity))
+        assert len(ids) == 5
+
+    async def test_ret_dto_after_create_id_findable(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """ret_dto_after_create 返回的 id 可通过 get_by_id 找回."""
+        dto = await dal_class.ret_dto_after_create(session, sample_cu)
+        assert await dal_class.get_by_id(session, dto.id) is not None
+
 
 class AsyncFieldIsolationDALConformanceTests(_ConformanceHelpers):
     """异步字段级隔离性验证.
@@ -802,6 +1072,19 @@ class AsyncFieldIsolationDALConformanceTests(_ConformanceHelpers):
             assert found is not None
             assert self._get_entity_label(found) == label
 
+    async def test_update_actually_changes_target_value(self, dal_class: Any, session: Any, make_cu: Any) -> None:
+        """update 后目标行的字段值确实发生了变更."""
+        entity = await dal_class.create(session, make_cu("original"))
+        eid = self._get_entity_id(entity)
+        original_label = self._get_entity_label(entity)
+
+        await dal_class.update_only_set_by_id(session, eid, make_cu("modified"))
+        self._post_write_refresh(session)
+
+        updated = await dal_class.get_by_id(session, eid)
+        assert updated is not None
+        assert self._get_entity_label(updated) != original_label
+
 
 class AsyncLockDALConformanceTests(_ConformanceHelpers):
     """异步锁操作 DAL 一致性测试.
@@ -841,6 +1124,73 @@ class AsyncLockDALConformanceTests(_ConformanceHelpers):
         count_before = await dal_class.count(session)
         await dal_class.get_by_id_for_update(session, self._get_entity_id(entity))
         assert await dal_class.count(session) == count_before
+
+    async def test_optimistic_lock_success(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """乐观锁: 版本匹配时更新成功."""
+        entity = await dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        version = self._get_entity_version(entity)
+        updated = await dal_class.update_only_set_with_optimistic_lock(
+            session,
+            eid,
+            sample_cu,
+            expected_version=version,
+        )
+        assert updated is not None
+        assert self._get_entity_id(updated) == eid
+
+    async def test_optimistic_lock_version_mismatch(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """乐观锁: 版本不匹配时抛出可重试异常."""
+        entity = await dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        err_cls = self._get_retryable_error_class()
+        with pytest.raises(err_cls):
+            await dal_class.update_only_set_with_optimistic_lock(
+                session,
+                eid,
+                sample_cu,
+                expected_version=99999,
+            )
+
+    async def test_optimistic_lock_increments_version(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """乐观锁: 成功后版本号递增 1."""
+        entity = await dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        old_version = self._get_entity_version(entity)
+        updated = await dal_class.update_only_set_with_optimistic_lock(
+            session,
+            eid,
+            sample_cu,
+            expected_version=old_version,
+        )
+        assert updated is not None
+        assert self._get_entity_version(updated) == old_version + 1
+
+    async def test_optimistic_lock_nonexistent(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """乐观锁: 不存在的实体返回 None 或抛出可重试异常.
+
+        部分 ORM 实现 (如 SQLAlchemy UPDATE WHERE id=X AND version=Y) 无法区分
+        「实体不存在」与「版本不匹配」, 两种行为均可接受.
+        """
+        err_cls = self._get_retryable_error_class()
+        try:
+            result = await dal_class.update_only_set_with_optimistic_lock(
+                session,
+                999999,
+                sample_cu,
+                expected_version=1,
+            )
+            assert result is None
+        except err_cls:
+            pass
+
+    async def test_batch_get_for_update_partial_match(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """批量加锁: 部分 id 存在时只返回存在的实体."""
+        entity = await dal_class.create(session, sample_cu)
+        eid = self._get_entity_id(entity)
+        result = await dal_class.batch_get_for_update(session, [eid, 999999])
+        assert len(result) == 1
+        assert self._get_entity_id(result[0]) == eid
 
 
 class AsyncAdvancedWriteDALConformanceTests(_ConformanceHelpers):
@@ -887,6 +1237,89 @@ class AsyncAdvancedWriteDALConformanceTests(_ConformanceHelpers):
         count_before = await dal_class.count(session)
         await dal_class.update_partial_by_id(session, self._get_entity_id(entity), sample_cu)
         assert await dal_class.count(session) == count_before
+
+    async def test_batch_update_by_ids_returns_affected(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """batch_update_by_ids 返回实际受影响行数."""
+        e1 = await dal_class.create(session, sample_cu)
+        e2 = await dal_class.create(session, sample_cu)
+        affected = await dal_class.batch_update_by_ids(
+            session,
+            entity_ids=[self._get_entity_id(e1), self._get_entity_id(e2)],
+            update_data=self._make_update_data("name", "batch-updated"),
+        )
+        assert affected == 2
+
+    async def test_batch_update_by_ids_empty(self, dal_class: Any, session: Any) -> None:
+        """空 id 集合返回 0."""
+        assert (
+            await dal_class.batch_update_by_ids(
+                session,
+                entity_ids=[],
+                update_data=self._make_update_data("name", "x"),
+            )
+            == 0
+        )
+
+    async def test_batch_update_by_ids_nonexistent(self, dal_class: Any, session: Any) -> None:
+        """全部不存在的 id 返回 0."""
+        assert (
+            await dal_class.batch_update_by_ids(
+                session,
+                entity_ids=[999998, 999999],
+                update_data=self._make_update_data("name", "x"),
+            )
+            == 0
+        )
+
+    async def test_batch_update_by_ids_does_not_change_count(self, dal_class: Any, session: Any, sample_cu: Any) -> None:
+        """batch_update_by_ids 不改变总行数."""
+        await dal_class.create(session, sample_cu)
+        await dal_class.create(session, sample_cu)
+        count_before = await dal_class.count(session)
+        e3 = await dal_class.create(session, sample_cu)
+        await dal_class.batch_update_by_ids(
+            session,
+            entity_ids=[self._get_entity_id(e3)],
+            update_data=self._make_update_data("name", "updated"),
+        )
+        assert await dal_class.count(session) == count_before + 1
+
+    async def test_batch_update_by_conditions_no_match(
+        self,
+        dal_class: Any,
+        session: Any,
+        make_cu: Any,
+        where_clause_factory: Any,
+    ) -> None:
+        """无匹配行时 batch_update_by_conditions 返回 0."""
+        target = await dal_class.create(session, make_cu("will-delete"))
+        conditions = where_clause_factory(target)
+        await dal_class.delete_by_id(session, self._get_entity_id(target))
+        self._post_write_refresh(session)
+        affected = await dal_class.batch_update_by_conditions(
+            session,
+            conditions=conditions,
+            update_data=self._make_update_data("name", "nope"),
+        )
+        assert affected == 0
+
+    async def test_batch_update_by_conditions_returns_affected(
+        self,
+        dal_class: Any,
+        session: Any,
+        make_cu: Any,
+        where_clause_factory: Any,
+    ) -> None:
+        """batch_update_by_conditions 返回正确的受影响行数."""
+        target = await dal_class.create(session, make_cu("match-me"))
+        await dal_class.create(session, make_cu("not-me"))
+        conditions = where_clause_factory(target)
+        affected = await dal_class.batch_update_by_conditions(
+            session,
+            conditions=conditions,
+            update_data=self._make_update_data("name", "changed"),
+        )
+        assert affected == 1
 
 
 class AsyncAdvancedWriteFieldIsolationDALConformanceTests(_ConformanceHelpers):
