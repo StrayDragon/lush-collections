@@ -1339,7 +1339,223 @@ class TestSyncFieldMixin:
 # ========== lush-dal-protocol conformance suite ==========
 
 
-from lush_dal_protocol.protocols.api_contracts import SyncDALConformanceTests
+from lush_dal_protocol.testing import SyncBaseDALConformanceTests as SyncDALConformanceTests
+
+# ========== V2 Sync DAL tests ==========
+from lush_sqlalchemyx.base.dal import (
+    SQLALockOptions,
+    SQLAOptimisticLockOptions,
+    SQLAPartialUpdateOptions,
+    SQLAUpdateOptions,
+    SyncBaseDALV2,
+)
+
+
+class _SyncSimpleDALV2(SyncBaseDALV2[_SyncSimpleTable, _SyncSimpleDTO, _SyncSimpleCU]):
+    _Table = _SyncSimpleTable
+    _DTO = _SyncSimpleDTO
+    _CU = _SyncSimpleCU
+
+
+class _SyncTestDALV2(SyncBaseDALV2[_SyncTestTable, _SyncTestDTO, _SyncTestCU]):
+    _Table = _SyncTestTable
+    _DTO = _SyncTestDTO
+    _CU = _SyncTestCU
+
+
+class _SyncVersionDALV2(SyncBaseDALV2[_SyncVersionTable, _SyncVersionDTO, _SyncVersionCU]):
+    _Table = _SyncVersionTable
+    _DTO = _SyncVersionDTO
+    _CU = _SyncVersionCU
+
+
+class TestV2SyncDALBasicCRUD:
+    """V2 Sync DAL 基础 CRUD — 验证不变的方法通过继承仍然工作."""
+
+    def test_create_and_get_by_id(self, sync_session: Session):
+        cu = _SyncSimpleCU(name="v2-sync")
+        entity = _SyncSimpleDALV2.create(sync_session, cu)
+        assert entity.id is not None
+        found = _SyncSimpleDALV2.get_by_id(sync_session, entity.id)
+        assert found is not None
+        assert found.name == "v2-sync"
+
+    def test_delete_by_id(self, sync_session: Session):
+        entity = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-del"))
+        assert _SyncSimpleDALV2.delete_by_id(sync_session, entity.id) is True
+        assert _SyncSimpleDALV2.get_by_id(sync_session, entity.id) is None
+
+
+class TestV2SyncDALLockMethods:
+    """V2 Sync DAL lock 方法 — 使用 options 参数签名."""
+
+    def test_get_by_id_for_update(self, sync_session: Session):
+        entity = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-lock"))
+        found = _SyncSimpleDALV2.get_by_id_for_update(sync_session, entity.id)
+        assert found is not None
+
+    def test_get_by_id_for_update_with_options(self, sync_session: Session):
+        entity = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-lock-o"))
+        found = _SyncSimpleDALV2.get_by_id_for_update(sync_session, entity.id, options=SQLALockOptions(timeout=5))
+        assert found is not None
+
+    def test_batch_get_for_update(self, sync_session: Session):
+        e1 = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-b1"))
+        e2 = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-b2"))
+        result = _SyncSimpleDALV2.batch_get_for_update(sync_session, [e1.id, e2.id])
+        assert len(result) == 2
+
+    def test_batch_get_for_update_with_options(self, sync_session: Session):
+        e = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-bo"))
+        result = _SyncSimpleDALV2.batch_get_for_update(sync_session, [e.id], options=SQLALockOptions(timeout=3))
+        assert len(result) == 1
+
+    def test_batch_get_for_update_empty(self, sync_session: Session):
+        assert _SyncSimpleDALV2.batch_get_for_update(sync_session, []) == []
+
+    def test_get_one_for_update(self, sync_session: Session):
+        e = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-one"))
+        found = _SyncSimpleDALV2.get_one_for_update(sync_session, where_clauses=[_SyncSimpleTable.id == e.id])
+        assert found is not None
+
+    def test_get_one_for_update_with_options(self, sync_session: Session):
+        e = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-one-o"))
+        found = _SyncSimpleDALV2.get_one_for_update(
+            sync_session,
+            where_clauses=[_SyncSimpleTable.id == e.id],
+            options=SQLALockOptions(timeout=2),
+        )
+        assert found is not None
+
+    def test_optimistic_lock_with_options(self, sync_session: Session):
+        entity = _SyncVersionDALV2.create(sync_session, _SyncVersionCU(name="v2-opt", value=1))
+        opts = SQLAOptimisticLockOptions(version_field="version", need_refresh=True)
+        updated = _SyncVersionDALV2.update_only_set_with_optimistic_lock(
+            sync_session,
+            entity.id,
+            _SyncVersionCU(name="v2-opt2", value=2),
+            expected_version=0,
+            options=opts,
+        )
+        assert updated is not None
+
+    def test_optimistic_lock_default_options(self, sync_session: Session):
+        entity = _SyncVersionDALV2.create(sync_session, _SyncVersionCU(name="v2-opt-d", value=1))
+        updated = _SyncVersionDALV2.update_only_set_with_optimistic_lock(
+            sync_session,
+            entity.id,
+            _SyncVersionCU(name="v2-opt-d2", value=2),
+            expected_version=0,
+        )
+        assert updated is not None
+
+
+class TestV2SyncDALAdvancedWrite:
+    """V2 Sync DAL 高级写操作 — 使用 options 参数签名."""
+
+    def test_update_full_by_id(self, sync_session: Session):
+        entity = _SyncTestDALV2.create(sync_session, _SyncTestCU(name="v2-full", value=1))
+        updated = _SyncTestDALV2.update_full_by_id(
+            sync_session,
+            entity.id,
+            _SyncTestCU(name="v2-full2", value=2),
+        )
+        assert updated is not None
+
+    def test_update_full_by_id_with_options(self, sync_session: Session):
+        entity = _SyncTestDALV2.create(sync_session, _SyncTestCU(name="v2-full-o", value=1))
+        opts = SQLAUpdateOptions(need_refresh=True, strict_missing=False)
+        updated = _SyncTestDALV2.update_full_by_id(
+            sync_session,
+            entity.id,
+            _SyncTestCU(name="v2-full-o2", value=2),
+            options=opts,
+        )
+        assert updated is not None
+
+    def test_update_partial_by_id(self, sync_session: Session):
+        entity = _SyncTestDALV2.create(sync_session, _SyncTestCU(name="v2-part", value=1))
+        updated = _SyncTestDALV2.update_partial_by_id(
+            sync_session,
+            entity.id,
+            _SyncTestCU(name="v2-part2"),
+        )
+        assert updated is not None
+
+    def test_update_partial_by_id_with_options(self, sync_session: Session):
+        entity = _SyncTestDALV2.create(sync_session, _SyncTestCU(name="v2-part-o", value=1))
+        opts = SQLAPartialUpdateOptions(need_refresh=True, none_policy="allow")
+        updated = _SyncTestDALV2.update_partial_by_id(
+            sync_session,
+            entity.id,
+            _SyncTestCU(name="v2-part-o2"),
+            options=opts,
+        )
+        assert updated is not None
+
+    def test_batch_update_by_conditions(self, sync_session: Session):
+        e = _SyncTestDALV2.create(sync_session, _SyncTestCU(name="v2-bc", value=10))
+        cnt = _SyncTestDALV2.batch_update_by_conditions(
+            sync_session,
+            conditions=[_SyncTestTable.id == e.id],
+            update_data={_SyncTestTable.value: 20},
+        )
+        assert cnt == 1
+
+    def test_batch_update_by_ids(self, sync_session: Session):
+        e = _SyncTestDALV2.create(sync_session, _SyncTestCU(name="v2-bi", value=10))
+        cnt = _SyncTestDALV2.batch_update_by_ids(
+            sync_session,
+            entity_ids=[e.id],
+            update_data={_SyncTestTable.value: 30},
+        )
+        assert cnt == 1
+
+    def test_batch_update_by_ids_empty(self, sync_session: Session):
+        cnt = _SyncTestDALV2.batch_update_by_ids(
+            sync_session,
+            entity_ids=[],
+            update_data={_SyncTestTable.value: 30},
+        )
+        assert cnt == 0
+
+
+class TestStdSyncDeprecationWarnings:
+    """Std* 同步基类弃用警告测试."""
+
+    def test_std_sync_base_table_warns(self):
+        with pytest.warns(DeprecationWarning, match="StdSyncBaseTable"):
+
+            class _DeprecatedSync(StdSyncBaseTable):
+                __tablename__ = "deprecated_sync_warn"
+
+    def test_std_sync_abstract_subclass_no_warn(self):
+        import warnings as _w
+
+        with _w.catch_warnings():
+            _w.simplefilter("error", DeprecationWarning)
+
+            class _AbstractSync(StdSyncBaseTable):
+                __abstract__ = True
+
+    def test_std_readonly_sync_warns(self):
+        from lush_sqlalchemyx.base.dal._sync import StdReadOnlySyncBaseTable
+
+        with pytest.warns(DeprecationWarning, match="StdReadOnlySyncBaseTable"):
+
+            class _DeprecatedROSync(StdReadOnlySyncBaseTable):
+                __tablename__ = "deprecated_ro_sync_warn"
+
+    def test_std_readonly_sync_abstract_no_warn(self):
+        import warnings as _w
+
+        from lush_sqlalchemyx.base.dal._sync import StdReadOnlySyncBaseTable
+
+        with _w.catch_warnings():
+            _w.simplefilter("error", DeprecationWarning)
+
+            class _AbstractROSync(StdReadOnlySyncBaseTable):
+                __abstract__ = True
 
 
 class TestSyncDALConformance(SyncDALConformanceTests):

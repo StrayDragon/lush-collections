@@ -4,14 +4,22 @@
 """
 
 # --- shared (sync/async agnostic) ---
-# --- lush-dal-protocol protocols (ORM 无关的抽象层) ---
+# --- lush-dal-protocol ABCs (ORM 无关的抽象层) ---
 from lush_dal_protocol import (
-    AsyncBaseDALProtocol,
-    AsyncReadDALProtocol,
-    AsyncWriteDALProtocol,
-    SyncBaseDALProtocol,
-    SyncReadDALProtocol,
-    SyncWriteDALProtocol,
+    AbstractAsyncAdvancedWriteDAL,
+    AbstractAsyncBaseDAL,
+    AbstractAsyncBatchFieldDAL,
+    AbstractAsyncLockDAL,
+    AbstractAsyncRawSQLDAL,
+    AbstractAsyncReadDAL,
+    AbstractAsyncWriteDAL,
+    AbstractSyncAdvancedWriteDAL,
+    AbstractSyncBaseDAL,
+    AbstractSyncBatchFieldDAL,
+    AbstractSyncLockDAL,
+    AbstractSyncRawSQLDAL,
+    AbstractSyncReadDAL,
+    AbstractSyncWriteDAL,
 )
 
 # --- async (requires sqlalchemy[asyncio]) ---
@@ -32,6 +40,9 @@ from ._async import (
     async_temp_set_lock_wait_timeout,
     async_with_retry,
 )
+
+# --- V2 (ABC-compliant, options-based) ---
+from ._async_v2 import AsyncBaseDALV2, AsyncReadDALV2, AsyncWriteDALV2
 from ._common import (
     DEFAULT_RETRY_CONFIG,
     OPTIMISTIC_LOCK_ERROR_MSG_TRAIT,
@@ -60,6 +71,7 @@ from ._common import (
 # Event listener references — accessed by tests via getattr(module, name).
 from ._common import __prevent_readonly_write as __prevent_readonly_write
 from ._common import __receive_before_flush as __receive_before_flush
+from ._params import SQLALockOptions, SQLAOptimisticLockOptions, SQLAPartialUpdateOptions, SQLAUpdateOptions
 
 # --- sync ---
 from ._sync import (
@@ -79,6 +91,7 @@ from ._sync import (
     sync_temp_set_lock_wait_timeout,
     sync_with_retry,
 )
+from ._sync_v2 import SyncBaseDALV2, SyncReadDALV2, SyncWriteDALV2
 
 __all__ = (
     # common
@@ -136,11 +149,30 @@ __all__ = (
     "SyncXDALOp",
     "sync_temp_set_lock_wait_timeout",
     "sync_with_retry",
-    # lush-dal-protocol protocols
-    "AsyncBaseDALProtocol",
-    "AsyncReadDALProtocol",
-    "AsyncWriteDALProtocol",
-    "SyncBaseDALProtocol",
-    "SyncReadDALProtocol",
-    "SyncWriteDALProtocol",
+    # V2
+    "AsyncBaseDALV2",
+    "AsyncReadDALV2",
+    "AsyncWriteDALV2",
+    "SQLALockOptions",
+    "SQLAOptimisticLockOptions",
+    "SQLAPartialUpdateOptions",
+    "SQLAUpdateOptions",
+    "SyncBaseDALV2",
+    "SyncReadDALV2",
+    "SyncWriteDALV2",
+    # lush-dal-protocol ABCs
+    "AbstractAsyncAdvancedWriteDAL",
+    "AbstractAsyncBaseDAL",
+    "AbstractAsyncBatchFieldDAL",
+    "AbstractAsyncLockDAL",
+    "AbstractAsyncRawSQLDAL",
+    "AbstractAsyncReadDAL",
+    "AbstractAsyncWriteDAL",
+    "AbstractSyncAdvancedWriteDAL",
+    "AbstractSyncBaseDAL",
+    "AbstractSyncBatchFieldDAL",
+    "AbstractSyncLockDAL",
+    "AbstractSyncRawSQLDAL",
+    "AbstractSyncReadDAL",
+    "AbstractSyncWriteDAL",
 )

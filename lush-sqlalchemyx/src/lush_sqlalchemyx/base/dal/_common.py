@@ -8,11 +8,16 @@ from __future__ import annotations
 import datetime
 import logging
 import random
+import warnings
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any, ClassVar, Final, Generic, TypeVar, cast
 
 import sqlalchemy as sa
+from lush_dal_protocol.dto import BaseCU as _ProtocolBaseCU
+from lush_dal_protocol.dto import BaseDTO as _ProtocolBaseDTO
+from lush_dal_protocol.dto import CUModelT as CUModelT  # noqa: PLC0414
+from lush_dal_protocol.dto import DTOModelT as DTOModelT  # noqa: PLC0414
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import event as sa_event
 from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
@@ -137,44 +142,57 @@ DEFAULT_RETRY_CONFIG = RetryConfig(max_attempts=3, initial_delay=0.1, max_delay=
 SQLATableT = TypeVar("SQLATableT", bound=DeclarativeBase)
 
 
-class BaseCU(BaseModel, Generic[SQLATableT]):
-    """创建/更新模型基类."""
+class BaseCU(_ProtocolBaseCU[SQLATableT]):
+    """SQLAlchemy 专用 CU 基类, 继承 ``lush_dal_protocol.dto.BaseCU``."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
     _Table: ClassVar[type[SQLATableT]]  # pyright: ignore[reportGeneralTypeIssues]
 
     def to_sqla_model(self) -> SQLATableT:
-        model_data = self.model_dump(exclude_unset=True, exclude={"id"})
-        return self._Table(**model_data)
+        """``to_orm_model`` 的 SQLAlchemy 兼容别名."""
+        return self.to_orm_model()
 
 
-CUModelT = TypeVar("CUModelT", bound=BaseCU[Any])
-
-
-class BaseDTO(BaseModel, Generic[CUModelT]):
-    """数据传输对象基类."""
+class BaseDTO(_ProtocolBaseDTO[CUModelT]):
+    """SQLAlchemy 专用 DTO 基类, 继承 ``lush_dal_protocol.dto.BaseDTO``."""
 
     model_config = ConfigDict(from_attributes=True)
 
-    _CU: ClassVar[type[CUModelT]]  # pyright: ignore[reportGeneralTypeIssues]
-
-    def to_cu(self) -> CUModelT:
-        return self._CU.model_validate(self)
-
-
-DTOModelT = TypeVar("DTOModelT", bound=BaseDTO[Any] | BaseModel)
-
 
 class StdBaseCU(BaseCU[SQLATableT]):
-    """标准 CU 基类:包含标准字段的 CU 类."""
+    """标准 CU 基类: 包含创建人/修改人等标准字段.
+
+    .. deprecated::
+        此类预设了特定业务字段, 下游应自行继承 ``BaseCU`` 定义所需字段.
+    """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        warnings.warn(
+            f"{cls.__name__} 继承了已废弃的 StdBaseCU, 请改为直接继承 BaseCU 并自行定义所需字段",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     create_operator_id: int = 0
     update_operator_id: int | None = None
 
 
 class StdBaseDTO(BaseDTO[CUModelT]):
-    """标准 DTO 基类:包含标准字段的 DTO 类."""
+    """标准 DTO 基类: 包含 id/时间戳/操作人等标准字段.
+
+    .. deprecated::
+        此类预设了特定业务字段, 下游应自行继承 ``BaseDTO`` 定义所需字段.
+    """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        warnings.warn(
+            f"{cls.__name__} 继承了已废弃的 StdBaseDTO, 请改为直接继承 BaseDTO 并自行定义所需字段",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     id: int = Field(..., description="ID")
     create_datetime: datetime.datetime = Field(..., description="创建时间")

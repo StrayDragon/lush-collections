@@ -4326,7 +4326,7 @@ class TestFieldMixinDataJsonBytes:
 # ========== lush-dal-protocol conformance suite ==========
 
 
-from lush_dal_protocol.protocols.api_contracts import AsyncDALConformanceTests
+from lush_dal_protocol.testing import AsyncBaseDALConformanceTests as AsyncDALConformanceTests
 
 
 class TestAsyncDALConformance(AsyncDALConformanceTests):
@@ -4343,3 +4343,325 @@ class TestAsyncDALConformance(AsyncDALConformanceTests):
     @pytest.fixture
     def sample_cu(self):
         return _TestSimpleVO(name="conformance-test")
+
+
+# ========== V2 DAL 测试 ==========
+
+from lush_sqlalchemyx.base.dal import (
+    AsyncBaseDALV2,
+    SQLALockOptions,
+    SQLAOptimisticLockOptions,
+    SQLAPartialUpdateOptions,
+    SQLAUpdateOptions,
+)
+
+
+class _TestSimpleDALV2(AsyncBaseDALV2[_TestTableSimple, _TestSimpleDTO, _TestSimpleVO]):
+    _Table = _TestTableSimple
+    _DTO = _TestSimpleDTO
+    _CU = _TestSimpleVO
+
+
+class _TestDALV2(AsyncBaseDALV2[_TestTable, _TestDTO, _TestCU]):
+    _Table = _TestTable
+    _DTO = _TestDTO
+    _CU = _TestCU
+
+
+class _TestVersionDALV2(AsyncBaseDALV2[_TestTableWithVersion, _TestVersionDTO, _TestVersionCU]):
+    _Table = _TestTableWithVersion
+    _DTO = _TestVersionDTO
+    _CU = _TestVersionCU
+
+
+class TestV2AsyncDALBasicCRUD:
+    """V2 DAL 基础 CRUD — 验证不变的方法通过继承仍然工作."""
+
+    async def test_create_and_get_by_id(self, async_session: AsyncSession):
+        cu = _TestSimpleVO(name="v2-test")
+        entity = await _TestSimpleDALV2.create(async_session, cu)
+        assert entity.id is not None
+        found = await _TestSimpleDALV2.get_by_id(async_session, entity.id)
+        assert found is not None
+        assert found.name == "v2-test"
+
+    async def test_count_and_exists(self, async_session: AsyncSession):
+        cu = _TestSimpleVO(name="v2-count")
+        entity = await _TestSimpleDALV2.create(async_session, cu)
+        assert await _TestSimpleDALV2.count(async_session) >= 1
+        assert await _TestSimpleDALV2.exists(async_session, entity.id) is True
+        assert await _TestSimpleDALV2.exists(async_session, 999999) is False
+
+    async def test_delete_by_id(self, async_session: AsyncSession):
+        cu = _TestSimpleVO(name="v2-delete")
+        entity = await _TestSimpleDALV2.create(async_session, cu)
+        assert await _TestSimpleDALV2.delete_by_id(async_session, entity.id) is True
+        assert await _TestSimpleDALV2.get_by_id(async_session, entity.id) is None
+
+    async def test_get_all(self, async_session: AsyncSession):
+        await _TestSimpleDALV2.create(async_session, _TestSimpleVO(name="v2-a"))
+        result = await _TestSimpleDALV2.get_all(async_session)
+        assert len(result) >= 1
+
+    async def test_update_only_set_by_id(self, async_session: AsyncSession):
+        entity = await _TestSimpleDALV2.create(async_session, _TestSimpleVO(name="v2-upd"))
+        updated = await _TestSimpleDALV2.update_only_set_by_id(
+            async_session,
+            entity.id,
+            _TestSimpleVO(name="v2-upd2"),
+        )
+        assert updated is not None
+        assert updated.name == "v2-upd2"
+
+    async def test_ret_dto_after_create(self, async_session: AsyncSession):
+        dto = await _TestSimpleDALV2.ret_dto_after_create(async_session, _TestSimpleVO(name="v2-dto"))
+        assert dto.name == "v2-dto"
+
+    async def test_ret_dto_after_update_by_id(self, async_session: AsyncSession):
+        entity = await _TestSimpleDALV2.create(async_session, _TestSimpleVO(name="v2-before"))
+        dto = await _TestSimpleDALV2.ret_dto_after_update_by_id(
+            async_session,
+            entity.id,
+            _TestSimpleVO(name="v2-after"),
+        )
+        assert dto is not None
+        assert dto.name == "v2-after"
+
+    async def test_ret_dto_after_update_by_id_nonexistent(self, async_session: AsyncSession):
+        result = await _TestSimpleDALV2.ret_dto_after_update_by_id(
+            async_session,
+            999999,
+            _TestSimpleVO(name="nope"),
+        )
+        assert result is None
+
+
+class TestV2AsyncDALLockMethods:
+    """V2 DAL lock 方法 — 使用 options 参数签名."""
+
+    async def test_get_by_id_for_update(self, async_session: AsyncSession):
+        cu = _TestSimpleVO(name="v2-lock")
+        entity = await _TestSimpleDALV2.create(async_session, cu)
+        found = await _TestSimpleDALV2.get_by_id_for_update(async_session, entity.id)
+        assert found is not None
+        assert found.name == "v2-lock"
+
+    async def test_get_by_id_for_update_with_options(self, async_session: AsyncSession):
+        cu = _TestSimpleVO(name="v2-lock-opts")
+        entity = await _TestSimpleDALV2.create(async_session, cu)
+        opts = SQLALockOptions(timeout=5)
+        found = await _TestSimpleDALV2.get_by_id_for_update(async_session, entity.id, options=opts)
+        assert found is not None
+
+    async def test_get_by_id_for_update_nonexistent(self, async_session: AsyncSession):
+        found = await _TestSimpleDALV2.get_by_id_for_update(async_session, 999999)
+        assert found is None
+
+    async def test_batch_get_for_update(self, async_session: AsyncSession):
+        e1 = await _TestSimpleDALV2.create(async_session, _TestSimpleVO(name="v2-b1"))
+        e2 = await _TestSimpleDALV2.create(async_session, _TestSimpleVO(name="v2-b2"))
+        result = await _TestSimpleDALV2.batch_get_for_update(async_session, [e1.id, e2.id])
+        assert len(result) == 2
+
+    async def test_batch_get_for_update_with_options(self, async_session: AsyncSession):
+        e1 = await _TestSimpleDALV2.create(async_session, _TestSimpleVO(name="v2-bo"))
+        result = await _TestSimpleDALV2.batch_get_for_update(
+            async_session,
+            [e1.id],
+            options=SQLALockOptions(timeout=3),
+        )
+        assert len(result) == 1
+
+    async def test_batch_get_for_update_empty(self, async_session: AsyncSession):
+        result = await _TestSimpleDALV2.batch_get_for_update(async_session, [])
+        assert result == []
+
+    async def test_get_one_for_update(self, async_session: AsyncSession):
+        e = await _TestSimpleDALV2.create(async_session, _TestSimpleVO(name="v2-one"))
+        found = await _TestSimpleDALV2.get_one_for_update(
+            async_session,
+            where_clauses=[_TestTableSimple.id == e.id],
+        )
+        assert found is not None
+
+    async def test_get_one_for_update_with_options(self, async_session: AsyncSession):
+        e = await _TestSimpleDALV2.create(async_session, _TestSimpleVO(name="v2-one-o"))
+        found = await _TestSimpleDALV2.get_one_for_update(
+            async_session,
+            where_clauses=[_TestTableSimple.id == e.id],
+            options=SQLALockOptions(timeout=2),
+        )
+        assert found is not None
+
+    async def test_optimistic_lock_with_options(self, async_session: AsyncSession):
+        cu = _TestVersionCU(name="v2-opt", value=1)
+        entity = await _TestVersionDALV2.create(async_session, cu)
+        opts = SQLAOptimisticLockOptions(version_field="version", need_refresh=True)
+        updated = await _TestVersionDALV2.update_only_set_with_optimistic_lock(
+            async_session,
+            entity.id,
+            _TestVersionCU(name="v2-opt2", value=2),
+            expected_version=0,
+            options=opts,
+        )
+        assert updated is not None
+        assert updated.name == "v2-opt2"
+
+    async def test_optimistic_lock_default_options(self, async_session: AsyncSession):
+        cu = _TestVersionCU(name="v2-opt-def", value=1)
+        entity = await _TestVersionDALV2.create(async_session, cu)
+        updated = await _TestVersionDALV2.update_only_set_with_optimistic_lock(
+            async_session,
+            entity.id,
+            _TestVersionCU(name="v2-opt-def2", value=2),
+            expected_version=0,
+        )
+        assert updated is not None
+
+
+class TestV2AsyncDALAdvancedWrite:
+    """V2 DAL 高级写操作 — 使用 options 参数签名."""
+
+    async def test_update_full_by_id(self, async_session: AsyncSession):
+        cu = _TestCU(name="v2-full", value=1, create_operator_id=1)
+        entity = await _TestDALV2.create(async_session, cu)
+        updated = await _TestDALV2.update_full_by_id(
+            async_session,
+            entity.id,
+            _TestCU(name="v2-full2", value=2, create_operator_id=1),
+        )
+        assert updated is not None
+
+    async def test_update_full_by_id_with_options(self, async_session: AsyncSession):
+        cu = _TestCU(name="v2-full-o", value=1, create_operator_id=1)
+        entity = await _TestDALV2.create(async_session, cu)
+        opts = SQLAUpdateOptions(need_refresh=True, strict_missing=False)
+        updated = await _TestDALV2.update_full_by_id(
+            async_session,
+            entity.id,
+            _TestCU(name="v2-full-o2", value=2, create_operator_id=1),
+            options=opts,
+        )
+        assert updated is not None
+
+    async def test_update_full_by_id_nonexistent(self, async_session: AsyncSession):
+        result = await _TestDALV2.update_full_by_id(
+            async_session,
+            999999,
+            _TestCU(name="nope", value=0, create_operator_id=1),
+        )
+        assert result is None
+
+    async def test_update_partial_by_id(self, async_session: AsyncSession):
+        cu = _TestCU(name="v2-part", value=1, create_operator_id=1)
+        entity = await _TestDALV2.create(async_session, cu)
+        updated = await _TestDALV2.update_partial_by_id(
+            async_session,
+            entity.id,
+            _TestCU(name="v2-part2", value=2, create_operator_id=1),
+        )
+        assert updated is not None
+
+    async def test_update_partial_by_id_with_options(self, async_session: AsyncSession):
+        cu = _TestCU(name="v2-part-o", value=1, create_operator_id=1)
+        entity = await _TestDALV2.create(async_session, cu)
+        opts = SQLAPartialUpdateOptions(need_refresh=True, none_policy="allow")
+        updated = await _TestDALV2.update_partial_by_id(
+            async_session,
+            entity.id,
+            _TestCU(name="v2-part-o2", value=2, create_operator_id=1),
+            options=opts,
+        )
+        assert updated is not None
+
+    async def test_batch_update_by_conditions(self, async_session: AsyncSession):
+        e = await _TestDALV2.create(async_session, _TestCU(name="v2-bc", value=10, create_operator_id=1))
+        cnt = await _TestDALV2.batch_update_by_conditions(
+            async_session,
+            conditions=[_TestTable.id == e.id],
+            update_data={_TestTable.value: 20},
+        )
+        assert cnt == 1
+
+    async def test_batch_update_by_ids(self, async_session: AsyncSession):
+        e = await _TestDALV2.create(async_session, _TestCU(name="v2-bi", value=10, create_operator_id=1))
+        cnt = await _TestDALV2.batch_update_by_ids(
+            async_session,
+            entity_ids=[e.id],
+            update_data={_TestTable.value: 30},
+        )
+        assert cnt == 1
+
+    async def test_batch_update_by_ids_empty(self, async_session: AsyncSession):
+        cnt = await _TestDALV2.batch_update_by_ids(
+            async_session,
+            entity_ids=[],
+            update_data={_TestTable.value: 30},
+        )
+        assert cnt == 0
+
+
+class TestV2AsyncDALParams:
+    """V2 params 参数对象测试."""
+
+    def test_sqla_lock_options(self):
+        opts = SQLALockOptions(timeout=5)
+        assert opts.timeout == 5
+        assert isinstance(opts, SQLALockOptions)
+
+    def test_sqla_optimistic_lock_options(self):
+        opts = SQLAOptimisticLockOptions(version_field="rev", need_refresh=True)
+        assert opts.version_field == "rev"
+        assert opts.need_refresh is True
+
+    def test_sqla_update_options(self):
+        opts = SQLAUpdateOptions(need_refresh=True, strict_missing=False)
+        assert opts.need_refresh is True
+        assert opts.strict_missing is False
+
+    def test_sqla_partial_update_options(self):
+        opts = SQLAPartialUpdateOptions(
+            need_refresh=True,
+            none_policy="allow",
+            strict=True,
+            fields={_TestTable.name},
+            none_policy_overrides={_TestTable.description: "forbid"},
+        )
+        assert opts.none_policy == "allow"
+        assert opts.strict is True
+        assert opts.fields is not None
+        assert opts.none_policy_overrides is not None
+
+
+class TestStdDeprecationWarnings:
+    """Std* 基类弃用警告测试."""
+
+    def test_std_async_base_table_warns(self):
+        with pytest.warns(DeprecationWarning, match="StdAsyncBaseTable"):
+
+            class _DeprecatedAsync(StdAsyncBaseTable):
+                __tablename__ = "deprecated_async"
+
+    def test_std_async_abstract_subclass_no_warn(self):
+        import warnings as _w
+
+        with _w.catch_warnings():
+            _w.simplefilter("error", DeprecationWarning)
+
+            class _AbstractAsync(StdAsyncBaseTable):
+                __abstract__ = True
+
+    def test_std_readonly_async_warns(self):
+        with pytest.warns(DeprecationWarning, match="StdReadOnlyBasicAsyncBaseTable"):
+
+            class _DeprecatedROAsync(StdReadOnlyBasicAsyncBaseTable):
+                __tablename__ = "deprecated_ro_async"
+
+    def test_std_readonly_async_abstract_no_warn(self):
+        import warnings as _w
+
+        with _w.catch_warnings():
+            _w.simplefilter("error", DeprecationWarning)
+
+            class _AbstractROAsync(StdReadOnlyBasicAsyncBaseTable):
+                __abstract__ = True
