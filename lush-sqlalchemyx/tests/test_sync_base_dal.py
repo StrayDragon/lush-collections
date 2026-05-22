@@ -1339,14 +1339,16 @@ class TestSyncFieldMixin:
 # ========== lush-dal-protocol conformance suite ==========
 
 
-from lush_dal_protocol.testing import SyncBaseDALConformanceTests as SyncDALConformanceTests
+from lush_dal_protocol.testing import (
+    SyncBaseDALConformanceTests as SyncDALConformanceTests,
+)
+from lush_dal_protocol.testing import (
+    SyncFullDALConformanceTests,
+)
 
 # ========== V2 Sync DAL tests ==========
 from lush_sqlalchemyx.base.dal import (
-    SQLALockOptions,
-    SQLAOptimisticLockOptions,
-    SQLAPartialUpdateOptions,
-    SQLAUpdateOptions,
+    SQLAExtra,
     SyncBaseDALV2,
 )
 
@@ -1394,9 +1396,9 @@ class TestV2SyncDALLockMethods:
         found = _SyncSimpleDALV2.get_by_id_for_update(sync_session, entity.id)
         assert found is not None
 
-    def test_get_by_id_for_update_with_options(self, sync_session: Session):
+    def test_get_by_id_for_update_with_extra(self, sync_session: Session):
         entity = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-lock-o"))
-        found = _SyncSimpleDALV2.get_by_id_for_update(sync_session, entity.id, options=SQLALockOptions(timeout=5))
+        found = _SyncSimpleDALV2.get_by_id_for_update(sync_session, entity.id, SQLAExtra(lock_timeout=5))
         assert found is not None
 
     def test_batch_get_for_update(self, sync_session: Session):
@@ -1405,9 +1407,9 @@ class TestV2SyncDALLockMethods:
         result = _SyncSimpleDALV2.batch_get_for_update(sync_session, [e1.id, e2.id])
         assert len(result) == 2
 
-    def test_batch_get_for_update_with_options(self, sync_session: Session):
+    def test_batch_get_for_update_with_extra(self, sync_session: Session):
         e = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-bo"))
-        result = _SyncSimpleDALV2.batch_get_for_update(sync_session, [e.id], options=SQLALockOptions(timeout=3))
+        result = _SyncSimpleDALV2.batch_get_for_update(sync_session, [e.id], SQLAExtra(lock_timeout=3))
         assert len(result) == 1
 
     def test_batch_get_for_update_empty(self, sync_session: Session):
@@ -1418,24 +1420,23 @@ class TestV2SyncDALLockMethods:
         found = _SyncSimpleDALV2.get_one_for_update(sync_session, where_clauses=[_SyncSimpleTable.id == e.id])
         assert found is not None
 
-    def test_get_one_for_update_with_options(self, sync_session: Session):
+    def test_get_one_for_update_with_extra(self, sync_session: Session):
         e = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-one-o"))
         found = _SyncSimpleDALV2.get_one_for_update(
             sync_session,
+            SQLAExtra(lock_timeout=2),
             where_clauses=[_SyncSimpleTable.id == e.id],
-            options=SQLALockOptions(timeout=2),
         )
         assert found is not None
 
-    def test_optimistic_lock_with_options(self, sync_session: Session):
+    def test_optimistic_lock_with_extra(self, sync_session: Session):
         entity = _SyncVersionDALV2.create(sync_session, _SyncVersionCU(name="v2-opt", value=1))
-        opts = SQLAOptimisticLockOptions(version_field="version", need_refresh=True)
         updated = _SyncVersionDALV2.update_only_set_with_optimistic_lock(
             sync_session,
             entity.id,
             _SyncVersionCU(name="v2-opt2", value=2),
+            SQLAExtra(version_field="version", need_refresh=True),
             expected_version=0,
-            options=opts,
         )
         assert updated is not None
 
@@ -1462,14 +1463,13 @@ class TestV2SyncDALAdvancedWrite:
         )
         assert updated is not None
 
-    def test_update_full_by_id_with_options(self, sync_session: Session):
+    def test_update_full_by_id_with_extra(self, sync_session: Session):
         entity = _SyncTestDALV2.create(sync_session, _SyncTestCU(name="v2-full-o", value=1))
-        opts = SQLAUpdateOptions(need_refresh=True, strict_missing=False)
         updated = _SyncTestDALV2.update_full_by_id(
             sync_session,
             entity.id,
             _SyncTestCU(name="v2-full-o2", value=2),
-            options=opts,
+            SQLAExtra(need_refresh=True, strict_missing=False),
         )
         assert updated is not None
 
@@ -1482,14 +1482,13 @@ class TestV2SyncDALAdvancedWrite:
         )
         assert updated is not None
 
-    def test_update_partial_by_id_with_options(self, sync_session: Session):
+    def test_update_partial_by_id_with_extra(self, sync_session: Session):
         entity = _SyncTestDALV2.create(sync_session, _SyncTestCU(name="v2-part-o", value=1))
-        opts = SQLAPartialUpdateOptions(need_refresh=True, none_policy="allow")
         updated = _SyncTestDALV2.update_partial_by_id(
             sync_session,
             entity.id,
             _SyncTestCU(name="v2-part-o2"),
-            options=opts,
+            SQLAExtra(need_refresh=True, none_policy="allow"),
         )
         assert updated is not None
 
@@ -1561,6 +1560,9 @@ class TestStdSyncDeprecationWarnings:
 class TestSyncDALConformance(SyncDALConformanceTests):
     """继承 lush-dal-protocol 一致性套件, 验证 SyncBaseDAL 符合协议约定."""
 
+    def _post_write_refresh(self, session: Any) -> None:
+        session.expire_all()
+
     @pytest.fixture
     def dal_class(self):
         return _SyncSimpleDAL
@@ -1574,8 +1576,11 @@ class TestSyncDALConformance(SyncDALConformanceTests):
         return _SyncSimpleCU(name="conformance-test")
 
 
-class TestSyncDALV2Conformance(SyncDALConformanceTests):
-    """继承 lush-dal-protocol 一致性套件, 验证 SyncBaseDALV2 符合协议约定."""
+class TestSyncDALV2Conformance(SyncFullDALConformanceTests):
+    """继承 lush-dal-protocol 完整一致性套件 (Read+Write+Lock+AdvancedWrite+FieldIsolation)."""
+
+    def _post_write_refresh(self, session: Any) -> None:
+        session.expire_all()
 
     @pytest.fixture
     def dal_class(self):
@@ -1588,3 +1593,14 @@ class TestSyncDALV2Conformance(SyncDALConformanceTests):
     @pytest.fixture
     def sample_cu(self):
         return _SyncSimpleCU(name="v2-conformance-test")
+
+    @pytest.fixture
+    def make_cu(self):
+        return lambda label: _SyncSimpleCU(name=f"v2-{label}")
+
+    @pytest.fixture
+    def where_clause_factory(self):
+        def _factory(entity: Any) -> list:
+            return [_SyncSimpleTable.name == entity.name]
+
+        return _factory

@@ -10,7 +10,7 @@ import asyncio
 import datetime
 import logging
 import warnings
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterable
 from contextlib import asynccontextmanager, suppress
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, ParamSpec, TypeVar, cast
 
@@ -102,7 +102,7 @@ def async_with_retry(
 async def async_temp_set_lock_wait_timeout(
     session: AsyncSession,
     timeout_seconds: int | None,
-) -> AsyncIterator[None]:
+) -> AsyncGenerator[None, None]:
     """临时设置锁等待超时时间的上下文管理器"""
     if timeout_seconds is None:
         yield
@@ -279,7 +279,7 @@ class AsyncRawReadDAL:
         where_clauses: list[ColumnExpressionArgument[bool]] | None = None,
         with_deleted: bool = False,
         batch_size: int = 500,
-    ) -> AsyncIterator[AsyncSQLATableT]:
+    ) -> AsyncGenerator[AsyncSQLATableT, None]:
         if not hasattr(table_class, "id") or not isinstance(getattr(table_class, "id", None), InstrumentedAttribute):
             raise ValueError(f"表 {table_class.__name__} 必须有 id 字段才能使用迭代方法")
 
@@ -535,7 +535,7 @@ class AsyncReadDAL(AsyncRawReadDAL, Generic[AsyncSQLATableT, DTOModelT]):
         where_clauses: list[ColumnExpressionArgument[bool]] | None = None,
         with_deleted: bool = False,
         batch_size: int = 500,
-    ) -> AsyncIterator[DTOModelT]:
+    ) -> AsyncGenerator[DTOModelT, None]:
         async for entity in cls._iter_records(
             session,
             cls._Table,
@@ -579,7 +579,7 @@ class AsyncWriteDAL(AsyncRawDAL, AsyncRawReadDAL, Generic[AsyncSQLATableT, DTOMo
     ) -> AsyncSQLATableT:
         if session.info.get(READONLY_SESSION_FLAG):
             raise TypeError("当前会话被标记为只读, 不允许执行写入操作")
-        entity = cu.to_sqla_model()
+        entity = cu.to_orm_model()
         session.add(entity)
         await session.flush()
         if need_refresh:
@@ -804,7 +804,7 @@ class AsyncWriteDAL(AsyncRawDAL, AsyncRawReadDAL, Generic[AsyncSQLATableT, DTOMo
         where_clauses: list[ColumnExpressionArgument[bool]] | None = None,
         with_deleted: bool = False,
         batch_size: int = 500,
-    ) -> AsyncIterator[AsyncSQLATableT]:
+    ) -> AsyncGenerator[AsyncSQLATableT, None]:
         async for entity in cls._iter_records(
             session,
             cls._Table,
