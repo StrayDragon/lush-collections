@@ -4374,6 +4374,22 @@ class _TestVersionDALV2(AsyncBaseDALV2[_TestTableWithVersion, _TestVersionDTO, _
     _CU = _TestVersionCU
 
 
+class TestAsyncDALV2Conformance(AsyncDALConformanceTests):
+    """继承 lush-dal-protocol 一致性套件, 验证 AsyncBaseDALV2 符合协议约定."""
+
+    @pytest.fixture
+    def dal_class(self):
+        return _TestSimpleDALV2
+
+    @pytest.fixture
+    async def session(self, async_session: AsyncSession):
+        return async_session
+
+    @pytest.fixture
+    def sample_cu(self):
+        return _TestSimpleVO(name="v2-conformance-test")
+
+
 class TestV2AsyncDALBasicCRUD:
     """V2 DAL 基础 CRUD — 验证不变的方法通过继承仍然工作."""
 
