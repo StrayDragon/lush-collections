@@ -4,7 +4,7 @@ from __future__ import annotations
 
 _HAS_ASYNC: bool
 try:
-    from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession  # noqa: F401
+    from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
     _HAS_ASYNC = True
 except ImportError:  # pragma: no cover

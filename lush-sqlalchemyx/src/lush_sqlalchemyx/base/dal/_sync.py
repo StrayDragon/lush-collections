@@ -10,7 +10,7 @@ import datetime
 import logging
 import time
 import warnings
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, ParamSpec, TypeVar, cast
 
@@ -96,7 +96,7 @@ def sync_with_retry(
 def sync_temp_set_lock_wait_timeout(
     session: Session,
     timeout_seconds: int | None,
-) -> Iterator[None]:
+) -> Generator[None, None, None]:
     """临时设置锁等待超时时间的上下文管理器 (同步版)"""
     if timeout_seconds is None:
         yield
@@ -273,7 +273,7 @@ class SyncRawReadDAL:
         where_clauses: list[ColumnExpressionArgument[bool]] | None = None,
         with_deleted: bool = False,
         batch_size: int = 500,
-    ) -> Iterator[SyncSQLATableT]:
+    ) -> Generator[SyncSQLATableT, None, None]:
         if not hasattr(table_class, "id") or not isinstance(getattr(table_class, "id", None), InstrumentedAttribute):
             raise ValueError(f"表 {table_class.__name__} 必须有 id 字段才能使用迭代方法")
 
@@ -523,7 +523,7 @@ class SyncReadDAL(SyncRawReadDAL, Generic[SyncSQLATableT, DTOModelT]):
         where_clauses: list[ColumnExpressionArgument[bool]] | None = None,
         with_deleted: bool = False,
         batch_size: int = 500,
-    ) -> Iterator[DTOModelT]:
+    ) -> Generator[DTOModelT, None, None]:
         for entity in cls._iter_records(
             session,
             cls._Table,
@@ -567,7 +567,7 @@ class SyncWriteDAL(SyncRawDAL, SyncRawReadDAL, Generic[SyncSQLATableT, DTOModelT
     ) -> SyncSQLATableT:
         if session.info.get(READONLY_SESSION_FLAG):
             raise TypeError("当前会话被标记为只读, 不允许执行写入操作")
-        entity = cu.to_sqla_model()
+        entity = cu.to_orm_model()
         session.add(entity)
         session.flush()
         if need_refresh:
@@ -778,7 +778,7 @@ class SyncWriteDAL(SyncRawDAL, SyncRawReadDAL, Generic[SyncSQLATableT, DTOModelT
         where_clauses: list[ColumnExpressionArgument[bool]] | None = None,
         with_deleted: bool = False,
         batch_size: int = 500,
-    ) -> Iterator[SyncSQLATableT]:
+    ) -> Generator[SyncSQLATableT, None, None]:
         yield from cls._iter_records(
             session,
             cls._Table,

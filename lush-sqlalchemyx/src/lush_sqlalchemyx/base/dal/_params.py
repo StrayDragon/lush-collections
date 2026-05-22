@@ -1,6 +1,7 @@
-"""SQLAlchemy 特定的操作参数对象.
+"""SQLAlchemy 特定的操作扩展参数.
 
-继承 lush-dal-protocol 的通用参数对象, 添加 SQLAlchemy 特有选项.
+继承 lush-dal-protocol 的 ``Extra`` 基类, 添加 SQLAlchemy 特有选项.
+所有 V2 DAL 方法的 ``extra`` 参数均使用此类型.
 """
 
 from __future__ import annotations
@@ -8,35 +9,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from lush_dal_protocol.params import (
-    LockOptions,
-    OptimisticLockOptions,
-    PartialUpdateOptions,
-    UpdateOptions,
-)
+from lush_dal_protocol.params import Extra
 
 
 @dataclass(frozen=True)
-class SQLALockOptions(LockOptions):
-    """SQLAlchemy 悲观锁选项."""
+class SQLAExtra(Extra):
+    """SQLAlchemy 操作扩展参数.
 
+    字段按操作类别分组, 各方法按需读取相关字段::
 
-@dataclass(frozen=True)
-class SQLAOptimisticLockOptions(OptimisticLockOptions):
-    """SQLAlchemy 乐观锁选项."""
-
-
-@dataclass(frozen=True)
-class SQLAUpdateOptions(UpdateOptions):
-    """SQLAlchemy 全量更新选项."""
-
-
-@dataclass(frozen=True)
-class SQLAPartialUpdateOptions(PartialUpdateOptions):
-    """SQLAlchemy 部分更新选项.
-
-    扩展了 ORM 特有的 fields / none_policy_overrides.
+        extra = SQLAExtra(lock_timeout=5, need_refresh=True)
+        DAL.get_by_id_for_update(session, entity_id, extra)
     """
 
+    lock_timeout: int | None = None
+    need_refresh: bool = False
+    version_field: str = "version"
+    strict_missing: bool = True
+    none_policy: Literal["ignore", "allow", "forbid"] = "ignore"
+    strict: bool = False
     fields: Any = None
     none_policy_overrides: dict[Any, Literal["ignore", "allow", "forbid"]] | None = None

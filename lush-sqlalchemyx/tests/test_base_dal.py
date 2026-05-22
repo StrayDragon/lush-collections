@@ -4326,11 +4326,19 @@ class TestFieldMixinDataJsonBytes:
 # ========== lush-dal-protocol conformance suite ==========
 
 
-from lush_dal_protocol.testing import AsyncBaseDALConformanceTests as AsyncDALConformanceTests
+from lush_dal_protocol.testing import (
+    AsyncBaseDALConformanceTests as AsyncDALConformanceTests,
+)
+from lush_dal_protocol.testing import (
+    AsyncFullDALConformanceTests,
+)
 
 
 class TestAsyncDALConformance(AsyncDALConformanceTests):
     """继承 lush-dal-protocol 一致性套件, 验证 AsyncBaseDAL 符合协议约定."""
+
+    def _post_write_refresh(self, session: Any) -> None:
+        session.expire_all()
 
     @pytest.fixture
     def dal_class(self):
@@ -4349,10 +4357,7 @@ class TestAsyncDALConformance(AsyncDALConformanceTests):
 
 from lush_sqlalchemyx.base.dal import (
     AsyncBaseDALV2,
-    SQLALockOptions,
-    SQLAOptimisticLockOptions,
-    SQLAPartialUpdateOptions,
-    SQLAUpdateOptions,
+    SQLAExtra,
 )
 
 
@@ -4374,8 +4379,11 @@ class _TestVersionDALV2(AsyncBaseDALV2[_TestTableWithVersion, _TestVersionDTO, _
     _CU = _TestVersionCU
 
 
-class TestAsyncDALV2Conformance(AsyncDALConformanceTests):
-    """继承 lush-dal-protocol 一致性套件, 验证 AsyncBaseDALV2 符合协议约定."""
+class TestAsyncDALV2Conformance(AsyncFullDALConformanceTests):
+    """继承 lush-dal-protocol 完整一致性套件 (Read+Write+Lock+AdvancedWrite+FieldIsolation)."""
+
+    def _post_write_refresh(self, session: Any) -> None:
+        session.expire_all()
 
     @pytest.fixture
     def dal_class(self):
@@ -4388,6 +4396,17 @@ class TestAsyncDALV2Conformance(AsyncDALConformanceTests):
     @pytest.fixture
     def sample_cu(self):
         return _TestSimpleVO(name="v2-conformance-test")
+
+    @pytest.fixture
+    def make_cu(self):
+        return lambda label: _TestSimpleVO(name=f"v2-{label}")
+
+    @pytest.fixture
+    def where_clause_factory(self):
+        def _factory(entity: Any) -> list:
+            return [_TestTableSimple.name == entity.name]
+
+        return _factory
 
 
 class TestV2AsyncDALBasicCRUD:
@@ -4462,11 +4481,10 @@ class TestV2AsyncDALLockMethods:
         assert found is not None
         assert found.name == "v2-lock"
 
-    async def test_get_by_id_for_update_with_options(self, async_session: AsyncSession):
+    async def test_get_by_id_for_update_with_extra(self, async_session: AsyncSession):
         cu = _TestSimpleVO(name="v2-lock-opts")
         entity = await _TestSimpleDALV2.create(async_session, cu)
-        opts = SQLALockOptions(timeout=5)
-        found = await _TestSimpleDALV2.get_by_id_for_update(async_session, entity.id, options=opts)
+        found = await _TestSimpleDALV2.get_by_id_for_update(async_session, entity.id, SQLAExtra(lock_timeout=5))
         assert found is not None
 
     async def test_get_by_id_for_update_nonexistent(self, async_session: AsyncSession):
@@ -4479,12 +4497,12 @@ class TestV2AsyncDALLockMethods:
         result = await _TestSimpleDALV2.batch_get_for_update(async_session, [e1.id, e2.id])
         assert len(result) == 2
 
-    async def test_batch_get_for_update_with_options(self, async_session: AsyncSession):
+    async def test_batch_get_for_update_with_extra(self, async_session: AsyncSession):
         e1 = await _TestSimpleDALV2.create(async_session, _TestSimpleVO(name="v2-bo"))
         result = await _TestSimpleDALV2.batch_get_for_update(
             async_session,
             [e1.id],
-            options=SQLALockOptions(timeout=3),
+            SQLAExtra(lock_timeout=3),
         )
         assert len(result) == 1
 
@@ -4500,25 +4518,24 @@ class TestV2AsyncDALLockMethods:
         )
         assert found is not None
 
-    async def test_get_one_for_update_with_options(self, async_session: AsyncSession):
+    async def test_get_one_for_update_with_extra(self, async_session: AsyncSession):
         e = await _TestSimpleDALV2.create(async_session, _TestSimpleVO(name="v2-one-o"))
         found = await _TestSimpleDALV2.get_one_for_update(
             async_session,
+            SQLAExtra(lock_timeout=2),
             where_clauses=[_TestTableSimple.id == e.id],
-            options=SQLALockOptions(timeout=2),
         )
         assert found is not None
 
-    async def test_optimistic_lock_with_options(self, async_session: AsyncSession):
+    async def test_optimistic_lock_with_extra(self, async_session: AsyncSession):
         cu = _TestVersionCU(name="v2-opt", value=1)
         entity = await _TestVersionDALV2.create(async_session, cu)
-        opts = SQLAOptimisticLockOptions(version_field="version", need_refresh=True)
         updated = await _TestVersionDALV2.update_only_set_with_optimistic_lock(
             async_session,
             entity.id,
             _TestVersionCU(name="v2-opt2", value=2),
+            SQLAExtra(version_field="version", need_refresh=True),
             expected_version=0,
-            options=opts,
         )
         assert updated is not None
         assert updated.name == "v2-opt2"
@@ -4548,15 +4565,14 @@ class TestV2AsyncDALAdvancedWrite:
         )
         assert updated is not None
 
-    async def test_update_full_by_id_with_options(self, async_session: AsyncSession):
+    async def test_update_full_by_id_with_extra(self, async_session: AsyncSession):
         cu = _TestCU(name="v2-full-o", value=1, create_operator_id=1)
         entity = await _TestDALV2.create(async_session, cu)
-        opts = SQLAUpdateOptions(need_refresh=True, strict_missing=False)
         updated = await _TestDALV2.update_full_by_id(
             async_session,
             entity.id,
             _TestCU(name="v2-full-o2", value=2, create_operator_id=1),
-            options=opts,
+            SQLAExtra(need_refresh=True, strict_missing=False),
         )
         assert updated is not None
 
@@ -4578,15 +4594,14 @@ class TestV2AsyncDALAdvancedWrite:
         )
         assert updated is not None
 
-    async def test_update_partial_by_id_with_options(self, async_session: AsyncSession):
+    async def test_update_partial_by_id_with_extra(self, async_session: AsyncSession):
         cu = _TestCU(name="v2-part-o", value=1, create_operator_id=1)
         entity = await _TestDALV2.create(async_session, cu)
-        opts = SQLAPartialUpdateOptions(need_refresh=True, none_policy="allow")
         updated = await _TestDALV2.update_partial_by_id(
             async_session,
             entity.id,
             _TestCU(name="v2-part-o2", value=2, create_operator_id=1),
-            options=opts,
+            SQLAExtra(need_refresh=True, none_policy="allow"),
         )
         assert updated is not None
 
@@ -4617,36 +4632,47 @@ class TestV2AsyncDALAdvancedWrite:
         assert cnt == 0
 
 
-class TestV2AsyncDALParams:
-    """V2 params 参数对象测试."""
+class TestV2AsyncDALExtra:
+    """V2 SQLAExtra 参数对象测试."""
 
-    def test_sqla_lock_options(self):
-        opts = SQLALockOptions(timeout=5)
-        assert opts.timeout == 5
-        assert isinstance(opts, SQLALockOptions)
+    def test_sqla_extra_defaults(self):
+        ext = SQLAExtra()
+        assert ext.lock_timeout is None
+        assert ext.need_refresh is False
+        assert ext.version_field == "version"
+        assert ext.strict_missing is True
+        assert ext.none_policy == "ignore"
+        assert ext.strict is False
+        assert ext.fields is None
+        assert ext.none_policy_overrides is None
 
-    def test_sqla_optimistic_lock_options(self):
-        opts = SQLAOptimisticLockOptions(version_field="rev", need_refresh=True)
-        assert opts.version_field == "rev"
-        assert opts.need_refresh is True
+    def test_sqla_extra_lock_fields(self):
+        ext = SQLAExtra(lock_timeout=5)
+        assert ext.lock_timeout == 5
+        assert isinstance(ext, SQLAExtra)
 
-    def test_sqla_update_options(self):
-        opts = SQLAUpdateOptions(need_refresh=True, strict_missing=False)
-        assert opts.need_refresh is True
-        assert opts.strict_missing is False
+    def test_sqla_extra_update_fields(self):
+        ext = SQLAExtra(need_refresh=True, strict_missing=False)
+        assert ext.need_refresh is True
+        assert ext.strict_missing is False
 
-    def test_sqla_partial_update_options(self):
-        opts = SQLAPartialUpdateOptions(
+    def test_sqla_extra_partial_update_fields(self):
+        ext = SQLAExtra(
             need_refresh=True,
             none_policy="allow",
             strict=True,
             fields={_TestTable.name},
             none_policy_overrides={_TestTable.description: "forbid"},
         )
-        assert opts.none_policy == "allow"
-        assert opts.strict is True
-        assert opts.fields is not None
-        assert opts.none_policy_overrides is not None
+        assert ext.none_policy == "allow"
+        assert ext.strict is True
+        assert ext.fields is not None
+        assert ext.none_policy_overrides is not None
+
+    def test_sqla_extra_frozen(self):
+        ext = SQLAExtra(lock_timeout=3)
+        with pytest.raises(AttributeError):
+            ext.lock_timeout = 10
 
 
 class TestStdDeprecationWarnings:

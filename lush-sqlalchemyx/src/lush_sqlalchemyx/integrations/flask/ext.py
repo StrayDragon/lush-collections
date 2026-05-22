@@ -167,7 +167,7 @@ class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
             user_dal.create(UserCU(name="b"))
     """
 
-    _dal_class: ClassVar[type[SyncBaseDAL[Any, Any, Any] | SyncWriteDAL[Any, Any, Any] | SyncReadDAL[Any, Any]]]  # pyright: ignore[reportGeneralTypeIssues]
+    _dal_class: ClassVar[type[SyncBaseDAL[Any, Any, Any] | SyncWriteDAL[Any, Any, Any] | SyncReadDAL[Any, Any]]]
     _db: ClassVar[SQLAlchemy | None] = None
 
     @classmethod
@@ -183,7 +183,7 @@ class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
         """获取当前 Flask request 作用域的 session."""
         if self._db is None:
             raise RuntimeError("FlaskSessionDALAdapter not bound to db. Call FlaskSessionDALAdapter.bind_db(db) during app init.")
-        return self._db.session
+        return self._db.session  # pyright: ignore[reportReturnType]
 
     def get_by_id(self, entity_id: int) -> SQLATableT | None:
         """根据主键 ID 获取实体."""

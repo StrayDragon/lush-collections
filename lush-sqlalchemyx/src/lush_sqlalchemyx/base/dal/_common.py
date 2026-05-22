@@ -147,7 +147,7 @@ class BaseCU(_ProtocolBaseCU[SQLATableT]):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    _Table: ClassVar[type[SQLATableT]]  # pyright: ignore[reportGeneralTypeIssues]
+    _Table: ClassVar[type[SQLATableT]]  # pyright: ignore[reportGeneralTypeIssues,reportIncompatibleVariableOverride]
 
     def to_sqla_model(self) -> SQLATableT:
         """``to_orm_model`` 的 SQLAlchemy 兼容别名."""

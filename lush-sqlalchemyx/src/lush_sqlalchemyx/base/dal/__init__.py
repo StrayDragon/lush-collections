@@ -50,7 +50,6 @@ from ._common import (
     READONLY_SESSION_FLAG,
     BaseCU,
     BaseDTO,
-    BaseModelT,
     CUModelT,
     DBRetryableError,
     DTOModelT,
@@ -61,17 +60,14 @@ from ._common import (
     SQLATableT,
     StdBaseCU,
     StdBaseDTO,
-    T,
-    V,
-    _ensure_strict_fields,
     escape_like,
     filtered_in_sql_values,
 )
 
 # Event listener references — accessed by tests via getattr(module, name).
-from ._common import __prevent_readonly_write as __prevent_readonly_write
-from ._common import __receive_before_flush as __receive_before_flush
-from ._params import SQLALockOptions, SQLAOptimisticLockOptions, SQLAPartialUpdateOptions, SQLAUpdateOptions
+from ._common import __prevent_readonly_write as __prevent_readonly_write  # pyright: ignore[reportPrivateUsage]
+from ._common import __receive_before_flush as __receive_before_flush  # pyright: ignore[reportPrivateUsage]
+from ._params import SQLAExtra
 
 # --- sync ---
 from ._sync import (
@@ -101,7 +97,6 @@ __all__ = (
     "READONLY_SESSION_FLAG",
     "BaseCU",
     "BaseDTO",
-    "BaseModelT",
     "CUModelT",
     "DBRetryableError",
     "DTOModelT",
@@ -112,9 +107,6 @@ __all__ = (
     "SoftDeleteTableMixin",
     "StdBaseCU",
     "StdBaseDTO",
-    "T",
-    "V",
-    "_ensure_strict_fields",
     "escape_like",
     "filtered_in_sql_values",
     # async
@@ -153,10 +145,7 @@ __all__ = (
     "AsyncBaseDALV2",
     "AsyncReadDALV2",
     "AsyncWriteDALV2",
-    "SQLALockOptions",
-    "SQLAOptimisticLockOptions",
-    "SQLAPartialUpdateOptions",
-    "SQLAUpdateOptions",
+    "SQLAExtra",
     "SyncBaseDALV2",
     "SyncReadDALV2",
     "SyncWriteDALV2",
