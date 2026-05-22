@@ -3,20 +3,17 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic
 
 from lush_dal_protocol.abc._types import EntityT, SessionT
 from lush_dal_protocol.dto import CUModelT
-from lush_dal_protocol.params.update import PartialUpdateOptions, UpdateOptions
-
-UpdateOptionsT = TypeVar("UpdateOptionsT", bound=UpdateOptions)
-PartialUpdateOptionsT = TypeVar("PartialUpdateOptionsT", bound=PartialUpdateOptions)
+from lush_dal_protocol.params.extra import ExtraT
 
 
-class AbstractSyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, UpdateOptionsT, PartialUpdateOptionsT]):
+class AbstractSyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, ExtraT]):
     """同步高级写操作 DAL 抽象基类.
 
-    通过泛型参数 UpdateOptionsT / PartialUpdateOptionsT 实现 ORM 特定选项扩展.
+    通过 ExtraT 扩展 ORM 特有的更新选项.
     """
 
     @classmethod
@@ -26,8 +23,7 @@ class AbstractSyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, Upd
         session: SessionT,
         entity_id: int,
         cu: CUModelT,
-        *,
-        options: UpdateOptionsT | None = None,
+        extra: ExtraT | None = None,
     ) -> EntityT | None:
         """全量更新实体 (所有字段)."""
         ...
@@ -39,8 +35,7 @@ class AbstractSyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, Upd
         session: SessionT,
         entity_id: int,
         cu: CUModelT,
-        *,
-        options: PartialUpdateOptionsT | None = None,
+        extra: ExtraT | None = None,
     ) -> EntityT | None:
         """部分更新实体 (按策略处理 None 值)."""
         ...
@@ -50,6 +45,7 @@ class AbstractSyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, Upd
     def batch_update_by_conditions(
         cls,
         session: SessionT,
+        extra: ExtraT | None = None,
         *,
         conditions: Any,
         update_data: Any,
@@ -63,6 +59,7 @@ class AbstractSyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, Upd
     def batch_update_by_ids(
         cls,
         session: SessionT,
+        extra: ExtraT | None = None,
         *,
         entity_ids: set[int] | list[int],
         update_data: Any,
@@ -72,7 +69,7 @@ class AbstractSyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, Upd
         ...
 
 
-class AbstractAsyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, UpdateOptionsT, PartialUpdateOptionsT]):
+class AbstractAsyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, ExtraT]):
     """异步高级写操作 DAL 抽象基类.
 
     语义与 ``AbstractSyncAdvancedWriteDAL`` 一致, 所有方法为 ``async def``.
@@ -85,8 +82,7 @@ class AbstractAsyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, Up
         session: SessionT,
         entity_id: int,
         cu: CUModelT,
-        *,
-        options: UpdateOptionsT | None = None,
+        extra: ExtraT | None = None,
     ) -> EntityT | None:
         """全量更新实体 (所有字段)."""
         ...
@@ -98,8 +94,7 @@ class AbstractAsyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, Up
         session: SessionT,
         entity_id: int,
         cu: CUModelT,
-        *,
-        options: PartialUpdateOptionsT | None = None,
+        extra: ExtraT | None = None,
     ) -> EntityT | None:
         """部分更新实体 (按策略处理 None 值)."""
         ...
@@ -109,6 +104,7 @@ class AbstractAsyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, Up
     async def batch_update_by_conditions(
         cls,
         session: SessionT,
+        extra: ExtraT | None = None,
         *,
         conditions: Any,
         update_data: Any,
@@ -122,6 +118,7 @@ class AbstractAsyncAdvancedWriteDAL(ABC, Generic[SessionT, EntityT, CUModelT, Up
     async def batch_update_by_ids(
         cls,
         session: SessionT,
+        extra: ExtraT | None = None,
         *,
         entity_ids: set[int] | list[int],
         update_data: Any,

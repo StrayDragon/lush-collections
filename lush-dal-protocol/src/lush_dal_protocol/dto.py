@@ -24,7 +24,7 @@ class BaseCU(BaseModel, Generic[OrmModelT]):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    _Table: ClassVar[type]  # pyright: ignore[reportGeneralTypeIssues]
+    _Table: ClassVar[type]
 
     def to_orm_model(self) -> OrmModelT:
         """将 CU 模型转换为 ORM 模型实例.

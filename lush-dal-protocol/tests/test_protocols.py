@@ -21,7 +21,7 @@ from lush_dal_protocol.abc import (
     AbstractSyncReadDAL,
     AbstractSyncWriteDAL,
 )
-from lush_dal_protocol.params import LockOptions, OptimisticLockOptions, PartialUpdateOptions, UpdateOptions
+from lush_dal_protocol.params import Extra, ExtraT
 
 ALL_ABCS = [
     AbstractSyncReadDAL,
@@ -111,40 +111,28 @@ class TestABCMethodCompleteness:
         assert expected.issubset(async_methods)
 
 
-class TestParamsObjects:
-    def test_lock_options_defaults(self):
-        opts = LockOptions()
-        assert opts.timeout is None
+class TestExtraParams:
+    def test_extra_defaults(self):
+        extra = Extra()
+        assert extra is not None
 
-    def test_lock_options_frozen(self):
-        opts = LockOptions(timeout=5)
+    def test_extra_frozen(self):
+        extra = Extra()
         with pytest.raises(AttributeError):
-            opts.timeout = 10
+            extra.x = 1
 
-    def test_optimistic_lock_options_defaults(self):
-        opts = OptimisticLockOptions()
-        assert opts.version_field == "version"
-        assert opts.need_refresh is False
-
-    def test_update_options_defaults(self):
-        opts = UpdateOptions()
-        assert opts.need_refresh is False
-        assert opts.strict_missing is True
-
-    def test_partial_update_options_defaults(self):
-        opts = PartialUpdateOptions()
-        assert opts.need_refresh is False
-        assert opts.none_policy == "ignore"
-        assert opts.strict is False
-
-    def test_lock_options_subclassable(self):
+    def test_extra_subclassable(self):
         from dataclasses import dataclass
 
         @dataclass(frozen=True)
-        class ExtendedLock(LockOptions):
-            nowait: bool = False
+        class MyExtra(Extra):
+            lock_timeout: int | None = None
+            need_refresh: bool = False
 
-        opts = ExtendedLock(timeout=3, nowait=True)
-        assert opts.timeout == 3
-        assert opts.nowait is True
-        assert isinstance(opts, LockOptions)
+        ext = MyExtra(lock_timeout=5, need_refresh=True)
+        assert ext.lock_timeout == 5
+        assert ext.need_refresh is True
+        assert isinstance(ext, Extra)
+
+    def test_extra_typevar_importable(self):
+        assert ExtraT is not None
