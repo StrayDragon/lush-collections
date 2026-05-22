@@ -37,6 +37,10 @@ clean:
 fmt:
   @uvx --default-index {{default_index}} ruff format
 
+# 类型检查(basedpyright).
+typecheck:
+  @uvx --default-index {{default_index}} basedpyright
+
 # Lint 检查(ruff check).
 lint:
   @uvx --default-index {{default_index}} ruff check

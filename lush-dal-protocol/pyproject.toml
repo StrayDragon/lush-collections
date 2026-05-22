@@ -39,7 +39,7 @@ asyncio_default_test_loop_scope = "function"
 [tool.coverage.run]
 branch = true
 omit = [
-    "src/lush_dal_protocol/protocols/api_contracts.py",
+    "src/lush_dal_protocol/testing/conformance.py",
 ]
 
 [tool.coverage.report]
@@ -87,7 +87,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"**/protocols/api_contracts.py" = ["S101"]
+"**/testing/conformance.py" = ["S101"]
 "tests/**/*.py" = [
     "B011", "B008",
     "ARG001", "ARG002", "ARG003", "ARG005",

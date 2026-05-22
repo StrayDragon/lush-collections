@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import datetime
+import warnings
 from typing import Any, ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -57,14 +58,38 @@ DTOModelT = TypeVar("DTOModelT", bound=BaseDTO[Any] | BaseModel)
 
 
 class StdBaseCU(BaseCU[OrmModelT]):
-    """标准 CU 基类: 包含创建人/修改人等标准字段."""
+    """标准 CU 基类: 包含创建人/修改人等标准字段.
+
+    .. deprecated::
+        此类预设了特定业务字段, 下游应自行继承 ``BaseCU`` 定义所需字段.
+    """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        warnings.warn(
+            f"{cls.__name__} 继承了已废弃的 StdBaseCU, 请改为直接继承 BaseCU 并自行定义所需字段",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     create_operator_id: int = 0
     update_operator_id: int | None = None
 
 
 class StdBaseDTO(BaseDTO[CUModelT]):
-    """标准 DTO 基类: 包含 id、时间戳、操作人等标准字段."""
+    """标准 DTO 基类: 包含 id、时间戳、操作人等标准字段.
+
+    .. deprecated::
+        此类预设了特定业务字段, 下游应自行继承 ``BaseDTO`` 定义所需字段.
+    """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        warnings.warn(
+            f"{cls.__name__} 继承了已废弃的 StdBaseDTO, 请改为直接继承 BaseDTO 并自行定义所需字段",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     id: int = Field(..., description="ID")
     create_datetime: datetime.datetime = Field(..., description="创建时间")
