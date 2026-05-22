@@ -3,6 +3,7 @@
 import datetime
 from typing import ClassVar
 
+import pytest
 from pydantic import ConfigDict
 
 from lush_dal_protocol.dto import BaseCU, BaseDTO, StdBaseCU, StdBaseDTO
@@ -86,6 +87,13 @@ class TestStdBaseCU:
         assert cu.create_operator_id == 0
         assert cu.update_operator_id is None
 
+    def test_deprecation_warning_on_subclass(self):
+        with pytest.warns(DeprecationWarning, match="StdBaseCU"):
+
+            class _NewStdCU(StdBaseCU["_FakeOrm"]):
+                _Table: ClassVar[type] = _FakeOrm
+                name: str
+
 
 class TestStdBaseDTO:
     def test_standard_fields(self):
@@ -100,3 +108,11 @@ class TestStdBaseDTO:
         )
         assert dto.id == 1
         assert dto.create_operator_id == 10
+
+    def test_deprecation_warning_on_subclass(self):
+        with pytest.warns(DeprecationWarning, match="StdBaseDTO"):
+
+            class _NewStdDTO(StdBaseDTO[_StdCU]):
+                _CU: ClassVar[type[_StdCU]] = _StdCU
+                name: str
+                model_config = ConfigDict(from_attributes=True)

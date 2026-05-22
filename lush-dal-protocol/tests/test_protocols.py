@@ -1,172 +1,150 @@
-"""protocols 模块测试.
+"""ABC 模块测试.
 
-验证 Protocol 的 runtime_checkable 行为和基本结构完整性.
+验证分层 ABC 的结构完整性: 不可直接实例化, 子类必须实现全部 abstractmethod.
 """
 
-from collections.abc import AsyncIterator, Iterator
+import pytest
 
-from lush_dal_protocol.protocols import (
-    AsyncBaseDALProtocol,
-    AsyncReadDALProtocol,
-    AsyncWriteDALProtocol,
-    SyncBaseDALProtocol,
-    SyncReadDALProtocol,
-    SyncWriteDALProtocol,
+from lush_dal_protocol.abc import (
+    AbstractAsyncAdvancedWriteDAL,
+    AbstractAsyncBaseDAL,
+    AbstractAsyncBatchFieldDAL,
+    AbstractAsyncLockDAL,
+    AbstractAsyncRawSQLDAL,
+    AbstractAsyncReadDAL,
+    AbstractAsyncWriteDAL,
+    AbstractSyncAdvancedWriteDAL,
+    AbstractSyncBaseDAL,
+    AbstractSyncBatchFieldDAL,
+    AbstractSyncLockDAL,
+    AbstractSyncRawSQLDAL,
+    AbstractSyncReadDAL,
+    AbstractSyncWriteDAL,
 )
+from lush_dal_protocol.params import LockOptions, OptimisticLockOptions, PartialUpdateOptions, UpdateOptions
+
+ALL_ABCS = [
+    AbstractSyncReadDAL,
+    AbstractSyncWriteDAL,
+    AbstractSyncLockDAL,
+    AbstractSyncBatchFieldDAL,
+    AbstractSyncAdvancedWriteDAL,
+    AbstractSyncRawSQLDAL,
+    AbstractSyncBaseDAL,
+    AbstractAsyncReadDAL,
+    AbstractAsyncWriteDAL,
+    AbstractAsyncLockDAL,
+    AbstractAsyncBatchFieldDAL,
+    AbstractAsyncAdvancedWriteDAL,
+    AbstractAsyncRawSQLDAL,
+    AbstractAsyncBaseDAL,
+]
 
 
-class _FakeSession:
-    pass
+class TestABCsNotInstantiable:
+    @pytest.mark.parametrize("abc_cls", ALL_ABCS, ids=lambda c: c.__name__)
+    def test_cannot_instantiate(self, abc_cls):
+        with pytest.raises(TypeError):
+            abc_cls()
 
 
-class _FakeEntity:
-    pass
+EXPECTED_METHODS = {
+    "read": {
+        "get_by_id",
+        "get_all",
+        "count",
+        "exists",
+        "ret_dto_after_get_by_id",
+        "batch_get_id__entity",
+        "batch_get_id__dto",
+        "iter_record_dtos",
+    },
+    "write": {"create", "ret_dto_after_create", "update_only_set_by_id", "ret_dto_after_update_by_id", "delete_by_id"},
+    "lock": {"get_by_id_for_update", "batch_get_for_update", "get_one_for_update", "update_only_set_with_optimistic_lock"},
+    "batch_field": {"batch_get_field__entity", "batch_get_field__dto"},
+    "advanced_write": {"update_full_by_id", "update_partial_by_id", "batch_update_by_conditions", "batch_update_by_ids"},
+    "raw_sql": {"execute_sql", "execute_readonly_sql"},
+}
 
 
-class _FakeDTO:
-    pass
+class TestABCMethodCompleteness:
+    @pytest.mark.parametrize(
+        "abc_cls,layer",
+        [
+            (AbstractSyncReadDAL, "read"),
+            (AbstractSyncWriteDAL, "write"),
+            (AbstractSyncLockDAL, "lock"),
+            (AbstractSyncBatchFieldDAL, "batch_field"),
+            (AbstractSyncAdvancedWriteDAL, "advanced_write"),
+            (AbstractSyncRawSQLDAL, "raw_sql"),
+        ],
+        ids=lambda x: x if isinstance(x, str) else x.__name__,
+    )
+    def test_sync_abc_has_expected_methods(self, abc_cls, layer):
+        expected = EXPECTED_METHODS[layer]
+        actual = {name for name in vars(abc_cls) if not name.startswith("_")}
+        assert expected == actual, f"Mismatch for {abc_cls.__name__}: missing={expected - actual}, extra={actual - expected}"
+
+    @pytest.mark.parametrize(
+        "abc_cls,layer",
+        [
+            (AbstractAsyncReadDAL, "read"),
+            (AbstractAsyncWriteDAL, "write"),
+            (AbstractAsyncLockDAL, "lock"),
+            (AbstractAsyncBatchFieldDAL, "batch_field"),
+            (AbstractAsyncAdvancedWriteDAL, "advanced_write"),
+            (AbstractAsyncRawSQLDAL, "raw_sql"),
+        ],
+        ids=lambda x: x if isinstance(x, str) else x.__name__,
+    )
+    def test_async_abc_has_expected_methods(self, abc_cls, layer):
+        expected = EXPECTED_METHODS[layer]
+        actual = {name for name in vars(abc_cls) if not name.startswith("_")}
+        assert expected == actual, f"Mismatch for {abc_cls.__name__}: missing={expected - actual}, extra={actual - expected}"
+
+    def test_base_dal_combines_read_and_write(self):
+        sync_methods = {name for name in dir(AbstractSyncBaseDAL) if not name.startswith("_")}
+        expected = EXPECTED_METHODS["read"] | EXPECTED_METHODS["write"]
+        assert expected.issubset(sync_methods)
+
+        async_methods = {name for name in dir(AbstractAsyncBaseDAL) if not name.startswith("_")}
+        assert expected.issubset(async_methods)
 
 
-class _FakeCU:
-    pass
+class TestParamsObjects:
+    def test_lock_options_defaults(self):
+        opts = LockOptions()
+        assert opts.timeout is None
 
+    def test_lock_options_frozen(self):
+        opts = LockOptions(timeout=5)
+        with pytest.raises(AttributeError):
+            opts.timeout = 10
 
-class _SyncReadImpl:
-    @classmethod
-    def get_by_id(cls, session, entity_id):
-        return None
+    def test_optimistic_lock_options_defaults(self):
+        opts = OptimisticLockOptions()
+        assert opts.version_field == "version"
+        assert opts.need_refresh is False
 
-    @classmethod
-    def get_all(cls, session, skip=0, limit=100):
-        return []
+    def test_update_options_defaults(self):
+        opts = UpdateOptions()
+        assert opts.need_refresh is False
+        assert opts.strict_missing is True
 
-    @classmethod
-    def count(cls, session):
-        return 0
+    def test_partial_update_options_defaults(self):
+        opts = PartialUpdateOptions()
+        assert opts.need_refresh is False
+        assert opts.none_policy == "ignore"
+        assert opts.strict is False
 
-    @classmethod
-    def exists(cls, session, entity_id):
-        return False
+    def test_lock_options_subclassable(self):
+        from dataclasses import dataclass
 
-    @classmethod
-    def ret_dto_after_get_by_id(cls, session, entity_id, need_refresh=True):
-        return None
+        @dataclass(frozen=True)
+        class ExtendedLock(LockOptions):
+            nowait: bool = False
 
-    @classmethod
-    def batch_get_id__entity(cls, session, entity_ids):
-        return {}
-
-    @classmethod
-    def batch_get_id__dto(cls, session, entity_ids):
-        return {}
-
-    @classmethod
-    def iter_record_dtos(cls, session, *, batch_size=500) -> Iterator:
-        return iter([])
-
-
-class _SyncWriteImpl:
-    @classmethod
-    def create(cls, session, cu, need_refresh=True):
-        return _FakeEntity()
-
-    @classmethod
-    def ret_dto_after_create(cls, session, cu, need_refresh=True):
-        return _FakeDTO()
-
-    @classmethod
-    def update_only_set_by_id(cls, session, entity_id, cu, need_refresh=False):
-        return None
-
-    @classmethod
-    def delete_by_id(cls, session, entity_id):
-        return True
-
-
-class _SyncBaseImpl(_SyncReadImpl, _SyncWriteImpl):
-    pass
-
-
-class _AsyncReadImpl:
-    @classmethod
-    async def get_by_id(cls, session, entity_id):
-        return None
-
-    @classmethod
-    async def get_all(cls, session, skip=0, limit=100):
-        return []
-
-    @classmethod
-    async def count(cls, session):
-        return 0
-
-    @classmethod
-    async def exists(cls, session, entity_id):
-        return False
-
-    @classmethod
-    async def ret_dto_after_get_by_id(cls, session, entity_id, need_refresh=True):
-        return None
-
-    @classmethod
-    async def batch_get_id__entity(cls, session, entity_ids):
-        return {}
-
-    @classmethod
-    async def batch_get_id__dto(cls, session, entity_ids):
-        return {}
-
-    @classmethod
-    async def iter_record_dtos(cls, session, *, batch_size=500) -> AsyncIterator:
-        return
-        yield
-
-
-class _AsyncWriteImpl:
-    @classmethod
-    async def create(cls, session, cu, need_refresh=True):
-        return _FakeEntity()
-
-    @classmethod
-    async def ret_dto_after_create(cls, session, cu, need_refresh=True):
-        return _FakeDTO()
-
-    @classmethod
-    async def update_only_set_by_id(cls, session, entity_id, cu, need_refresh=False):
-        return None
-
-    @classmethod
-    async def delete_by_id(cls, session, entity_id):
-        return True
-
-
-class _AsyncBaseImpl(_AsyncReadImpl, _AsyncWriteImpl):
-    pass
-
-
-class TestSyncProtocols:
-    def test_sync_read_isinstance(self):
-        assert isinstance(_SyncReadImpl, SyncReadDALProtocol)
-
-    def test_sync_write_isinstance(self):
-        assert isinstance(_SyncWriteImpl, SyncWriteDALProtocol)
-
-    def test_sync_base_isinstance(self):
-        assert isinstance(_SyncBaseImpl, SyncBaseDALProtocol)
-
-    def test_sync_read_not_match(self):
-        assert not isinstance(object(), SyncReadDALProtocol)
-
-
-class TestAsyncProtocols:
-    def test_async_read_isinstance(self):
-        assert isinstance(_AsyncReadImpl, AsyncReadDALProtocol)
-
-    def test_async_write_isinstance(self):
-        assert isinstance(_AsyncWriteImpl, AsyncWriteDALProtocol)
-
-    def test_async_base_isinstance(self):
-        assert isinstance(_AsyncBaseImpl, AsyncBaseDALProtocol)
-
-    def test_async_read_not_match(self):
-        assert not isinstance(object(), AsyncReadDALProtocol)
+        opts = ExtendedLock(timeout=3, nowait=True)
+        assert opts.timeout == 3
+        assert opts.nowait is True
+        assert isinstance(opts, LockOptions)
