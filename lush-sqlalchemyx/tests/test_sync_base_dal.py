@@ -53,6 +53,7 @@ class _SyncSimpleTable(BasicSyncBaseTable):
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
+    version: Mapped[int] = mapped_column(sa.BigInteger, nullable=False, default=1, server_default="1")
 
 
 class _SyncVersionTable(StdSyncBaseTable):
@@ -1026,25 +1027,32 @@ class TestSyncTempLockTimeoutReal:
 
 class TestSyncOptimisticLockNoIdField:
     def test_optimistic_lock_no_id_field(self, sync_session: Session):
-        class _NoIdCU(BaseCU["_SyncSimpleTable"]):
-            _Table: ClassVar[type[_SyncSimpleTable]] = _SyncSimpleTable
+        class _NoVersionTable(BasicSyncBaseTable):
+            __tablename__ = "sync_test_no_version"
+            id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
+            name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
+
+        SyncSqlATableBase.metadata.create_all(sync_session.get_bind(), checkfirst=True)
+
+        class _NoVersionCU(BaseCU["_NoVersionTable"]):
+            _Table: ClassVar[type[_NoVersionTable]] = _NoVersionTable
             name: str
 
-        class _NoIdDTO(BaseDTO[_NoIdCU]):
-            _CU: ClassVar[type[_NoIdCU]] = _NoIdCU
+        class _NoVersionDTO(BaseDTO[_NoVersionCU]):
+            _CU: ClassVar[type[_NoVersionCU]] = _NoVersionCU
             id: int
             name: str
             model_config = ConfigDict(from_attributes=True)
 
-        class _NoIdVersionDAL(SyncWriteDAL[_SyncSimpleTable, _NoIdDTO, _NoIdCU]):
-            _Table = _SyncSimpleTable
-            _DTO = _NoIdDTO
-            _CU = _NoIdCU
+        class _NoVersionDAL(SyncWriteDAL[_NoVersionTable, _NoVersionDTO, _NoVersionCU]):
+            _Table = _NoVersionTable
+            _DTO = _NoVersionDTO
+            _CU = _NoVersionCU
 
-        cu = _NoIdCU(name="no-version-field")
-        entity = _NoIdVersionDAL.create(sync_session, cu)
+        cu = _NoVersionCU(name="no-version-field")
+        entity = _NoVersionDAL.create(sync_session, cu)
         with pytest.raises(AttributeError, match="不包含 version 字段"):
-            _NoIdVersionDAL.update_only_set_with_optimistic_lock(
+            _NoVersionDAL.update_only_set_with_optimistic_lock(
                 sync_session,
                 entity.id,
                 cu,
@@ -1581,6 +1589,11 @@ class TestSyncDALV2Conformance(SyncFullDALConformanceTests):
 
     def _post_write_refresh(self, session: Any) -> None:
         session.expire_all()
+
+    def _get_retryable_error_class(self) -> type[Exception]:
+        from lush_sqlalchemyx.base.dal._common import DBRetryableError
+
+        return DBRetryableError
 
     @pytest.fixture
     def dal_class(self):
