@@ -22,15 +22,7 @@ from .abc import (
 )
 from .dto import BaseCU, BaseDTO, CUModelT, DTOModelT, StdBaseCU, StdBaseDTO
 from .errors import DBRetryableError
-from .params import LockOptions, OptimisticLockOptions, PartialUpdateOptions, UpdateOptions
-from .testing import (
-    AsyncBaseDALConformanceTests,
-    AsyncReadDALConformanceTests,
-    AsyncWriteDALConformanceTests,
-    SyncBaseDALConformanceTests,
-    SyncReadDALConformanceTests,
-    SyncWriteDALConformanceTests,
-)
+from .params import Extra, ExtraT
 from .utils import DEFAULT_RETRY_CONFIG, RetryConfig, escape_like, filtered_in_sql_values
 
 __all__ = [
@@ -49,24 +41,16 @@ __all__ = [
     "AbstractSyncRawSQLDAL",
     "AbstractSyncReadDAL",
     "AbstractSyncWriteDAL",
-    "AsyncBaseDALConformanceTests",
-    "AsyncReadDALConformanceTests",
-    "AsyncWriteDALConformanceTests",
     "BaseCU",
     "BaseDTO",
     "CUModelT",
     "DBRetryableError",
     "DTOModelT",
-    "LockOptions",
-    "OptimisticLockOptions",
-    "PartialUpdateOptions",
+    "Extra",
+    "ExtraT",
     "RetryConfig",
     "StdBaseCU",
     "StdBaseDTO",
-    "SyncBaseDALConformanceTests",
-    "SyncReadDALConformanceTests",
-    "SyncWriteDALConformanceTests",
-    "UpdateOptions",
     "escape_like",
     "filtered_in_sql_values",
 ]

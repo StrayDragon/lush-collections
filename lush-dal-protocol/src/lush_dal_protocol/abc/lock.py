@@ -4,20 +4,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic
 
 from lush_dal_protocol.abc._types import EntityT, SessionT
 from lush_dal_protocol.dto import CUModelT
-from lush_dal_protocol.params.lock import LockOptions, OptimisticLockOptions
-
-LockOptionsT = TypeVar("LockOptionsT", bound=LockOptions)
-OptimisticLockOptionsT = TypeVar("OptimisticLockOptionsT", bound=OptimisticLockOptions)
+from lush_dal_protocol.params.extra import ExtraT
 
 
-class AbstractSyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, LockOptionsT, OptimisticLockOptionsT]):
+class AbstractSyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, ExtraT]):
     """同步锁操作 DAL 抽象基类.
 
-    通过泛型参数 LockOptionsT / OptimisticLockOptionsT 实现 ORM 特定选项扩展.
+    通过 ExtraT 扩展 ORM 特有的锁选项 (如 timeout / nowait 等).
     """
 
     @classmethod
@@ -26,8 +23,7 @@ class AbstractSyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, LockOptionsT
         cls,
         session: SessionT,
         entity_id: int,
-        *,
-        options: LockOptionsT | None = None,
+        extra: ExtraT | None = None,
     ) -> EntityT | None:
         """以行锁方式获取实体."""
         ...
@@ -38,8 +34,7 @@ class AbstractSyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, LockOptionsT
         cls,
         session: SessionT,
         entity_ids: Iterable[int],
-        *,
-        options: LockOptionsT | None = None,
+        extra: ExtraT | None = None,
     ) -> list[EntityT]:
         """批量以行锁方式获取实体."""
         ...
@@ -49,9 +44,9 @@ class AbstractSyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, LockOptionsT
     def get_one_for_update(
         cls,
         session: SessionT,
+        extra: ExtraT | None = None,
         *,
         where_clauses: Any,
-        options: LockOptionsT | None = None,
     ) -> EntityT | None:
         """根据条件以行锁方式获取单个实体."""
         ...
@@ -63,15 +58,15 @@ class AbstractSyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, LockOptionsT
         session: SessionT,
         entity_id: int,
         cu: CUModelT,
+        extra: ExtraT | None = None,
         *,
         expected_version: int,
-        options: OptimisticLockOptionsT | None = None,
     ) -> EntityT | None:
         """使用乐观锁更新实体, 版本不匹配时抛出 DBRetryableError."""
         ...
 
 
-class AbstractAsyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, LockOptionsT, OptimisticLockOptionsT]):
+class AbstractAsyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, ExtraT]):
     """异步锁操作 DAL 抽象基类.
 
     语义与 ``AbstractSyncLockDAL`` 一致, 所有方法为 ``async def``.
@@ -83,8 +78,7 @@ class AbstractAsyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, LockOptions
         cls,
         session: SessionT,
         entity_id: int,
-        *,
-        options: LockOptionsT | None = None,
+        extra: ExtraT | None = None,
     ) -> EntityT | None:
         """以行锁方式获取实体."""
         ...
@@ -95,8 +89,7 @@ class AbstractAsyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, LockOptions
         cls,
         session: SessionT,
         entity_ids: Iterable[int],
-        *,
-        options: LockOptionsT | None = None,
+        extra: ExtraT | None = None,
     ) -> list[EntityT]:
         """批量以行锁方式获取实体."""
         ...
@@ -106,9 +99,9 @@ class AbstractAsyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, LockOptions
     async def get_one_for_update(
         cls,
         session: SessionT,
+        extra: ExtraT | None = None,
         *,
         where_clauses: Any,
-        options: LockOptionsT | None = None,
     ) -> EntityT | None:
         """根据条件以行锁方式获取单个实体."""
         ...
@@ -120,9 +113,9 @@ class AbstractAsyncLockDAL(ABC, Generic[SessionT, EntityT, CUModelT, LockOptions
         session: SessionT,
         entity_id: int,
         cu: CUModelT,
+        extra: ExtraT | None = None,
         *,
         expected_version: int,
-        options: OptimisticLockOptionsT | None = None,
     ) -> EntityT | None:
         """使用乐观锁更新实体, 版本不匹配时抛出 DBRetryableError."""
         ...

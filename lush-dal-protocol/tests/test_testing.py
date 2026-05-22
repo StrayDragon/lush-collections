@@ -4,10 +4,16 @@ import inspect
 
 from lush_dal_protocol.abc import AbstractAsyncBaseDAL, AbstractSyncBaseDAL
 from lush_dal_protocol.testing.conformance import (
+    AsyncAdvancedWriteDALConformanceTests,
     AsyncBaseDALConformanceTests,
+    AsyncFullDALConformanceTests,
+    AsyncLockDALConformanceTests,
     AsyncReadDALConformanceTests,
     AsyncWriteDALConformanceTests,
+    SyncAdvancedWriteDALConformanceTests,
     SyncBaseDALConformanceTests,
+    SyncFullDALConformanceTests,
+    SyncLockDALConformanceTests,
     SyncReadDALConformanceTests,
     SyncWriteDALConformanceTests,
 )
@@ -68,6 +74,20 @@ class TestSyncConformanceSuiteCoverage:
         base_tests = _test_method_names(SyncBaseDALConformanceTests)
         assert write_tests.issubset(base_tests)
 
+    def test_lock_suite_has_tests(self):
+        tests = _test_method_names(SyncLockDALConformanceTests)
+        assert len(tests) >= 4
+
+    def test_advanced_write_suite_has_tests(self):
+        tests = _test_method_names(SyncAdvancedWriteDALConformanceTests)
+        assert len(tests) >= 4
+
+    def test_full_suite_is_superset_of_base(self):
+        base_tests = _test_method_names(SyncBaseDALConformanceTests)
+        full_tests = _test_method_names(SyncFullDALConformanceTests)
+        assert base_tests.issubset(full_tests)
+        assert len(full_tests) > len(base_tests)
+
 
 class TestAsyncConformanceSuiteCoverage:
     def test_every_abc_method_has_conformance_test(self):
@@ -100,3 +120,27 @@ class TestAsyncConformanceSuiteCoverage:
         write_tests = _test_method_names(AsyncWriteDALConformanceTests)
         base_tests = _test_method_names(AsyncBaseDALConformanceTests)
         assert write_tests.issubset(base_tests)
+
+    def test_lock_suite_has_tests(self):
+        tests = _test_method_names(AsyncLockDALConformanceTests)
+        assert len(tests) >= 4
+
+    def test_advanced_write_suite_has_tests(self):
+        tests = _test_method_names(AsyncAdvancedWriteDALConformanceTests)
+        assert len(tests) >= 4
+
+    def test_full_suite_is_superset_of_base(self):
+        base_tests = _test_method_names(AsyncBaseDALConformanceTests)
+        full_tests = _test_method_names(AsyncFullDALConformanceTests)
+        assert base_tests.issubset(full_tests)
+        assert len(full_tests) > len(base_tests)
+
+    def test_all_lock_methods_are_coroutines(self):
+        for name in _test_method_names(AsyncLockDALConformanceTests):
+            method = getattr(AsyncLockDALConformanceTests, name)
+            assert inspect.iscoroutinefunction(method), f"{name} 应为 async def"
+
+    def test_all_advanced_write_methods_are_coroutines(self):
+        for name in _test_method_names(AsyncAdvancedWriteDALConformanceTests):
+            method = getattr(AsyncAdvancedWriteDALConformanceTests, name)
+            assert inspect.iscoroutinefunction(method), f"{name} 应为 async def"

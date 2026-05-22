@@ -40,6 +40,7 @@ asyncio_default_test_loop_scope = "function"
 branch = true
 omit = [
     "src/lush_dal_protocol/testing/conformance.py",
+    "src/lush_dal_protocol/testing/reference.py",
 ]
 
 [tool.coverage.report]
@@ -88,6 +89,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "**/testing/conformance.py" = ["S101"]
+"**/testing/reference.py" = ["A002", "ARG003"]
 "tests/**/*.py" = [
     "B011", "B008",
     "ARG001", "ARG002", "ARG003", "ARG005",
@@ -144,6 +146,7 @@ reportUnknownParameterType = false
 reportMissingParameterType = false
 reportUnknownVariableType = false
 reportUnknownMemberType = false
+reportUnknownLambdaType = false
 reportExplicitAny = "none"
 reportAny = "none"
 reportUnusedParameter = false
@@ -158,6 +161,14 @@ reportReturnType = false
 reportPrivateUsage = false
 reportUnusedClass = false
 
+
+[[tool.basedpyright.executionEnvironments]]
+root = "src/lush_dal_protocol/testing"
+reportPrivateUsage = false
+reportImplicitOverride = false
+reportUnusedCallResult = false
+reportUnusedParameter = false
+reportUnknownArgumentType = false
 
 [[tool.basedpyright.executionEnvironments]]
 root = "src"

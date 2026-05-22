@@ -2,25 +2,29 @@
 
 from __future__ import annotations
 
+from abc import ABC
 from typing import Generic
 
 from lush_dal_protocol.abc._types import EntityT, SessionT
 from lush_dal_protocol.abc.read import AbstractAsyncReadDAL, AbstractSyncReadDAL
 from lush_dal_protocol.abc.write import AbstractAsyncWriteDAL, AbstractSyncWriteDAL
 from lush_dal_protocol.dto import CUModelT, DTOModelT
+from lush_dal_protocol.params.extra import ExtraT
 
 
 class AbstractSyncBaseDAL(
-    AbstractSyncReadDAL[SessionT, EntityT, DTOModelT],
-    AbstractSyncWriteDAL[SessionT, EntityT, DTOModelT, CUModelT],
-    Generic[SessionT, EntityT, DTOModelT, CUModelT],
+    AbstractSyncReadDAL[SessionT, EntityT, DTOModelT, ExtraT],
+    AbstractSyncWriteDAL[SessionT, EntityT, DTOModelT, CUModelT, ExtraT],
+    ABC,
+    Generic[SessionT, EntityT, DTOModelT, CUModelT, ExtraT],
 ):
     """同步完整 CRUD DAL 抽象基类 (Read + Write)."""
 
 
 class AbstractAsyncBaseDAL(
-    AbstractAsyncReadDAL[SessionT, EntityT, DTOModelT],
-    AbstractAsyncWriteDAL[SessionT, EntityT, DTOModelT, CUModelT],
-    Generic[SessionT, EntityT, DTOModelT, CUModelT],
+    AbstractAsyncReadDAL[SessionT, EntityT, DTOModelT, ExtraT],
+    AbstractAsyncWriteDAL[SessionT, EntityT, DTOModelT, CUModelT, ExtraT],
+    ABC,
+    Generic[SessionT, EntityT, DTOModelT, CUModelT, ExtraT],
 ):
     """异步完整 CRUD DAL 抽象基类 (Read + Write)."""

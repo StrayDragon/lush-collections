@@ -8,11 +8,12 @@ from typing import Any, Generic, TypeVar
 
 from lush_dal_protocol.abc._types import EntityT, SessionT
 from lush_dal_protocol.dto import DTOModelT
+from lush_dal_protocol.params.extra import ExtraT
 
 T = TypeVar("T")
 
 
-class AbstractSyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT]):
+class AbstractSyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT, ExtraT]):
     """同步批量字段查询 DAL 抽象基类."""
 
     @classmethod
@@ -20,6 +21,7 @@ class AbstractSyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT]):
     def batch_get_field__entity(
         cls,
         session: SessionT,
+        extra: ExtraT | None = None,
         *,
         field_name: str,
         field_values: Iterable[T],
@@ -33,6 +35,7 @@ class AbstractSyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT]):
     def batch_get_field__dto(
         cls,
         session: SessionT,
+        extra: ExtraT | None = None,
         *,
         field_name: str,
         field_values: Iterable[T],
@@ -41,7 +44,7 @@ class AbstractSyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT]):
         ...
 
 
-class AbstractAsyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT]):
+class AbstractAsyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT, ExtraT]):
     """异步批量字段查询 DAL 抽象基类.
 
     语义与 ``AbstractSyncBatchFieldDAL`` 一致, 所有方法为 ``async def``.
@@ -52,6 +55,7 @@ class AbstractAsyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT]):
     async def batch_get_field__entity(
         cls,
         session: SessionT,
+        extra: ExtraT | None = None,
         *,
         field_name: str,
         field_values: Iterable[T],
@@ -65,6 +69,7 @@ class AbstractAsyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT]):
     async def batch_get_field__dto(
         cls,
         session: SessionT,
+        extra: ExtraT | None = None,
         *,
         field_name: str,
         field_values: Iterable[T],
