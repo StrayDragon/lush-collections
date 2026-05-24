@@ -4391,6 +4391,9 @@ class TestAsyncDALV2Conformance(AsyncFullDALConformanceTests):
 
         return DBRetryableError
 
+    def _make_update_data(self, field: str, value: Any) -> Any:
+        return {getattr(_TestTableSimple, field): value}
+
     @pytest.fixture
     def dal_class(self):
         return _TestSimpleDALV2

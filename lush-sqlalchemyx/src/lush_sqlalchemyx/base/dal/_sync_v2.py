@@ -26,8 +26,8 @@ from ._sync import SyncReadDAL, SyncSQLATableT, SyncWriteDAL
 
 class SyncReadDALV2(  # pyright: ignore[reportIncompatibleMethodOverride]
     SyncReadDAL[SyncSQLATableT, DTOModelT],
-    AbstractSyncReadDAL[Session, SyncSQLATableT, DTOModelT, SQLAExtra],
-    AbstractSyncBatchFieldDAL[Session, SyncSQLATableT, DTOModelT, SQLAExtra],
+    AbstractSyncReadDAL[Session, SyncSQLATableT, DTOModelT, int, SQLAExtra],
+    AbstractSyncBatchFieldDAL[Session, SyncSQLATableT, DTOModelT, int, SQLAExtra],
     Generic[SyncSQLATableT, DTOModelT],
 ):
     """V2 同步只读 DAL — ABC 合规接口.
@@ -69,8 +69,8 @@ class SyncReadDALV2(  # pyright: ignore[reportIncompatibleMethodOverride]
 
 class SyncWriteDALV2(  # pyright: ignore[reportIncompatibleMethodOverride]
     SyncWriteDAL[SyncSQLATableT, DTOModelT, CUModelT],
-    AbstractSyncWriteDAL[Session, SyncSQLATableT, DTOModelT, CUModelT, SQLAExtra],
-    AbstractSyncAdvancedWriteDAL[Session, SyncSQLATableT, CUModelT, SQLAExtra],
+    AbstractSyncWriteDAL[Session, SyncSQLATableT, DTOModelT, CUModelT, int, SQLAExtra],
+    AbstractSyncAdvancedWriteDAL[Session, SyncSQLATableT, CUModelT, int, SQLAExtra],
     Generic[SyncSQLATableT, DTOModelT, CUModelT],
 ):
     """V2 同步写入 DAL — ABC 合规接口.
@@ -148,7 +148,7 @@ class SyncWriteDALV2(  # pyright: ignore[reportIncompatibleMethodOverride]
 class SyncBaseDALV2(  # pyright: ignore[reportIncompatibleMethodOverride]
     SyncReadDALV2[SyncSQLATableT, DTOModelT],
     SyncWriteDALV2[SyncSQLATableT, DTOModelT, CUModelT],
-    AbstractSyncLockDAL[Session, SyncSQLATableT, CUModelT, SQLAExtra],
+    AbstractSyncLockDAL[Session, SyncSQLATableT, CUModelT, int, SQLAExtra],
     AbstractSyncRawSQLDAL[Session, SQLAExtra],
     Generic[SyncSQLATableT, DTOModelT, CUModelT],
 ):

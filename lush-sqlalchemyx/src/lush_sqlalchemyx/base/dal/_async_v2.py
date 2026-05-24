@@ -27,8 +27,8 @@ from ._params import SQLAExtra
 
 class AsyncReadDALV2(  # pyright: ignore[reportIncompatibleMethodOverride]
     AsyncReadDAL[AsyncSQLATableT, DTOModelT],
-    AbstractAsyncReadDAL[AsyncSession, AsyncSQLATableT, DTOModelT, SQLAExtra],
-    AbstractAsyncBatchFieldDAL[AsyncSession, AsyncSQLATableT, DTOModelT, SQLAExtra],
+    AbstractAsyncReadDAL[AsyncSession, AsyncSQLATableT, DTOModelT, int, SQLAExtra],
+    AbstractAsyncBatchFieldDAL[AsyncSession, AsyncSQLATableT, DTOModelT, int, SQLAExtra],
     Generic[AsyncSQLATableT, DTOModelT],
 ):
     """V2 异步只读 DAL — ABC 合规接口.
@@ -70,8 +70,8 @@ class AsyncReadDALV2(  # pyright: ignore[reportIncompatibleMethodOverride]
 
 class AsyncWriteDALV2(  # pyright: ignore[reportIncompatibleMethodOverride]
     AsyncWriteDAL[AsyncSQLATableT, DTOModelT, CUModelT],
-    AbstractAsyncWriteDAL[AsyncSession, AsyncSQLATableT, DTOModelT, CUModelT, SQLAExtra],
-    AbstractAsyncAdvancedWriteDAL[AsyncSession, AsyncSQLATableT, CUModelT, SQLAExtra],
+    AbstractAsyncWriteDAL[AsyncSession, AsyncSQLATableT, DTOModelT, CUModelT, int, SQLAExtra],
+    AbstractAsyncAdvancedWriteDAL[AsyncSession, AsyncSQLATableT, CUModelT, int, SQLAExtra],
     Generic[AsyncSQLATableT, DTOModelT, CUModelT],
 ):
     """V2 异步写入 DAL — ABC 合规接口.
@@ -149,7 +149,7 @@ class AsyncWriteDALV2(  # pyright: ignore[reportIncompatibleMethodOverride]
 class AsyncBaseDALV2(  # pyright: ignore[reportIncompatibleMethodOverride]
     AsyncReadDALV2[AsyncSQLATableT, DTOModelT],
     AsyncWriteDALV2[AsyncSQLATableT, DTOModelT, CUModelT],
-    AbstractAsyncLockDAL[AsyncSession, AsyncSQLATableT, CUModelT, SQLAExtra],
+    AbstractAsyncLockDAL[AsyncSession, AsyncSQLATableT, CUModelT, int, SQLAExtra],
     AbstractAsyncRawSQLDAL[AsyncSession, SQLAExtra],
     Generic[AsyncSQLATableT, DTOModelT, CUModelT],
 ):

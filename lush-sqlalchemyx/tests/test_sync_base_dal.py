@@ -1595,6 +1595,9 @@ class TestSyncDALV2Conformance(SyncFullDALConformanceTests):
 
         return DBRetryableError
 
+    def _make_update_data(self, field: str, value: Any) -> Any:
+        return {getattr(_SyncSimpleTable, field): value}
+
     @pytest.fixture
     def dal_class(self):
         return _SyncSimpleDALV2
