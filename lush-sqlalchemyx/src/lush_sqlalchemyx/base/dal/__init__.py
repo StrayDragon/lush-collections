@@ -67,7 +67,20 @@ from ._common import (
 # Event listener references — accessed by tests via getattr(module, name).
 from ._common import __prevent_readonly_write as __prevent_readonly_write  # pyright: ignore[reportPrivateUsage]
 from ._common import __receive_before_flush as __receive_before_flush  # pyright: ignore[reportPrivateUsage]
+from ._pagination import (
+    CursorPagination,
+    CursorResult,
+    OffsetPagination,
+    PageResult,
+    build_cursor_stmt,
+    build_offset_stmt,
+    decode_cursor,
+    encode_cursor,
+    make_cursor_result,
+    make_page_result,
+)
 from ._params import SQLAExtra
+from ._repository import AsyncSQLAlchemyRepository, SyncSQLAlchemyRepository
 
 # --- sync ---
 from ._sync import (
@@ -141,6 +154,17 @@ __all__ = (
     "SyncXDALOp",
     "sync_temp_set_lock_wait_timeout",
     "sync_with_retry",
+    # pagination
+    "CursorPagination",
+    "CursorResult",
+    "OffsetPagination",
+    "PageResult",
+    "build_cursor_stmt",
+    "build_offset_stmt",
+    "decode_cursor",
+    "encode_cursor",
+    "make_cursor_result",
+    "make_page_result",
     # V2
     "AsyncBaseDALV2",
     "AsyncReadDALV2",
@@ -149,6 +173,9 @@ __all__ = (
     "SyncBaseDALV2",
     "SyncReadDALV2",
     "SyncWriteDALV2",
+    # repository
+    "AsyncSQLAlchemyRepository",
+    "SyncSQLAlchemyRepository",
     # lush-dal-protocol ABCs
     "AbstractAsyncAdvancedWriteDAL",
     "AbstractAsyncBaseDAL",
