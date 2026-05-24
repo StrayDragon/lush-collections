@@ -4,8 +4,13 @@
 """
 
 from .extra import Extra, ExtraT
+from .pagination import CursorPagination, CursorResult, OffsetPagination, PageResult
 
 __all__ = [
+    "CursorPagination",
+    "CursorResult",
     "Extra",
     "ExtraT",
+    "OffsetPagination",
+    "PageResult",
 ]
