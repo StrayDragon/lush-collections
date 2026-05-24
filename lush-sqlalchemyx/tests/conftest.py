@@ -4,11 +4,13 @@ Goals:
 - Automatically provision external dependencies (e.g. MySQL) via Docker.
 - Prefer using existing local Docker images to avoid pulling (fast path).
 - Idempotent: cleanup containers and drop random test databases on teardown.
+- Safety: validate that test connections target isolated Docker instances only.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -17,6 +19,32 @@ from collections.abc import Generator
 from dataclasses import dataclass
 
 import pytest
+
+_TEST_DB_NAME_PATTERN = re.compile(r"^lush_test_[a-f0-9]+$")
+_TEST_CONTAINER_NAME_PATTERN = re.compile(r"^lush-sqlalchemyx-mysql-pytest-[a-f0-9]+$")
+_SAFE_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _validate_test_endpoint(endpoint: _MySQLEndpoint) -> None:
+    """校验测试 endpoint 确实指向隔离的测试环境, 防止误操作生产库.
+
+    Raises:
+        RuntimeError: 当检测到可能连接生产环境时.
+    """
+    if endpoint.host not in _SAFE_HOSTS:
+        raise RuntimeError(
+            f"SAFETY: test endpoint host '{endpoint.host}' is not localhost. Refusing to run tests against a remote database."
+        )
+
+    if not _TEST_DB_NAME_PATTERN.match(endpoint.database):
+        raise RuntimeError(
+            f"SAFETY: database name '{endpoint.database}' does not match test pattern 'lush_test_<hex>'. Refusing to run tests against a potentially non-test database."
+        )
+
+    if endpoint.container_name and not _TEST_CONTAINER_NAME_PATTERN.match(endpoint.container_name):
+        raise RuntimeError(
+            f"SAFETY: container name '{endpoint.container_name}' does not match test pattern. Refusing to run tests against an unknown container."
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,20 +224,16 @@ def _docker_drop_database(container_name: str, *, root_password: str, database: 
     )
 
 
-@pytest.fixture(scope="session")
-def mysql_endpoint() -> Generator[_MySQLEndpoint, None, None]:
-    if not _docker_available():
-        raise RuntimeError("Docker is unavailable. Enable Docker to run MySQL-backed tests.")
-
-    image = _choose_mysql_image()
-    container_name = os.getenv("LUSH_TEST_MYSQL_CONTAINER", f"lush-sqlalchemyx-mysql-pytest-{uuid.uuid4().hex[:10]}")
-    root_password = os.getenv("LUSH_TEST_MYSQL_ROOT_PASSWORD", uuid.uuid4().hex)
+def _start_mysql_endpoint(image: str) -> Generator[_MySQLEndpoint, None, None]:
+    """启动指定版本的 MySQL 容器并 yield endpoint, 结束后清理."""
+    container_name = f"lush-sqlalchemyx-mysql-pytest-{uuid.uuid4().hex[:10]}"
+    root_password = uuid.uuid4().hex
     database = f"lush_test_{uuid.uuid4().hex[:12]}"
 
     port = _docker_start_mysql(container_name, image=image, root_password=root_password, database=database)
     try:
         _wait_for_mysql_ready(container_name, root_password=root_password, timeout_s=45.0)
-        yield _MySQLEndpoint(
+        ep = _MySQLEndpoint(
             host="127.0.0.1",
             port=port,
             user="root",
@@ -217,6 +241,56 @@ def mysql_endpoint() -> Generator[_MySQLEndpoint, None, None]:
             database=database,
             container_name=container_name,
         )
+        _validate_test_endpoint(ep)
+        yield ep
     finally:
         _docker_drop_database(container_name, root_password=root_password, database=database)
         _docker_rm_if_exists(container_name)
+
+
+@pytest.fixture(scope="session")
+def mysql_endpoint() -> Generator[_MySQLEndpoint, None, None]:
+    if not _docker_available():
+        raise RuntimeError("Docker is unavailable. Enable Docker to run MySQL-backed tests.")
+
+    image = os.getenv("LUSH_TEST_MYSQL_IMAGE") or _choose_mysql_image()
+    container_name = os.getenv("LUSH_TEST_MYSQL_CONTAINER", f"lush-sqlalchemyx-mysql-pytest-{uuid.uuid4().hex[:10]}")
+    root_password = os.getenv("LUSH_TEST_MYSQL_ROOT_PASSWORD", uuid.uuid4().hex)
+    database = f"lush_test_{uuid.uuid4().hex[:12]}"
+
+    port = _docker_start_mysql(container_name, image=image, root_password=root_password, database=database)
+    try:
+        _wait_for_mysql_ready(container_name, root_password=root_password, timeout_s=45.0)
+        ep = _MySQLEndpoint(
+            host="127.0.0.1",
+            port=port,
+            user="root",
+            password=root_password,
+            database=database,
+            container_name=container_name,
+        )
+        _validate_test_endpoint(ep)
+        yield ep
+    finally:
+        _docker_drop_database(container_name, root_password=root_password, database=database)
+        _docker_rm_if_exists(container_name)
+
+
+@pytest.fixture(scope="session")
+def mysql57_endpoint() -> Generator[_MySQLEndpoint, None, None]:
+    """MySQL 5.7 专用 endpoint — 用于多版本 matrix 测试."""
+    if not _docker_available():
+        pytest.skip("Docker unavailable")
+    if not _docker_image_exists("mysql:5.7"):
+        pytest.skip("mysql:5.7 image not available locally")
+    yield from _start_mysql_endpoint("mysql:5.7")
+
+
+@pytest.fixture(scope="session")
+def mysql8_endpoint() -> Generator[_MySQLEndpoint, None, None]:
+    """MySQL 8 专用 endpoint — 用于多版本 matrix 测试."""
+    if not _docker_available():
+        pytest.skip("Docker unavailable")
+    if not _docker_image_exists("mysql:8"):
+        pytest.skip("mysql:8 image not available locally")
+    yield from _start_mysql_endpoint("mysql:8")
