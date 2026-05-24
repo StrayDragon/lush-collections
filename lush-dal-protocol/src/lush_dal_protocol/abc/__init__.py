@@ -10,6 +10,16 @@ from .composed import AbstractAsyncBaseDAL, AbstractSyncBaseDAL
 from .lock import AbstractAsyncLockDAL, AbstractSyncLockDAL
 from .raw_sql import AbstractAsyncRawSQLDAL, AbstractSyncRawSQLDAL
 from .read import AbstractAsyncReadDAL, AbstractSyncReadDAL
+from .sessionless import (
+    AbstractAsyncSessionlessBaseDAL,
+    AbstractAsyncSessionlessLockDAL,
+    AbstractAsyncSessionlessReadDAL,
+    AbstractAsyncSessionlessWriteDAL,
+    AbstractSyncSessionlessBaseDAL,
+    AbstractSyncSessionlessLockDAL,
+    AbstractSyncSessionlessReadDAL,
+    AbstractSyncSessionlessWriteDAL,
+)
 from .write import AbstractAsyncWriteDAL, AbstractSyncWriteDAL
 
 __all__ = [
@@ -19,6 +29,10 @@ __all__ = [
     "AbstractAsyncLockDAL",
     "AbstractAsyncRawSQLDAL",
     "AbstractAsyncReadDAL",
+    "AbstractAsyncSessionlessBaseDAL",
+    "AbstractAsyncSessionlessLockDAL",
+    "AbstractAsyncSessionlessReadDAL",
+    "AbstractAsyncSessionlessWriteDAL",
     "AbstractAsyncWriteDAL",
     "AbstractSyncAdvancedWriteDAL",
     "AbstractSyncBaseDAL",
@@ -26,5 +40,9 @@ __all__ = [
     "AbstractSyncLockDAL",
     "AbstractSyncRawSQLDAL",
     "AbstractSyncReadDAL",
+    "AbstractSyncSessionlessBaseDAL",
+    "AbstractSyncSessionlessLockDAL",
+    "AbstractSyncSessionlessReadDAL",
+    "AbstractSyncSessionlessWriteDAL",
     "AbstractSyncWriteDAL",
 ]
