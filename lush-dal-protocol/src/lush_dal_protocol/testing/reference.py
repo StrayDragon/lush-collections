@@ -153,10 +153,10 @@ def _must_get(session: InMemorySession, eid: int) -> dict[str, Any]:
 
 
 class InMemorySyncDAL(
-    AbstractSyncReadDAL[InMemorySession, InMemoryEntity, InMemoryDTO, Extra],
-    AbstractSyncWriteDAL[InMemorySession, InMemoryEntity, InMemoryDTO, InMemoryCU, Extra],
-    AbstractSyncLockDAL[InMemorySession, InMemoryEntity, InMemoryCU, Extra],
-    AbstractSyncAdvancedWriteDAL[InMemorySession, InMemoryEntity, InMemoryCU, Extra],
+    AbstractSyncReadDAL[InMemorySession, InMemoryEntity, InMemoryDTO, int, Extra],
+    AbstractSyncWriteDAL[InMemorySession, InMemoryEntity, InMemoryDTO, InMemoryCU, int, Extra],
+    AbstractSyncLockDAL[InMemorySession, InMemoryEntity, InMemoryCU, int, Extra],
+    AbstractSyncAdvancedWriteDAL[InMemorySession, InMemoryEntity, InMemoryCU, int, Extra],
 ):
     """基于内存字典的同步 DAL 完整实现.
 
@@ -390,10 +390,10 @@ class InMemorySyncDAL(
 
 
 class InMemoryAsyncDAL(
-    AbstractAsyncReadDAL[InMemorySession, InMemoryEntity, InMemoryDTO, Extra],
-    AbstractAsyncWriteDAL[InMemorySession, InMemoryEntity, InMemoryDTO, InMemoryCU, Extra],
-    AbstractAsyncLockDAL[InMemorySession, InMemoryEntity, InMemoryCU, Extra],
-    AbstractAsyncAdvancedWriteDAL[InMemorySession, InMemoryEntity, InMemoryCU, Extra],
+    AbstractAsyncReadDAL[InMemorySession, InMemoryEntity, InMemoryDTO, int, Extra],
+    AbstractAsyncWriteDAL[InMemorySession, InMemoryEntity, InMemoryDTO, InMemoryCU, int, Extra],
+    AbstractAsyncLockDAL[InMemorySession, InMemoryEntity, InMemoryCU, int, Extra],
+    AbstractAsyncAdvancedWriteDAL[InMemorySession, InMemoryEntity, InMemoryCU, int, Extra],
 ):
     """基于内存字典的异步 DAL 完整实现.
 

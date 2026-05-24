@@ -6,14 +6,14 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
 from typing import Any, Generic, TypeVar
 
-from lush_dal_protocol.abc._types import EntityT, SessionT
+from lush_dal_protocol.abc._types import EntityT, PrimaryKeyT, SessionT
 from lush_dal_protocol.dto import DTOModelT
 from lush_dal_protocol.params.extra import ExtraT
 
 T = TypeVar("T")
 
 
-class AbstractSyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT, ExtraT]):
+class AbstractSyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT, PrimaryKeyT, ExtraT]):
     """同步批量字段查询 DAL 抽象基类."""
 
     @classmethod
@@ -44,7 +44,7 @@ class AbstractSyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT, Extra
         ...
 
 
-class AbstractAsyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT, ExtraT]):
+class AbstractAsyncBatchFieldDAL(ABC, Generic[SessionT, EntityT, DTOModelT, PrimaryKeyT, ExtraT]):
     """异步批量字段查询 DAL 抽象基类.
 
     语义与 ``AbstractSyncBatchFieldDAL`` 一致, 所有方法为 ``async def``.
