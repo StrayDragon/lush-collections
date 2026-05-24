@@ -960,7 +960,19 @@ class AsyncXDALOp(AsyncRawReadDAL, AsyncRawDAL):
 
 
 class AsyncBaseDAL(AsyncReadDAL[AsyncSQLATableT, DTOModelT], AsyncWriteDAL[AsyncSQLATableT, DTOModelT, CUModelT]):
-    """基础数据访问层."""
+    """基础数据访问层.
+
+    .. deprecated:: 0.3.0
+        V1 DAL 将在 1.0 移除, 请迁移至 ``AsyncBaseDALV2``.
+    """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        warnings.warn(
+            f"{cls.__name__} 继承了 V1 AsyncBaseDAL, 建议迁移至 AsyncBaseDALV2",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
 
 class ReadOnlyAsyncBaseDAL(AsyncReadDAL[AsyncSQLATableT, ReadOnlyDTOModelT]):

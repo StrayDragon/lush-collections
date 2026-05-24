@@ -915,7 +915,19 @@ class SyncXDALOp(SyncRawReadDAL, SyncRawDAL):
 
 
 class SyncBaseDAL(SyncReadDAL[SyncSQLATableT, DTOModelT], SyncWriteDAL[SyncSQLATableT, DTOModelT, CUModelT]):
-    """基础数据访问层 (同步版)."""
+    """基础数据访问层 (同步版).
+
+    .. deprecated:: 0.3.0
+        V1 DAL 将在 1.0 移除, 请迁移至 ``SyncBaseDALV2``.
+    """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        warnings.warn(
+            f"{cls.__name__} 继承了 V1 SyncBaseDAL, 建议迁移至 SyncBaseDALV2",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
 
 class ReadOnlySyncBaseDAL(SyncReadDAL[SyncSQLATableT, ReadOnlyDTOModelT]):
