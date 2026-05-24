@@ -24,6 +24,17 @@ sync:
 test:
   @uv run -p {{python}} --default-index {{default_index}} pytest
 
+# 分别使用 MySQL 5.7 和 8 运行 DAL 测试 (matrix 测试, 跳过覆盖率检查).
+test-mysql-matrix:
+  @echo "=== MySQL 5.7 ==="
+  LUSH_TEST_MYSQL_IMAGE=mysql:5.7 uv run -p {{python}} --default-index {{default_index}} pytest tests/test_base_dal.py tests/test_sync_base_dal.py --no-cov -v --tb=short
+  @echo "=== MySQL 8 ==="
+  LUSH_TEST_MYSQL_IMAGE=mysql:8 uv run -p {{python}} --default-index {{default_index}} pytest tests/test_base_dal.py tests/test_sync_base_dal.py --no-cov -v --tb=short
+
+# 运行性能基准测试.
+bench:
+  @uv run -p {{python}} --default-index {{default_index}} pytest tests/test_benchmark.py --benchmark-only --no-cov -v
+
 # 构建 dist (wheel/sdist).
 build:
   @uv build --default-index {{default_index}}
