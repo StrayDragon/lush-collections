@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from typing import Any, ClassVar, TypeVar
 
 from lush_dal_protocol.dto import BaseCU, BaseDTO
-from lush_dal_protocol.params.extra import Extra
 
 # 场景 1: 不使用 ORM 的纯数据类
 
@@ -52,27 +51,7 @@ class PlainUserDTO(BaseDTO[PlainUserCU]):
     email: str | None = None
 
 
-# 场景 2: 使用 Extra 扩展参数
-
-
-class MyCustomExtra(Extra):
-    """自定义扩展参数 (用于特定场景)."""
-
-    timeout: int = 30
-    retry_on_failure: bool = True
-
-
-MyCustomExtraT = TypeVar("MyCustomExtraT", bound=MyCustomExtra)
-
-
-def use_custom_extra(extra: MyCustomExtraT | None = None) -> None:
-    """使用自定义扩展参数."""
-    ext = extra or MyCustomExtra()
-    assert ext.timeout == 30
-    assert ext.retry_on_failure is True
-
-
-# 场景 3: 泛型函数 (Python 3.10 语法)
+# 场景 2: 泛型函数 (Python 3.10 语法)
 
 
 EntityT = TypeVar("EntityT")

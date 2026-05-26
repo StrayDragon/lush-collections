@@ -149,9 +149,6 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"**/dal/_*_v2.py" = [
-    "ARG003",  # extra 参数是 ABC 合规所必需但在部分方法中未使用
-]
 "tests/**/*.py" = [
     # === 测试代码质量 ===
     "B011",    # assert False应改为raise AssertionError

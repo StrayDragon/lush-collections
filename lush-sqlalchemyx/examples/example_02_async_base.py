@@ -1,11 +1,11 @@
-"""场景 02: 纯 SQLAlchemy 异步表 — AsyncSqlATableBase + BaseCU/BaseDTO + AsyncDAL V2."""
+"""场景 02: 纯 SQLAlchemy 异步表 — AsyncSqlATableBase + BaseCU/BaseDTO + AsyncDAL."""
 
 from typing import ClassVar
 
 from sqlalchemy.orm import Mapped, mapped_column
 
 from lush_sqlalchemyx.base.dal import (
-    AsyncBaseDALV2,
+    AsyncBaseDAL,
     BaseCU,
     BaseDTO,
     BasicAsyncBaseTable,
@@ -47,9 +47,9 @@ class OrderDTO(BaseDTO[OrderCU]):
 
 
 # ---------------------------------------------------------------------------
-# DAL V2
+# DAL
 # ---------------------------------------------------------------------------
 
 
-class OrderDAL(AsyncBaseDALV2[Order, OrderDTO, OrderCU]):
-    """订单 DAL — 验证 AsyncBaseDALV2 泛型参数解析."""
+class OrderDAL(AsyncBaseDAL[Order, OrderDTO, OrderCU]):
+    """订单 DAL — 验证 AsyncBaseDAL 泛型参数解析."""

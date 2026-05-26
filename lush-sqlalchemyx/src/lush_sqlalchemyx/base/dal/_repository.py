@@ -1,11 +1,11 @@
 """SQLAlchemy 具体 Repository 实现.
 
-提供高层声明式 CRUD 接口, 内部委托给 DAL V2.
+提供高层声明式 CRUD 接口, 内部委托给 DAL.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 
@@ -37,16 +37,21 @@ class SyncSQLAlchemyRepository(
         _session_factory: 返回 Session 的工厂函数
     """
 
-    _Table: ClassVar[type]
-    _DTO: ClassVar[type]
+    _Table: ClassVar[type[TableT]]  # pyright: ignore[reportGeneralTypeIssues] — ClassVar + TypeVar 是 pyright 已知限制
+    _DTO: ClassVar[type[DTOModelT]]  # pyright: ignore[reportGeneralTypeIssues]
     _session_factory: ClassVar[Callable[[], Session]]
 
     @classmethod
-    @contextmanager
-    def _get_session(cls) -> Any:
-        factory = cast("Callable[[], Session]", cls._session_factory)
-        session = factory()
+    def _make_session(cls) -> Session:
+        """创建并配置一个新的 Session."""
+        session = cls._session_factory()  # pyright: ignore[reportAttributeAccessIssue] — pyright generic classmethod limitation
         session.expire_on_commit = False
+        return session
+
+    @classmethod
+    @contextmanager
+    def _get_session(cls) -> Generator[Session, None, None]:
+        session = cls._make_session()
         try:
             yield session
             session.commit()
@@ -59,47 +64,40 @@ class SyncSQLAlchemyRepository(
     @classmethod
     def get(cls, pk: int) -> TableT | None:
         """根据主键获取实体."""
-        _Table = cast("type[TableT]", cls._Table)
         with cls._get_session() as session:
-            return session.get(_Table, pk)
+            return session.get(cls._Table, pk)
 
     @classmethod
     def get_dto(cls, pk: int) -> DTOModelT | None:
         """根据主键获取 DTO."""
-        _Table = cast("type[TableT]", cls._Table)
-        _DTO = cast("type[DTOModelT]", cls._DTO)
         with cls._get_session() as session:
-            entity = session.get(_Table, pk)
+            entity = session.get(cls._Table, pk)
             if entity is None:
                 return None
-            return _DTO.model_validate(entity)
+            return cls._DTO.model_validate(entity)
 
     @classmethod
     def exists(cls, pk: int) -> bool:
         """判断实体是否存在."""
-        _Table = cast("type[TableT]", cls._Table)
         with cls._get_session() as session:
-            return session.get(_Table, pk) is not None
+            return session.get(cls._Table, pk) is not None
 
     @classmethod
     def count(cls) -> int:
         """统计总数."""
-        _Table = cast("type[TableT]", cls._Table)
         with cls._get_session() as session:
-            stmt = sa.select(sa.func.count()).select_from(_Table)
+            stmt = sa.select(sa.func.count()).select_from(cls._Table)
             return session.execute(stmt).scalar() or 0
 
     @classmethod
     def list(cls, pagination: OffsetPagination | None = None) -> PageResult[DTOModelT]:
         """分页列表 (offset-based)."""
-        _Table = cast("type[TableT]", cls._Table)
-        _DTO = cast("type[DTOModelT]", cls._DTO)
         with cls._get_session() as session:
-            stmt = build_offset_stmt(_Table, pagination)
+            stmt = build_offset_stmt(cls._Table, pagination)
             entities = session.execute(stmt).scalars().all()
-            items = [_DTO.model_validate(e) for e in entities]
+            items = [cls._DTO.model_validate(e) for e in entities]
 
-            count_stmt = sa.select(sa.func.count()).select_from(_Table)
+            count_stmt = sa.select(sa.func.count()).select_from(cls._Table)
             total = session.execute(count_stmt).scalar() or 0
 
             return make_page_result(items, total, pagination)
@@ -108,12 +106,10 @@ class SyncSQLAlchemyRepository(
     def list_cursor(cls, pagination: CursorPagination | None = None) -> CursorResult[DTOModelT]:
         """分页列表 (cursor-based)."""
         p = pagination or CursorPagination()
-        _Table = cast("type[TableT]", cls._Table)
-        _DTO = cast("type[DTOModelT]", cls._DTO)
         with cls._get_session() as session:
-            stmt = build_cursor_stmt(_Table, pagination)
+            stmt = build_cursor_stmt(cls._Table, pagination)
             entities = session.execute(stmt).scalars().all()
-            items = [_DTO.model_validate(e) for e in entities]
+            items = [cls._DTO.model_validate(e) for e in entities]
             return make_cursor_result(items, p.limit)
 
     @classmethod
@@ -129,9 +125,8 @@ class SyncSQLAlchemyRepository(
     @classmethod
     def update(cls, pk: int, data: CUModelT) -> TableT | None:
         """更新实体 (仅设置非空字段)."""
-        _Table = cast("type[TableT]", cls._Table)
         with cls._get_session() as session:
-            entity = session.get(_Table, pk)
+            entity = session.get(cls._Table, pk)
             if entity is None:
                 return None
             update_fields = data.model_dump(exclude_unset=True, exclude={"id"})
@@ -144,9 +139,8 @@ class SyncSQLAlchemyRepository(
     @classmethod
     def delete(cls, pk: int) -> None:
         """删除实体."""
-        _Table = cast("type[TableT]", cls._Table)
         with cls._get_session() as session:
-            entity = session.get(_Table, pk)
+            entity = session.get(cls._Table, pk)
             if entity is not None:
                 session.delete(entity)
 
@@ -168,9 +162,9 @@ class SyncSQLAlchemyRepository(
         if not pk_list:
             return 0
         with cls._get_session() as session:
-            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)
+            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)  # pyright: ignore[reportAttributeAccessIssue] — SA 列描述符对 pyright 不可见  # SA 列描述符对 pyright 不可见
             stmt = sa.update(cls._Table).where(id_col.in_(pk_list)).values(**data)
-            result = cast("sa.CursorResult[Any]", session.execute(stmt))
+            result = cast("sa.CursorResult[Any]", session.execute(stmt))  # SA stubs 返回 Result, 但运行时为 CursorResult
             return result.rowcount
 
     @classmethod
@@ -180,7 +174,7 @@ class SyncSQLAlchemyRepository(
         if not pk_list:
             return 0
         with cls._get_session() as session:
-            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)
+            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)  # pyright: ignore[reportAttributeAccessIssue] — SA 列描述符对 pyright 不可见
             stmt = sa.delete(cls._Table).where(id_col.in_(pk_list))
             result = cast("sa.CursorResult[Any]", session.execute(stmt))
             return result.rowcount
@@ -198,55 +192,48 @@ class AsyncSQLAlchemyRepository(
         _session_factory: 返回 async context manager 的工厂
     """
 
-    _Table: ClassVar[type]
-    _DTO: ClassVar[type]
+    _Table: ClassVar[type[TableT]]  # pyright: ignore[reportGeneralTypeIssues]
+    _DTO: ClassVar[type[DTOModelT]]  # pyright: ignore[reportGeneralTypeIssues]
     _session_factory: ClassVar[Callable[..., AbstractAsyncContextManager[AsyncSession]]]
 
     @classmethod
     async def get(cls, pk: int) -> TableT | None:
         """根据主键获取实体."""
-        _Table = cast("type[TableT]", cls._Table)
         async with cls._session_factory() as session:
-            return await session.get(_Table, pk)
+            return await session.get(cls._Table, pk)
 
     @classmethod
     async def get_dto(cls, pk: int) -> DTOModelT | None:
         """根据主键获取 DTO."""
-        _Table = cast("type[TableT]", cls._Table)
-        _DTO = cast("type[DTOModelT]", cls._DTO)
         async with cls._session_factory() as session:
-            entity = await session.get(_Table, pk)
+            entity = await session.get(cls._Table, pk)
             if entity is None:
                 return None
-            return _DTO.model_validate(entity)
+            return cls._DTO.model_validate(entity)
 
     @classmethod
     async def exists(cls, pk: int) -> bool:
         """判断实体是否存在."""
-        _Table = cast("type[TableT]", cls._Table)
         async with cls._session_factory() as session:
-            return (await session.get(_Table, pk)) is not None
+            return (await session.get(cls._Table, pk)) is not None
 
     @classmethod
     async def count(cls) -> int:
         """统计总数."""
-        _Table = cast("type[TableT]", cls._Table)
         async with cls._session_factory() as session:
-            stmt = sa.select(sa.func.count()).select_from(_Table)
+            stmt = sa.select(sa.func.count()).select_from(cls._Table)
             return (await session.execute(stmt)).scalar() or 0
 
     @classmethod
     async def list(cls, pagination: OffsetPagination | None = None) -> PageResult[DTOModelT]:
         """分页列表 (offset-based)."""
-        _Table = cast("type[TableT]", cls._Table)
-        _DTO = cast("type[DTOModelT]", cls._DTO)
         async with cls._session_factory() as session:
-            stmt = build_offset_stmt(_Table, pagination)
+            stmt = build_offset_stmt(cls._Table, pagination)
             result = await session.execute(stmt)
             entities = result.scalars().all()
-            items = [_DTO.model_validate(e) for e in entities]
+            items = [cls._DTO.model_validate(e) for e in entities]
 
-            count_stmt = sa.select(sa.func.count()).select_from(_Table)
+            count_stmt = sa.select(sa.func.count()).select_from(cls._Table)
             total = (await session.execute(count_stmt)).scalar() or 0
 
             return make_page_result(items, total, pagination)
@@ -255,13 +242,11 @@ class AsyncSQLAlchemyRepository(
     async def list_cursor(cls, pagination: CursorPagination | None = None) -> CursorResult[DTOModelT]:
         """分页列表 (cursor-based)."""
         p = pagination or CursorPagination()
-        _Table = cast("type[TableT]", cls._Table)
-        _DTO = cast("type[DTOModelT]", cls._DTO)
         async with cls._session_factory() as session:
-            stmt = build_cursor_stmt(_Table, pagination)
+            stmt = build_cursor_stmt(cls._Table, pagination)
             result = await session.execute(stmt)
             entities = result.scalars().all()
-            items = [_DTO.model_validate(e) for e in entities]
+            items = [cls._DTO.model_validate(e) for e in entities]
             return make_cursor_result(items, p.limit)
 
     @classmethod
@@ -278,9 +263,8 @@ class AsyncSQLAlchemyRepository(
     @classmethod
     async def update(cls, pk: int, data: CUModelT) -> TableT | None:  # pragma: no cover — async boundary
         """更新实体 (仅设置非空字段)."""
-        _Table = cast("type[TableT]", cls._Table)
         async with cls._session_factory() as session:
-            entity = await session.get(_Table, pk)
+            entity = await session.get(cls._Table, pk)
             if entity is None:
                 return None
             update_fields = data.model_dump(exclude_unset=True, exclude={"id"})
@@ -294,9 +278,8 @@ class AsyncSQLAlchemyRepository(
     @classmethod
     async def delete(cls, pk: int) -> None:  # pragma: no cover — async boundary
         """删除实体."""
-        _Table = cast("type[TableT]", cls._Table)
         async with cls._session_factory() as session:
-            entity = await session.get(_Table, pk)
+            entity = await session.get(cls._Table, pk)
             if entity is not None:
                 await session.delete(entity)
                 await session.commit()
@@ -320,7 +303,7 @@ class AsyncSQLAlchemyRepository(
         if not pk_list:
             return 0
         async with cls._session_factory() as session:
-            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)
+            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)  # pyright: ignore[reportAttributeAccessIssue] — SA 列描述符对 pyright 不可见
             stmt = sa.update(cls._Table).where(id_col.in_(pk_list)).values(**data)
             result = cast("sa.CursorResult[Any]", await session.execute(stmt))
             await session.commit()
@@ -333,7 +316,7 @@ class AsyncSQLAlchemyRepository(
         if not pk_list:
             return 0
         async with cls._session_factory() as session:
-            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)
+            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)  # pyright: ignore[reportAttributeAccessIssue] — SA 列描述符对 pyright 不可见
             stmt = sa.delete(cls._Table).where(id_col.in_(pk_list))
             result = cast("sa.CursorResult[Any]", await session.execute(stmt))
             await session.commit()

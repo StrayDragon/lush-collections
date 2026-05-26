@@ -1,4 +1,4 @@
-"""场景 01: 纯 SQLAlchemy 同步表 — SyncSqlATableBase + BaseCU/BaseDTO + SyncDAL V2."""
+"""场景 01: 纯 SQLAlchemy 同步表 — SyncSqlATableBase + BaseCU/BaseDTO + SyncDAL."""
 
 from typing import ClassVar
 
@@ -8,7 +8,7 @@ from lush_sqlalchemyx.base.dal import (
     BaseCU,
     BaseDTO,
     BasicSyncBaseTable,
-    SyncBaseDALV2,
+    SyncBaseDAL,
 )
 
 # ---------------------------------------------------------------------------
@@ -47,9 +47,9 @@ class UserDTO(BaseDTO[UserCU]):
 
 
 # ---------------------------------------------------------------------------
-# DAL V2
+# DAL
 # ---------------------------------------------------------------------------
 
 
-class UserDAL(SyncBaseDALV2[User, UserDTO, UserCU]):
-    """用户 DAL — 验证 SyncBaseDALV2 泛型参数解析."""
+class UserDAL(SyncBaseDAL[User, UserDTO, UserCU]):
+    """用户 DAL — 验证 SyncBaseDAL 泛型参数解析."""

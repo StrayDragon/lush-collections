@@ -6,13 +6,11 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from lush_dal_protocol.testing.conformance import (
-    AsyncFullDALConformanceTests,
-    SyncFullDALConformanceTests,
+    AsyncBaseDALConformanceTests,
+    SyncBaseDALConformanceTests,
 )
 from lush_dal_protocol.testing.reference import (
     InMemoryAsyncDAL,
@@ -22,8 +20,8 @@ from lush_dal_protocol.testing.reference import (
 )
 
 
-class TestInMemorySyncConformance(SyncFullDALConformanceTests):
-    """同步参考实现: 完整一致性套件验证."""
+class TestInMemorySyncConformance(SyncBaseDALConformanceTests):
+    """同步参考实现: Base (Read + Write) 一致性套件验证."""
 
     @pytest.fixture
     def dal_class(self):
@@ -41,17 +39,9 @@ class TestInMemorySyncConformance(SyncFullDALConformanceTests):
     def make_cu(self):
         return lambda label: InMemoryCU(name=f"ref-{label}")
 
-    @pytest.fixture
-    def where_clause_factory(self):
-        def _factory(entity: Any) -> list:
-            name = entity.name
-            return [lambda e, _n=name: e.name == _n]
 
-        return _factory
-
-
-class TestInMemoryAsyncConformance(AsyncFullDALConformanceTests):
-    """异步参考实现: 完整一致性套件验证."""
+class TestInMemoryAsyncConformance(AsyncBaseDALConformanceTests):
+    """异步参考实现: Base (Read + Write) 一致性套件验证."""
 
     @pytest.fixture
     def dal_class(self):
@@ -68,11 +58,3 @@ class TestInMemoryAsyncConformance(AsyncFullDALConformanceTests):
     @pytest.fixture
     def make_cu(self):
         return lambda label: InMemoryCU(name=f"ref-{label}")
-
-    @pytest.fixture
-    def where_clause_factory(self):
-        def _factory(entity: Any) -> list:
-            name = entity.name
-            return [lambda e, _n=name: e.name == _n]
-
-        return _factory

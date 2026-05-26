@@ -7,20 +7,12 @@
 """
 
 from .conformance import (
-    AsyncAdvancedWriteDALConformanceTests,
-    AsyncAdvancedWriteFieldIsolationDALConformanceTests,
     AsyncBaseDALConformanceTests,
     AsyncFieldIsolationDALConformanceTests,
-    AsyncFullDALConformanceTests,
-    AsyncLockDALConformanceTests,
     AsyncReadDALConformanceTests,
     AsyncWriteDALConformanceTests,
-    SyncAdvancedWriteDALConformanceTests,
-    SyncAdvancedWriteFieldIsolationDALConformanceTests,
     SyncBaseDALConformanceTests,
     SyncFieldIsolationDALConformanceTests,
-    SyncFullDALConformanceTests,
-    SyncLockDALConformanceTests,
     SyncReadDALConformanceTests,
     SyncWriteDALConformanceTests,
 )
@@ -34,12 +26,8 @@ from .reference import (
 )
 
 __all__ = [
-    "AsyncAdvancedWriteDALConformanceTests",
-    "AsyncAdvancedWriteFieldIsolationDALConformanceTests",
     "AsyncBaseDALConformanceTests",
     "AsyncFieldIsolationDALConformanceTests",
-    "AsyncFullDALConformanceTests",
-    "AsyncLockDALConformanceTests",
     "AsyncReadDALConformanceTests",
     "AsyncWriteDALConformanceTests",
     "InMemoryAsyncDAL",
@@ -48,12 +36,8 @@ __all__ = [
     "InMemoryEntity",
     "InMemorySession",
     "InMemorySyncDAL",
-    "SyncAdvancedWriteDALConformanceTests",
-    "SyncAdvancedWriteFieldIsolationDALConformanceTests",
     "SyncBaseDALConformanceTests",
     "SyncFieldIsolationDALConformanceTests",
-    "SyncFullDALConformanceTests",
-    "SyncLockDALConformanceTests",
     "SyncReadDALConformanceTests",
     "SyncWriteDALConformanceTests",
 ]

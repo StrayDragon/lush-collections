@@ -29,16 +29,9 @@ from typing import Any, ClassVar
 
 from pydantic import ConfigDict
 
-from lush_dal_protocol.abc.advanced_write import (
-    AbstractAsyncAdvancedWriteDAL,
-    AbstractSyncAdvancedWriteDAL,
-)
-from lush_dal_protocol.abc.lock import AbstractAsyncLockDAL, AbstractSyncLockDAL
 from lush_dal_protocol.abc.read import AbstractAsyncReadDAL, AbstractSyncReadDAL
 from lush_dal_protocol.abc.write import AbstractAsyncWriteDAL, AbstractSyncWriteDAL
 from lush_dal_protocol.dto import BaseCU, BaseDTO
-from lush_dal_protocol.errors import OPTIMISTIC_LOCK_ERROR_MSG_TRAIT, DBRetryableError
-from lush_dal_protocol.params.extra import Extra
 
 # ─── Domain Models ─────────────────────────────────────────
 
@@ -153,48 +146,42 @@ def _must_get(session: InMemorySession, eid: int) -> dict[str, Any]:
 
 
 class InMemorySyncDAL(
-    AbstractSyncReadDAL[InMemorySession, InMemoryEntity, InMemoryDTO, int, Extra],
-    AbstractSyncWriteDAL[InMemorySession, InMemoryEntity, InMemoryDTO, InMemoryCU, int, Extra],
-    AbstractSyncLockDAL[InMemorySession, InMemoryEntity, InMemoryCU, int, Extra],
-    AbstractSyncAdvancedWriteDAL[InMemorySession, InMemoryEntity, InMemoryCU, int, Extra],
+    AbstractSyncReadDAL[InMemorySession, InMemoryEntity, InMemoryDTO, int],
+    AbstractSyncWriteDAL[InMemorySession, InMemoryEntity, InMemoryDTO, InMemoryCU, int],
 ):
-    """基于内存字典的同步 DAL 完整实现.
+    """基于内存字典的同步 DAL 实现.
 
-    实现了 Read + Write + Lock + AdvancedWrite 全部 ABC 方法.
+    实现了 Read + Write 全部 ABC 方法.
     作为 conformance 测试套件的参考验证对象.
     """
 
     # ── Read ──
 
     @classmethod
-    def get_by_id(cls, session: InMemorySession, entity_id: int, extra: Extra | None = None) -> InMemoryEntity | None:
+    def get_by_id(cls, session: InMemorySession, entity_id: int) -> InMemoryEntity | None:
         row = session._get(entity_id)
         return _row_to_entity(row) if row else None
 
     @classmethod
-    def get_all(cls, session: InMemorySession, skip: int = 0, limit: int = 100, extra: Extra | None = None) -> list[InMemoryDTO]:
+    def get_all(cls, session: InMemorySession, skip: int = 0, limit: int = 100) -> list[InMemoryDTO]:
         rows = session._all_rows()
         return [_row_to_dto(r) for r in rows[skip : skip + limit]]
 
     @classmethod
-    def count(cls, session: InMemorySession, extra: Extra | None = None) -> int:
+    def count(cls, session: InMemorySession) -> int:
         return session._count()
 
     @classmethod
-    def exists(cls, session: InMemorySession, entity_id: int, extra: Extra | None = None) -> bool:
+    def exists(cls, session: InMemorySession, entity_id: int) -> bool:
         return session._get(entity_id) is not None
 
     @classmethod
-    def ret_dto_after_get_by_id(
-        cls, session: InMemorySession, entity_id: int, need_refresh: bool = True, extra: Extra | None = None
-    ) -> InMemoryDTO | None:
+    def ret_dto_after_get_by_id(cls, session: InMemorySession, entity_id: int, need_refresh: bool = True) -> InMemoryDTO | None:
         row = session._get(entity_id)
         return _row_to_dto(row) if row else None
 
     @classmethod
-    def batch_get_id__entity(
-        cls, session: InMemorySession, entity_ids: Iterable[int], extra: Extra | None = None
-    ) -> dict[int, InMemoryEntity]:
+    def batch_get_id__entity(cls, session: InMemorySession, entity_ids: Iterable[int]) -> dict[int, InMemoryEntity]:
         result: dict[int, InMemoryEntity] = {}
         for eid in entity_ids:
             row = session._get(eid)
@@ -203,7 +190,7 @@ class InMemorySyncDAL(
         return result
 
     @classmethod
-    def batch_get_id__dto(cls, session: InMemorySession, entity_ids: Iterable[int], extra: Extra | None = None) -> dict[int, InMemoryDTO]:
+    def batch_get_id__dto(cls, session: InMemorySession, entity_ids: Iterable[int]) -> dict[int, InMemoryDTO]:
         result: dict[int, InMemoryDTO] = {}
         for eid in entity_ids:
             row = session._get(eid)
@@ -212,24 +199,22 @@ class InMemorySyncDAL(
         return result
 
     @classmethod
-    def iter_record_dtos(cls, session: InMemorySession, extra: Extra | None = None, *, batch_size: int = 500) -> Iterator[InMemoryDTO]:
+    def iter_record_dtos(cls, session: InMemorySession, *, batch_size: int = 500) -> Iterator[InMemoryDTO]:
         for row in session._all_rows():
             yield _row_to_dto(row)
 
     # ── Write ──
 
     @classmethod
-    def create(cls, session: InMemorySession, cu: InMemoryCU, need_refresh: bool = True, extra: Extra | None = None) -> InMemoryEntity:
+    def create(cls, session: InMemorySession, cu: InMemoryCU, need_refresh: bool = True) -> InMemoryEntity:
         data = _cu_to_data(cu)
         data.setdefault("version", 1)
         eid = session._insert(data)
         return _row_to_entity(_must_get(session, eid))
 
     @classmethod
-    def ret_dto_after_create(
-        cls, session: InMemorySession, cu: InMemoryCU, need_refresh: bool = True, extra: Extra | None = None
-    ) -> InMemoryDTO:
-        entity = cls.create(session, cu, need_refresh, extra)
+    def ret_dto_after_create(cls, session: InMemorySession, cu: InMemoryCU, need_refresh: bool = True) -> InMemoryDTO:
+        entity = cls.create(session, cu, need_refresh)
         return _row_to_dto(_must_get(session, entity.id))
 
     @classmethod
@@ -239,7 +224,6 @@ class InMemorySyncDAL(
         entity_id: int,
         cu: InMemoryCU,
         need_refresh: bool = False,
-        extra: Extra | None = None,
     ) -> InMemoryEntity | None:
         if not session._update(entity_id, _cu_to_data(cu)):
             return None
@@ -252,150 +236,25 @@ class InMemorySyncDAL(
         entity_id: int,
         cu: InMemoryCU,
         need_refresh: bool = True,
-        extra: Extra | None = None,
     ) -> InMemoryDTO | None:
-        entity = cls.update_only_set_by_id(session, entity_id, cu, need_refresh, extra)
+        entity = cls.update_only_set_by_id(session, entity_id, cu, need_refresh)
         if entity is None:
             return None
         return _row_to_dto(_must_get(session, entity.id))
 
     @classmethod
-    def delete_by_id(cls, session: InMemorySession, entity_id: int, extra: Extra | None = None) -> bool:
+    def delete_by_id(cls, session: InMemorySession, entity_id: int) -> bool:
         return session._delete(entity_id)
-
-    # ── Lock ──
-
-    @classmethod
-    def get_by_id_for_update(
-        cls,
-        session: InMemorySession,
-        entity_id: int,
-        extra: Extra | None = None,
-    ) -> InMemoryEntity | None:
-        return cls.get_by_id(session, entity_id, extra)
-
-    @classmethod
-    def batch_get_for_update(
-        cls,
-        session: InMemorySession,
-        entity_ids: Iterable[int],
-        extra: Extra | None = None,
-    ) -> list[InMemoryEntity]:
-        result: list[InMemoryEntity] = []
-        for eid in entity_ids:
-            entity = cls.get_by_id(session, eid, extra)
-            if entity:
-                result.append(entity)
-        return result
-
-    @classmethod
-    def get_one_for_update(
-        cls,
-        session: InMemorySession,
-        extra: Extra | None = None,
-        *,
-        where_clauses: Any,
-    ) -> InMemoryEntity | None:
-        """where_clauses 在参考实现中为 ``list[Callable[[InMemoryEntity], bool]]``."""
-        for row in session._all_rows():
-            entity = _row_to_entity(row)
-            if all(predicate(entity) for predicate in where_clauses):
-                return entity
-        return None
-
-    @classmethod
-    def update_only_set_with_optimistic_lock(
-        cls,
-        session: InMemorySession,
-        entity_id: int,
-        cu: InMemoryCU,
-        extra: Extra | None = None,
-        *,
-        expected_version: int,
-    ) -> InMemoryEntity | None:
-        row = session._get(entity_id)
-        if row is None:
-            return None
-        actual_version = row.get("version", 1)
-        if actual_version != expected_version:
-            raise DBRetryableError(f"{OPTIMISTIC_LOCK_ERROR_MSG_TRAIT}: 预期版本 {expected_version}, 实际 {actual_version}")
-        data = _cu_to_data(cu)
-        data["version"] = expected_version + 1
-        session._update(entity_id, data)
-        return _row_to_entity(_must_get(session, entity_id))
-
-    # ── AdvancedWrite ──
-
-    @classmethod
-    def update_full_by_id(
-        cls,
-        session: InMemorySession,
-        entity_id: int,
-        cu: InMemoryCU,
-        extra: Extra | None = None,
-    ) -> InMemoryEntity | None:
-        if session._get(entity_id) is None:
-            return None
-        data = cu.model_dump(exclude={"id"})
-        session._update(entity_id, data)
-        return _row_to_entity(_must_get(session, entity_id))
-
-    @classmethod
-    def update_partial_by_id(
-        cls,
-        session: InMemorySession,
-        entity_id: int,
-        cu: InMemoryCU,
-        extra: Extra | None = None,
-    ) -> InMemoryEntity | None:
-        return cls.update_only_set_by_id(session, entity_id, cu)
-
-    @classmethod
-    def batch_update_by_conditions(
-        cls,
-        session: InMemorySession,
-        extra: Extra | None = None,
-        *,
-        conditions: Any,
-        update_data: Any,
-        updater_id: int | None = None,
-    ) -> int:
-        """conditions 在参考实现中为 ``list[Callable[[InMemoryEntity], bool]]``."""
-        affected = 0
-        for row in session._all_rows():
-            entity = _row_to_entity(row)
-            if all(pred(entity) for pred in conditions):
-                session._update(row["id"], dict(update_data))
-                affected += 1
-        return affected
-
-    @classmethod
-    def batch_update_by_ids(
-        cls,
-        session: InMemorySession,
-        extra: Extra | None = None,
-        *,
-        entity_ids: set[int] | list[int],
-        update_data: Any,
-        updater_id: int | None = None,
-    ) -> int:
-        affected = 0
-        for eid in entity_ids:
-            if session._update(eid, dict(update_data)):
-                affected += 1
-        return affected
 
 
 # ─── Async DAL ──────────────────────────────────────────────
 
 
 class InMemoryAsyncDAL(
-    AbstractAsyncReadDAL[InMemorySession, InMemoryEntity, InMemoryDTO, int, Extra],
-    AbstractAsyncWriteDAL[InMemorySession, InMemoryEntity, InMemoryDTO, InMemoryCU, int, Extra],
-    AbstractAsyncLockDAL[InMemorySession, InMemoryEntity, InMemoryCU, int, Extra],
-    AbstractAsyncAdvancedWriteDAL[InMemorySession, InMemoryEntity, InMemoryCU, int, Extra],
+    AbstractAsyncReadDAL[InMemorySession, InMemoryEntity, InMemoryDTO, int],
+    AbstractAsyncWriteDAL[InMemorySession, InMemoryEntity, InMemoryDTO, InMemoryCU, int],
 ):
-    """基于内存字典的异步 DAL 完整实现.
+    """基于内存字典的异步 DAL 实现.
 
     所有方法委托给 ``InMemorySyncDAL`` 的同步实现, 无实际 I/O.
     用于验证异步 conformance 测试套件.
@@ -404,41 +263,35 @@ class InMemoryAsyncDAL(
     # ── Read ──
 
     @classmethod
-    async def get_by_id(cls, session: InMemorySession, entity_id: int, extra: Extra | None = None) -> InMemoryEntity | None:
-        return InMemorySyncDAL.get_by_id(session, entity_id, extra)
+    async def get_by_id(cls, session: InMemorySession, entity_id: int) -> InMemoryEntity | None:
+        return InMemorySyncDAL.get_by_id(session, entity_id)
 
     @classmethod
-    async def get_all(cls, session: InMemorySession, skip: int = 0, limit: int = 100, extra: Extra | None = None) -> list[InMemoryDTO]:
-        return InMemorySyncDAL.get_all(session, skip, limit, extra)
+    async def get_all(cls, session: InMemorySession, skip: int = 0, limit: int = 100) -> list[InMemoryDTO]:
+        return InMemorySyncDAL.get_all(session, skip, limit)
 
     @classmethod
-    async def count(cls, session: InMemorySession, extra: Extra | None = None) -> int:
-        return InMemorySyncDAL.count(session, extra)
+    async def count(cls, session: InMemorySession) -> int:
+        return InMemorySyncDAL.count(session)
 
     @classmethod
-    async def exists(cls, session: InMemorySession, entity_id: int, extra: Extra | None = None) -> bool:
-        return InMemorySyncDAL.exists(session, entity_id, extra)
+    async def exists(cls, session: InMemorySession, entity_id: int) -> bool:
+        return InMemorySyncDAL.exists(session, entity_id)
 
     @classmethod
-    async def ret_dto_after_get_by_id(
-        cls, session: InMemorySession, entity_id: int, need_refresh: bool = True, extra: Extra | None = None
-    ) -> InMemoryDTO | None:
-        return InMemorySyncDAL.ret_dto_after_get_by_id(session, entity_id, need_refresh, extra)
+    async def ret_dto_after_get_by_id(cls, session: InMemorySession, entity_id: int, need_refresh: bool = True) -> InMemoryDTO | None:
+        return InMemorySyncDAL.ret_dto_after_get_by_id(session, entity_id, need_refresh)
 
     @classmethod
-    async def batch_get_id__entity(
-        cls, session: InMemorySession, entity_ids: Iterable[int], extra: Extra | None = None
-    ) -> dict[int, InMemoryEntity]:
-        return InMemorySyncDAL.batch_get_id__entity(session, entity_ids, extra)
+    async def batch_get_id__entity(cls, session: InMemorySession, entity_ids: Iterable[int]) -> dict[int, InMemoryEntity]:
+        return InMemorySyncDAL.batch_get_id__entity(session, entity_ids)
 
     @classmethod
-    async def batch_get_id__dto(
-        cls, session: InMemorySession, entity_ids: Iterable[int], extra: Extra | None = None
-    ) -> dict[int, InMemoryDTO]:
-        return InMemorySyncDAL.batch_get_id__dto(session, entity_ids, extra)
+    async def batch_get_id__dto(cls, session: InMemorySession, entity_ids: Iterable[int]) -> dict[int, InMemoryDTO]:
+        return InMemorySyncDAL.batch_get_id__dto(session, entity_ids)
 
     @classmethod
-    def iter_record_dtos(cls, session: InMemorySession, extra: Extra | None = None, *, batch_size: int = 500) -> AsyncIterator[InMemoryDTO]:
+    def iter_record_dtos(cls, session: InMemorySession, *, batch_size: int = 500) -> AsyncIterator[InMemoryDTO]:
         async def _gen() -> AsyncIterator[InMemoryDTO]:
             for row in session._all_rows():
                 yield _row_to_dto(row)
@@ -448,16 +301,12 @@ class InMemoryAsyncDAL(
     # ── Write ──
 
     @classmethod
-    async def create(
-        cls, session: InMemorySession, cu: InMemoryCU, need_refresh: bool = True, extra: Extra | None = None
-    ) -> InMemoryEntity:
-        return InMemorySyncDAL.create(session, cu, need_refresh, extra)
+    async def create(cls, session: InMemorySession, cu: InMemoryCU, need_refresh: bool = True) -> InMemoryEntity:
+        return InMemorySyncDAL.create(session, cu, need_refresh)
 
     @classmethod
-    async def ret_dto_after_create(
-        cls, session: InMemorySession, cu: InMemoryCU, need_refresh: bool = True, extra: Extra | None = None
-    ) -> InMemoryDTO:
-        return InMemorySyncDAL.ret_dto_after_create(session, cu, need_refresh, extra)
+    async def ret_dto_after_create(cls, session: InMemorySession, cu: InMemoryCU, need_refresh: bool = True) -> InMemoryDTO:
+        return InMemorySyncDAL.ret_dto_after_create(session, cu, need_refresh)
 
     @classmethod
     async def update_only_set_by_id(
@@ -466,9 +315,8 @@ class InMemoryAsyncDAL(
         entity_id: int,
         cu: InMemoryCU,
         need_refresh: bool = False,
-        extra: Extra | None = None,
     ) -> InMemoryEntity | None:
-        return InMemorySyncDAL.update_only_set_by_id(session, entity_id, cu, need_refresh, extra)
+        return InMemorySyncDAL.update_only_set_by_id(session, entity_id, cu, need_refresh)
 
     @classmethod
     async def ret_dto_after_update_by_id(
@@ -477,116 +325,9 @@ class InMemoryAsyncDAL(
         entity_id: int,
         cu: InMemoryCU,
         need_refresh: bool = True,
-        extra: Extra | None = None,
     ) -> InMemoryDTO | None:
-        return InMemorySyncDAL.ret_dto_after_update_by_id(session, entity_id, cu, need_refresh, extra)
+        return InMemorySyncDAL.ret_dto_after_update_by_id(session, entity_id, cu, need_refresh)
 
     @classmethod
-    async def delete_by_id(cls, session: InMemorySession, entity_id: int, extra: Extra | None = None) -> bool:
-        return InMemorySyncDAL.delete_by_id(session, entity_id, extra)
-
-    # ── Lock ──
-
-    @classmethod
-    async def get_by_id_for_update(
-        cls,
-        session: InMemorySession,
-        entity_id: int,
-        extra: Extra | None = None,
-    ) -> InMemoryEntity | None:
-        return InMemorySyncDAL.get_by_id_for_update(session, entity_id, extra)
-
-    @classmethod
-    async def batch_get_for_update(
-        cls,
-        session: InMemorySession,
-        entity_ids: Iterable[int],
-        extra: Extra | None = None,
-    ) -> list[InMemoryEntity]:
-        return InMemorySyncDAL.batch_get_for_update(session, entity_ids, extra)
-
-    @classmethod
-    async def get_one_for_update(
-        cls,
-        session: InMemorySession,
-        extra: Extra | None = None,
-        *,
-        where_clauses: Any,
-    ) -> InMemoryEntity | None:
-        return InMemorySyncDAL.get_one_for_update(session, extra, where_clauses=where_clauses)
-
-    @classmethod
-    async def update_only_set_with_optimistic_lock(
-        cls,
-        session: InMemorySession,
-        entity_id: int,
-        cu: InMemoryCU,
-        extra: Extra | None = None,
-        *,
-        expected_version: int,
-    ) -> InMemoryEntity | None:
-        return InMemorySyncDAL.update_only_set_with_optimistic_lock(
-            session,
-            entity_id,
-            cu,
-            extra,
-            expected_version=expected_version,
-        )
-
-    # ── AdvancedWrite ──
-
-    @classmethod
-    async def update_full_by_id(
-        cls,
-        session: InMemorySession,
-        entity_id: int,
-        cu: InMemoryCU,
-        extra: Extra | None = None,
-    ) -> InMemoryEntity | None:
-        return InMemorySyncDAL.update_full_by_id(session, entity_id, cu, extra)
-
-    @classmethod
-    async def update_partial_by_id(
-        cls,
-        session: InMemorySession,
-        entity_id: int,
-        cu: InMemoryCU,
-        extra: Extra | None = None,
-    ) -> InMemoryEntity | None:
-        return InMemorySyncDAL.update_partial_by_id(session, entity_id, cu, extra)
-
-    @classmethod
-    async def batch_update_by_conditions(
-        cls,
-        session: InMemorySession,
-        extra: Extra | None = None,
-        *,
-        conditions: Any,
-        update_data: Any,
-        updater_id: int | None = None,
-    ) -> int:
-        return InMemorySyncDAL.batch_update_by_conditions(
-            session,
-            extra,
-            conditions=conditions,
-            update_data=update_data,
-            updater_id=updater_id,
-        )
-
-    @classmethod
-    async def batch_update_by_ids(
-        cls,
-        session: InMemorySession,
-        extra: Extra | None = None,
-        *,
-        entity_ids: set[int] | list[int],
-        update_data: Any,
-        updater_id: int | None = None,
-    ) -> int:
-        return InMemorySyncDAL.batch_update_by_ids(
-            session,
-            extra,
-            entity_ids=entity_ids,
-            update_data=update_data,
-            updater_id=updater_id,
-        )
+    async def delete_by_id(cls, session: InMemorySession, entity_id: int) -> bool:
+        return InMemorySyncDAL.delete_by_id(session, entity_id)

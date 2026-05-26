@@ -6,18 +6,10 @@
 # --- shared (sync/async agnostic) ---
 # --- lush-dal-protocol ABCs (ORM 无关的抽象层) ---
 from lush_dal_protocol import (
-    AbstractAsyncAdvancedWriteDAL,
     AbstractAsyncBaseDAL,
-    AbstractAsyncBatchFieldDAL,
-    AbstractAsyncLockDAL,
-    AbstractAsyncRawSQLDAL,
     AbstractAsyncReadDAL,
     AbstractAsyncWriteDAL,
-    AbstractSyncAdvancedWriteDAL,
     AbstractSyncBaseDAL,
-    AbstractSyncBatchFieldDAL,
-    AbstractSyncLockDAL,
-    AbstractSyncRawSQLDAL,
     AbstractSyncReadDAL,
     AbstractSyncWriteDAL,
 )
@@ -41,9 +33,6 @@ from ._async import (
     async_temp_set_lock_wait_timeout,
     async_with_retry,
 )
-
-# --- V2 (ABC-compliant, options-based) ---
-from ._async_v2 import AsyncBaseDALV2, AsyncReadDALV2, AsyncWriteDALV2
 from ._common import (
     DEFAULT_RETRY_CONFIG,
     OPTIMISTIC_LOCK_ERROR_MSG_TRAIT,
@@ -76,7 +65,6 @@ from ._pagination import (
     make_cursor_result,
     make_page_result,
 )
-from ._params import SQLAExtra
 from ._repository import AsyncSQLAlchemyRepository, SyncSQLAlchemyRepository
 
 # --- sync ---
@@ -97,7 +85,6 @@ from ._sync import (
     sync_temp_set_lock_wait_timeout,
     sync_with_retry,
 )
-from ._sync_v2 import SyncBaseDALV2, SyncReadDALV2, SyncWriteDALV2
 
 __all__ = (
     # common
@@ -162,30 +149,14 @@ __all__ = (
     "encode_cursor",
     "make_cursor_result",
     "make_page_result",
-    # V2
-    "AsyncBaseDALV2",
-    "AsyncReadDALV2",
-    "AsyncWriteDALV2",
-    "SQLAExtra",
-    "SyncBaseDALV2",
-    "SyncReadDALV2",
-    "SyncWriteDALV2",
     # repository
     "AsyncSQLAlchemyRepository",
     "SyncSQLAlchemyRepository",
     # lush-dal-protocol ABCs
-    "AbstractAsyncAdvancedWriteDAL",
     "AbstractAsyncBaseDAL",
-    "AbstractAsyncBatchFieldDAL",
-    "AbstractAsyncLockDAL",
-    "AbstractAsyncRawSQLDAL",
     "AbstractAsyncReadDAL",
     "AbstractAsyncWriteDAL",
-    "AbstractSyncAdvancedWriteDAL",
     "AbstractSyncBaseDAL",
-    "AbstractSyncBatchFieldDAL",
-    "AbstractSyncLockDAL",
-    "AbstractSyncRawSQLDAL",
     "AbstractSyncReadDAL",
     "AbstractSyncWriteDAL",
 )

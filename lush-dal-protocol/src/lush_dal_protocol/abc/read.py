@@ -8,10 +8,9 @@ from typing import Generic
 
 from lush_dal_protocol.abc._types import EntityT, PrimaryKeyT, SessionT
 from lush_dal_protocol.dto import DTOModelT
-from lush_dal_protocol.params.extra import ExtraT
 
 
-class AbstractSyncReadDAL(ABC, Generic[SessionT, EntityT, DTOModelT, PrimaryKeyT, ExtraT]):
+class AbstractSyncReadDAL(ABC, Generic[SessionT, EntityT, DTOModelT, PrimaryKeyT]):
     """同步只读 DAL 抽象基类.
 
     所有方法均为 classmethod, 接收显式 session 参数.
@@ -19,60 +18,54 @@ class AbstractSyncReadDAL(ABC, Generic[SessionT, EntityT, DTOModelT, PrimaryKeyT
 
     @classmethod
     @abstractmethod
-    def get_by_id(cls, session: SessionT, entity_id: PrimaryKeyT, extra: ExtraT | None = None) -> EntityT | None:
+    def get_by_id(cls, session: SessionT, entity_id: PrimaryKeyT) -> EntityT | None:
         """根据主键 ID 获取单个 ORM 实体."""
         ...
 
     @classmethod
     @abstractmethod
-    def get_all(cls, session: SessionT, skip: int = 0, limit: int = 100, extra: ExtraT | None = None) -> list[DTOModelT]:
+    def get_all(cls, session: SessionT, skip: int = 0, limit: int = 100) -> list[DTOModelT]:
         """分页获取实体列表, 以 DTO 形式返回."""
         ...
 
     @classmethod
     @abstractmethod
-    def count(cls, session: SessionT, extra: ExtraT | None = None) -> int:
+    def count(cls, session: SessionT) -> int:
         """统计实体总数 (排除软删除)."""
         ...
 
     @classmethod
     @abstractmethod
-    def exists(cls, session: SessionT, entity_id: PrimaryKeyT, extra: ExtraT | None = None) -> bool:
+    def exists(cls, session: SessionT, entity_id: PrimaryKeyT) -> bool:
         """判断指定 ID 的实体是否存在."""
         ...
 
     @classmethod
     @abstractmethod
-    def ret_dto_after_get_by_id(
-        cls, session: SessionT, entity_id: PrimaryKeyT, need_refresh: bool = True, extra: ExtraT | None = None
-    ) -> DTOModelT | None:
+    def ret_dto_after_get_by_id(cls, session: SessionT, entity_id: PrimaryKeyT, need_refresh: bool = True) -> DTOModelT | None:
         """根据主键 ID 获取实体并转为 DTO 返回."""
         ...
 
     @classmethod
     @abstractmethod
-    def batch_get_id__entity(
-        cls, session: SessionT, entity_ids: Iterable[PrimaryKeyT], extra: ExtraT | None = None
-    ) -> dict[PrimaryKeyT, EntityT]:
+    def batch_get_id__entity(cls, session: SessionT, entity_ids: Iterable[PrimaryKeyT]) -> dict[PrimaryKeyT, EntityT]:
         """批量获取实体, 返回 {id: entity} 字典."""
         ...
 
     @classmethod
     @abstractmethod
-    def batch_get_id__dto(
-        cls, session: SessionT, entity_ids: Iterable[PrimaryKeyT], extra: ExtraT | None = None
-    ) -> dict[PrimaryKeyT, DTOModelT]:
+    def batch_get_id__dto(cls, session: SessionT, entity_ids: Iterable[PrimaryKeyT]) -> dict[PrimaryKeyT, DTOModelT]:
         """批量获取实体, 返回 {id: DTO} 字典."""
         ...
 
     @classmethod
     @abstractmethod
-    def iter_record_dtos(cls, session: SessionT, extra: ExtraT | None = None, *, batch_size: int = 500) -> Iterator[DTOModelT]:
+    def iter_record_dtos(cls, session: SessionT, *, batch_size: int = 500) -> Iterator[DTOModelT]:
         """以迭代器方式逐条返回全部记录的 DTO."""
         ...
 
 
-class AbstractAsyncReadDAL(ABC, Generic[SessionT, EntityT, DTOModelT, PrimaryKeyT, ExtraT]):
+class AbstractAsyncReadDAL(ABC, Generic[SessionT, EntityT, DTOModelT, PrimaryKeyT]):
     """异步只读 DAL 抽象基类.
 
     语义与 ``AbstractSyncReadDAL`` 一致, 所有方法为 ``async def``.
@@ -80,54 +73,48 @@ class AbstractAsyncReadDAL(ABC, Generic[SessionT, EntityT, DTOModelT, PrimaryKey
 
     @classmethod
     @abstractmethod
-    async def get_by_id(cls, session: SessionT, entity_id: PrimaryKeyT, extra: ExtraT | None = None) -> EntityT | None:
+    async def get_by_id(cls, session: SessionT, entity_id: PrimaryKeyT) -> EntityT | None:
         """根据主键 ID 获取单个 ORM 实体."""
         ...
 
     @classmethod
     @abstractmethod
-    async def get_all(cls, session: SessionT, skip: int = 0, limit: int = 100, extra: ExtraT | None = None) -> list[DTOModelT]:
+    async def get_all(cls, session: SessionT, skip: int = 0, limit: int = 100) -> list[DTOModelT]:
         """分页获取实体列表, 以 DTO 形式返回."""
         ...
 
     @classmethod
     @abstractmethod
-    async def count(cls, session: SessionT, extra: ExtraT | None = None) -> int:
+    async def count(cls, session: SessionT) -> int:
         """统计实体总数 (排除软删除)."""
         ...
 
     @classmethod
     @abstractmethod
-    async def exists(cls, session: SessionT, entity_id: PrimaryKeyT, extra: ExtraT | None = None) -> bool:
+    async def exists(cls, session: SessionT, entity_id: PrimaryKeyT) -> bool:
         """判断指定 ID 的实体是否存在."""
         ...
 
     @classmethod
     @abstractmethod
-    async def ret_dto_after_get_by_id(
-        cls, session: SessionT, entity_id: PrimaryKeyT, need_refresh: bool = True, extra: ExtraT | None = None
-    ) -> DTOModelT | None:
+    async def ret_dto_after_get_by_id(cls, session: SessionT, entity_id: PrimaryKeyT, need_refresh: bool = True) -> DTOModelT | None:
         """根据主键 ID 获取实体并转为 DTO 返回."""
         ...
 
     @classmethod
     @abstractmethod
-    async def batch_get_id__entity(
-        cls, session: SessionT, entity_ids: Iterable[PrimaryKeyT], extra: ExtraT | None = None
-    ) -> dict[PrimaryKeyT, EntityT]:
+    async def batch_get_id__entity(cls, session: SessionT, entity_ids: Iterable[PrimaryKeyT]) -> dict[PrimaryKeyT, EntityT]:
         """批量获取实体, 返回 {id: entity} 字典."""
         ...
 
     @classmethod
     @abstractmethod
-    async def batch_get_id__dto(
-        cls, session: SessionT, entity_ids: Iterable[PrimaryKeyT], extra: ExtraT | None = None
-    ) -> dict[PrimaryKeyT, DTOModelT]:
+    async def batch_get_id__dto(cls, session: SessionT, entity_ids: Iterable[PrimaryKeyT]) -> dict[PrimaryKeyT, DTOModelT]:
         """批量获取实体, 返回 {id: DTO} 字典."""
         ...
 
     @classmethod
     @abstractmethod
-    def iter_record_dtos(cls, session: SessionT, extra: ExtraT | None = None, *, batch_size: int = 500) -> AsyncIterator[DTOModelT]:
+    def iter_record_dtos(cls, session: SessionT, *, batch_size: int = 500) -> AsyncIterator[DTOModelT]:
         """以异步迭代器方式逐条返回全部记录的 DTO."""
         ...
