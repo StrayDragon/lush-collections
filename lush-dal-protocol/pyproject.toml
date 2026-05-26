@@ -90,6 +90,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "**/testing/conformance.py" = ["S101"]
 "**/testing/reference.py" = ["A002", "ARG003"]
+"examples/**/*.py" = ["S101"]
 "tests/**/*.py" = [
     "B011", "B008",
     "ARG001", "ARG002", "ARG003", "ARG005",

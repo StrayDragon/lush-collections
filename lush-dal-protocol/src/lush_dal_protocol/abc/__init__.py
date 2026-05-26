@@ -2,46 +2,33 @@
 
 按能力分组的 ORM 无关 DAL 抽象基类, 每个层级有 Async / Sync 两个版本.
 下游 ORM 适配包通过继承这些 ABC 并绑定泛型参数来实现具体 DAL.
+
+仅包含最通用的 Read + Write 操作.
+Lock / AdvancedWrite / BatchField / RawSQL 等 ORM 特有操作由具体实现包提供.
 """
 
-from .advanced_write import AbstractAsyncAdvancedWriteDAL, AbstractSyncAdvancedWriteDAL
-from .batch_field import AbstractAsyncBatchFieldDAL, AbstractSyncBatchFieldDAL
 from .composed import AbstractAsyncBaseDAL, AbstractSyncBaseDAL
-from .lock import AbstractAsyncLockDAL, AbstractSyncLockDAL
-from .raw_sql import AbstractAsyncRawSQLDAL, AbstractSyncRawSQLDAL
 from .read import AbstractAsyncReadDAL, AbstractSyncReadDAL
 from .sessionless import (
     AbstractAsyncSessionlessBaseDAL,
-    AbstractAsyncSessionlessLockDAL,
     AbstractAsyncSessionlessReadDAL,
     AbstractAsyncSessionlessWriteDAL,
     AbstractSyncSessionlessBaseDAL,
-    AbstractSyncSessionlessLockDAL,
     AbstractSyncSessionlessReadDAL,
     AbstractSyncSessionlessWriteDAL,
 )
 from .write import AbstractAsyncWriteDAL, AbstractSyncWriteDAL
 
 __all__ = [
-    "AbstractAsyncAdvancedWriteDAL",
     "AbstractAsyncBaseDAL",
-    "AbstractAsyncBatchFieldDAL",
-    "AbstractAsyncLockDAL",
-    "AbstractAsyncRawSQLDAL",
     "AbstractAsyncReadDAL",
     "AbstractAsyncSessionlessBaseDAL",
-    "AbstractAsyncSessionlessLockDAL",
     "AbstractAsyncSessionlessReadDAL",
     "AbstractAsyncSessionlessWriteDAL",
     "AbstractAsyncWriteDAL",
-    "AbstractSyncAdvancedWriteDAL",
     "AbstractSyncBaseDAL",
-    "AbstractSyncBatchFieldDAL",
-    "AbstractSyncLockDAL",
-    "AbstractSyncRawSQLDAL",
     "AbstractSyncReadDAL",
     "AbstractSyncSessionlessBaseDAL",
-    "AbstractSyncSessionlessLockDAL",
     "AbstractSyncSessionlessReadDAL",
     "AbstractSyncSessionlessWriteDAL",
     "AbstractSyncWriteDAL",

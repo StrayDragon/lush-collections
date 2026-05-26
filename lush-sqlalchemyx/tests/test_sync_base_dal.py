@@ -1347,33 +1347,25 @@ class TestSyncFieldMixin:
 # ========== lush-dal-protocol conformance suite ==========
 
 
-from lush_dal_protocol.testing import (
-    SyncBaseDALConformanceTests as SyncDALConformanceTests,
-)
-from lush_dal_protocol.testing import (
-    SyncFullDALConformanceTests,
-)
+from lush_dal_protocol.testing import SyncBaseDALConformanceTests
 
 # ========== V2 Sync DAL tests ==========
-from lush_sqlalchemyx.base.dal import (
-    SQLAExtra,
-    SyncBaseDALV2,
-)
+from lush_sqlalchemyx.base.dal import SyncBaseDAL
 
 
-class _SyncSimpleDALV2(SyncBaseDALV2[_SyncSimpleTable, _SyncSimpleDTO, _SyncSimpleCU]):
+class _SyncSimpleDALV2(SyncBaseDAL[_SyncSimpleTable, _SyncSimpleDTO, _SyncSimpleCU]):
     _Table = _SyncSimpleTable
     _DTO = _SyncSimpleDTO
     _CU = _SyncSimpleCU
 
 
-class _SyncTestDALV2(SyncBaseDALV2[_SyncTestTable, _SyncTestDTO, _SyncTestCU]):
+class _SyncTestDALV2(SyncBaseDAL[_SyncTestTable, _SyncTestDTO, _SyncTestCU]):
     _Table = _SyncTestTable
     _DTO = _SyncTestDTO
     _CU = _SyncTestCU
 
 
-class _SyncVersionDALV2(SyncBaseDALV2[_SyncVersionTable, _SyncVersionDTO, _SyncVersionCU]):
+class _SyncVersionDALV2(SyncBaseDAL[_SyncVersionTable, _SyncVersionDTO, _SyncVersionCU]):
     _Table = _SyncVersionTable
     _DTO = _SyncVersionDTO
     _CU = _SyncVersionCU
@@ -1406,7 +1398,7 @@ class TestV2SyncDALLockMethods:
 
     def test_get_by_id_for_update_with_extra(self, sync_session: Session):
         entity = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-lock-o"))
-        found = _SyncSimpleDALV2.get_by_id_for_update(sync_session, entity.id, SQLAExtra(lock_timeout=5))
+        found = _SyncSimpleDALV2.get_by_id_for_update(sync_session, entity.id, lock_wait_timeout=5)
         assert found is not None
 
     def test_batch_get_for_update(self, sync_session: Session):
@@ -1417,7 +1409,7 @@ class TestV2SyncDALLockMethods:
 
     def test_batch_get_for_update_with_extra(self, sync_session: Session):
         e = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-bo"))
-        result = _SyncSimpleDALV2.batch_get_for_update(sync_session, [e.id], SQLAExtra(lock_timeout=3))
+        result = _SyncSimpleDALV2.batch_get_for_update(sync_session, [e.id], lock_wait_timeout=3)
         assert len(result) == 1
 
     def test_batch_get_for_update_empty(self, sync_session: Session):
@@ -1432,7 +1424,7 @@ class TestV2SyncDALLockMethods:
         e = _SyncSimpleDALV2.create(sync_session, _SyncSimpleCU(name="v2-one-o"))
         found = _SyncSimpleDALV2.get_one_for_update(
             sync_session,
-            SQLAExtra(lock_timeout=2),
+            lock_wait_timeout=2,
             where_clauses=[_SyncSimpleTable.id == e.id],
         )
         assert found is not None
@@ -1443,7 +1435,8 @@ class TestV2SyncDALLockMethods:
             sync_session,
             entity.id,
             _SyncVersionCU(name="v2-opt2", value=2),
-            SQLAExtra(version_field="version", need_refresh=True),
+            version_field="version",
+            need_refresh=True,
             expected_version=0,
         )
         assert updated is not None
@@ -1477,7 +1470,8 @@ class TestV2SyncDALAdvancedWrite:
             sync_session,
             entity.id,
             _SyncTestCU(name="v2-full-o2", value=2),
-            SQLAExtra(need_refresh=True, strict_missing=False),
+            need_refresh=True,
+            strict_missing=False,
         )
         assert updated is not None
 
@@ -1496,7 +1490,8 @@ class TestV2SyncDALAdvancedWrite:
             sync_session,
             entity.id,
             _SyncTestCU(name="v2-part-o2"),
-            SQLAExtra(need_refresh=True, none_policy="allow"),
+            need_refresh=True,
+            none_policy="allow",
         )
         assert updated is not None
 
@@ -1504,7 +1499,7 @@ class TestV2SyncDALAdvancedWrite:
         e = _SyncTestDALV2.create(sync_session, _SyncTestCU(name="v2-bc", value=10))
         cnt = _SyncTestDALV2.batch_update_by_conditions(
             sync_session,
-            conditions=[_SyncTestTable.id == e.id],
+            whereclause=[_SyncTestTable.id == e.id],
             update_data={_SyncTestTable.value: 20},
         )
         assert cnt == 1
@@ -1565,7 +1560,7 @@ class TestStdSyncDeprecationWarnings:
                 __abstract__ = True
 
 
-class TestSyncDALConformance(SyncDALConformanceTests):
+class TestSyncDALConformance(SyncBaseDALConformanceTests):
     """继承 lush-dal-protocol 一致性套件, 验证 SyncBaseDAL 符合协议约定."""
 
     def _post_write_refresh(self, session: Any) -> None:
@@ -1584,19 +1579,11 @@ class TestSyncDALConformance(SyncDALConformanceTests):
         return _SyncSimpleCU(name="conformance-test")
 
 
-class TestSyncDALV2Conformance(SyncFullDALConformanceTests):
-    """继承 lush-dal-protocol 完整一致性套件 (Read+Write+Lock+AdvancedWrite+FieldIsolation)."""
+class TestSyncDALV2Conformance(SyncBaseDALConformanceTests):
+    """继承 lush-dal-protocol 一致性套件 (Read+Write+FieldIsolation)."""
 
     def _post_write_refresh(self, session: Any) -> None:
         session.expire_all()
-
-    def _get_retryable_error_class(self) -> type[Exception]:
-        from lush_sqlalchemyx.base.dal._common import DBRetryableError
-
-        return DBRetryableError
-
-    def _make_update_data(self, field: str, value: Any) -> Any:
-        return {getattr(_SyncSimpleTable, field): value}
 
     @pytest.fixture
     def dal_class(self):
@@ -1613,10 +1600,3 @@ class TestSyncDALV2Conformance(SyncFullDALConformanceTests):
     @pytest.fixture
     def make_cu(self):
         return lambda label: _SyncSimpleCU(name=f"v2-{label}")
-
-    @pytest.fixture
-    def where_clause_factory(self):
-        def _factory(entity: Any) -> list:
-            return [_SyncSimpleTable.name == entity.name]
-
-        return _factory

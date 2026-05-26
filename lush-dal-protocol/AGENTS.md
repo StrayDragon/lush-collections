@@ -1,6 +1,6 @@
 # lush-dal-protocol — 子模块约定
 
-> ORM 无关的 DAL 抽象接口层 (分层 ABC + Extra 扩展参数 + 一致性测试套件 + 内存参考实现).
+> ORM 无关的 DAL 抽象接口层 (Read + Write ABC + 一致性测试套件 + 内存参考实现).
 
 ## 定位
 
@@ -14,26 +14,13 @@
 |--------|------|
 | `abc/read.py` | AbstractAsync/SyncReadDAL — 读操作 ABC (8 个 abstractmethod) |
 | `abc/write.py` | AbstractAsync/SyncWriteDAL — 写操作 ABC (5 个 abstractmethod) |
-| `abc/lock.py` | AbstractAsync/SyncLockDAL — 锁操作 ABC (4 个 abstractmethod) |
-| `abc/batch_field.py` | AbstractAsync/SyncBatchFieldDAL — 批量字段查询 ABC (2 个 abstractmethod) |
-| `abc/advanced_write.py` | AbstractAsync/SyncAdvancedWriteDAL — 高级写操作 ABC (4 个 abstractmethod) |
-| `abc/raw_sql.py` | AbstractAsync/SyncRawSQLDAL — 原始 SQL ABC (2 个 abstractmethod) |
 | `abc/composed.py` | AbstractAsync/SyncBaseDAL — Read + Write 组合 |
-| `params/extra.py` | `Extra` 基类 + `ExtraT` TypeVar — 所有 API 的统一扩展参数 |
 | `dto.py` | `BaseCU` / `BaseDTO` — ORM 无关 Pydantic 基类; `StdBaseCU` / `StdBaseDTO` (deprecated) |
 | `errors.py` | `DBRetryableError` — 数据库并发可重试错误 |
 | `utils/retry.py` | `RetryConfig` / `DEFAULT_RETRY_CONFIG` — 指数退避重试配置 |
 | `utils/sql.py` | `filtered_in_sql_values` / `escape_like` — 通用工具函数 |
 | `testing/conformance.py` | 分层一致性测试 mixin, 下游继承运行 |
 | `testing/reference.py` | 内存参考实现 (InMemorySyncDAL/AsyncDAL), 验证套件正确性 |
-
-## Extra 扩展参数
-
-所有 ABC 方法的最后一个位置参数统一为 `extra: ExtraT | None = None`:
-
-- `Extra` 是 `@dataclass(frozen=True)` 基类, 下游可继承添加 ORM 特有字段.
-- `ExtraT = TypeVar("ExtraT", bound=Extra, default=Extra)` 支持默认泛型参数 (Python 3.10+).
-- 取代了之前的 `LockOptions` / `UpdateOptions` 等分散参数对象.
 
 ## 一致性测试套件
 
