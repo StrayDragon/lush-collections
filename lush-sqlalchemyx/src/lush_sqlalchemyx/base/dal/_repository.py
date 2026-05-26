@@ -7,9 +7,15 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from contextlib import contextmanager
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 
 import sqlalchemy as sa
+
+if TYPE_CHECKING:
+    from contextlib import AbstractAsyncContextManager
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.orm import Session
 from lush_dal_protocol.params.pagination import CursorPagination, CursorResult, OffsetPagination, PageResult
 from lush_dal_protocol.repository import AbstractAsyncRepository, AbstractSyncRepository
 
@@ -33,12 +39,13 @@ class SyncSQLAlchemyRepository(
 
     _Table: ClassVar[type]
     _DTO: ClassVar[type]
-    _session_factory: ClassVar[Callable[[], Any]]
+    _session_factory: ClassVar[Callable[[], Session]]
 
     @classmethod
     @contextmanager
     def _get_session(cls) -> Any:
-        session = cls._session_factory()  # pyright: ignore[reportAttributeAccessIssue]
+        factory = cast("Callable[[], Session]", cls._session_factory)
+        session = factory()
         session.expire_on_commit = False
         try:
             yield session
@@ -52,40 +59,47 @@ class SyncSQLAlchemyRepository(
     @classmethod
     def get(cls, pk: int) -> TableT | None:
         """根据主键获取实体."""
+        _Table = cast("type[TableT]", cls._Table)
         with cls._get_session() as session:
-            return session.get(cls._Table, pk)
+            return session.get(_Table, pk)
 
     @classmethod
     def get_dto(cls, pk: int) -> DTOModelT | None:
         """根据主键获取 DTO."""
+        _Table = cast("type[TableT]", cls._Table)
+        _DTO = cast("type[DTOModelT]", cls._DTO)
         with cls._get_session() as session:
-            entity = session.get(cls._Table, pk)
+            entity = session.get(_Table, pk)
             if entity is None:
                 return None
-            return cls._DTO.model_validate(entity)
+            return _DTO.model_validate(entity)
 
     @classmethod
     def exists(cls, pk: int) -> bool:
         """判断实体是否存在."""
+        _Table = cast("type[TableT]", cls._Table)
         with cls._get_session() as session:
-            return session.get(cls._Table, pk) is not None
+            return session.get(_Table, pk) is not None
 
     @classmethod
     def count(cls) -> int:
         """统计总数."""
+        _Table = cast("type[TableT]", cls._Table)
         with cls._get_session() as session:
-            stmt = sa.select(sa.func.count()).select_from(cls._Table)
+            stmt = sa.select(sa.func.count()).select_from(_Table)
             return session.execute(stmt).scalar() or 0
 
     @classmethod
     def list(cls, pagination: OffsetPagination | None = None) -> PageResult[DTOModelT]:
         """分页列表 (offset-based)."""
+        _Table = cast("type[TableT]", cls._Table)
+        _DTO = cast("type[DTOModelT]", cls._DTO)
         with cls._get_session() as session:
-            stmt = build_offset_stmt(cls._Table, pagination)
+            stmt = build_offset_stmt(_Table, pagination)
             entities = session.execute(stmt).scalars().all()
-            items = [cls._DTO.model_validate(e) for e in entities]
+            items = [_DTO.model_validate(e) for e in entities]
 
-            count_stmt = sa.select(sa.func.count()).select_from(cls._Table)
+            count_stmt = sa.select(sa.func.count()).select_from(_Table)
             total = session.execute(count_stmt).scalar() or 0
 
             return make_page_result(items, total, pagination)
@@ -94,10 +108,12 @@ class SyncSQLAlchemyRepository(
     def list_cursor(cls, pagination: CursorPagination | None = None) -> CursorResult[DTOModelT]:
         """分页列表 (cursor-based)."""
         p = pagination or CursorPagination()
+        _Table = cast("type[TableT]", cls._Table)
+        _DTO = cast("type[DTOModelT]", cls._DTO)
         with cls._get_session() as session:
-            stmt = build_cursor_stmt(cls._Table, pagination)
+            stmt = build_cursor_stmt(_Table, pagination)
             entities = session.execute(stmt).scalars().all()
-            items = [cls._DTO.model_validate(e) for e in entities]
+            items = [_DTO.model_validate(e) for e in entities]
             return make_cursor_result(items, p.limit)
 
     @classmethod
@@ -113,8 +129,9 @@ class SyncSQLAlchemyRepository(
     @classmethod
     def update(cls, pk: int, data: CUModelT) -> TableT | None:
         """更新实体 (仅设置非空字段)."""
+        _Table = cast("type[TableT]", cls._Table)
         with cls._get_session() as session:
-            entity = session.get(cls._Table, pk)
+            entity = session.get(_Table, pk)
             if entity is None:
                 return None
             update_fields = data.model_dump(exclude_unset=True, exclude={"id"})
@@ -127,8 +144,9 @@ class SyncSQLAlchemyRepository(
     @classmethod
     def delete(cls, pk: int) -> None:
         """删除实体."""
+        _Table = cast("type[TableT]", cls._Table)
         with cls._get_session() as session:
-            entity = session.get(cls._Table, pk)
+            entity = session.get(_Table, pk)
             if entity is not None:
                 session.delete(entity)
 
@@ -150,10 +168,10 @@ class SyncSQLAlchemyRepository(
         if not pk_list:
             return 0
         with cls._get_session() as session:
-            id_col = cls._Table.id  # pyright: ignore[reportAttributeAccessIssue]
+            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)
             stmt = sa.update(cls._Table).where(id_col.in_(pk_list)).values(**data)
-            result = session.execute(stmt)
-            return result.rowcount  # pyright: ignore[reportReturnType]
+            result = cast("sa.CursorResult[Any]", session.execute(stmt))
+            return result.rowcount
 
     @classmethod
     def bulk_delete(cls, pks: Iterable[int]) -> int:
@@ -162,10 +180,10 @@ class SyncSQLAlchemyRepository(
         if not pk_list:
             return 0
         with cls._get_session() as session:
-            id_col = cls._Table.id  # pyright: ignore[reportAttributeAccessIssue]
+            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)
             stmt = sa.delete(cls._Table).where(id_col.in_(pk_list))
-            result = session.execute(stmt)
-            return result.rowcount  # pyright: ignore[reportReturnType]
+            result = cast("sa.CursorResult[Any]", session.execute(stmt))
+            return result.rowcount
 
 
 class AsyncSQLAlchemyRepository(
@@ -182,46 +200,53 @@ class AsyncSQLAlchemyRepository(
 
     _Table: ClassVar[type]
     _DTO: ClassVar[type]
-    _session_factory: ClassVar[Callable[..., Any]]
+    _session_factory: ClassVar[Callable[..., AbstractAsyncContextManager[AsyncSession]]]
 
     @classmethod
     async def get(cls, pk: int) -> TableT | None:
         """根据主键获取实体."""
+        _Table = cast("type[TableT]", cls._Table)
         async with cls._session_factory() as session:
-            return await session.get(cls._Table, pk)
+            return await session.get(_Table, pk)
 
     @classmethod
     async def get_dto(cls, pk: int) -> DTOModelT | None:
         """根据主键获取 DTO."""
+        _Table = cast("type[TableT]", cls._Table)
+        _DTO = cast("type[DTOModelT]", cls._DTO)
         async with cls._session_factory() as session:
-            entity = await session.get(cls._Table, pk)
+            entity = await session.get(_Table, pk)
             if entity is None:
                 return None
-            return cls._DTO.model_validate(entity)
+            return _DTO.model_validate(entity)
 
     @classmethod
     async def exists(cls, pk: int) -> bool:
         """判断实体是否存在."""
+        _Table = cast("type[TableT]", cls._Table)
         async with cls._session_factory() as session:
-            return (await session.get(cls._Table, pk)) is not None
+            return (await session.get(_Table, pk)) is not None
 
     @classmethod
     async def count(cls) -> int:
         """统计总数."""
+        _Table = cast("type[TableT]", cls._Table)
         async with cls._session_factory() as session:
-            stmt = sa.select(sa.func.count()).select_from(cls._Table)
+            stmt = sa.select(sa.func.count()).select_from(_Table)
             return (await session.execute(stmt)).scalar() or 0
 
     @classmethod
     async def list(cls, pagination: OffsetPagination | None = None) -> PageResult[DTOModelT]:
         """分页列表 (offset-based)."""
+        _Table = cast("type[TableT]", cls._Table)
+        _DTO = cast("type[DTOModelT]", cls._DTO)
         async with cls._session_factory() as session:
-            stmt = build_offset_stmt(cls._Table, pagination)
+            stmt = build_offset_stmt(_Table, pagination)
             result = await session.execute(stmt)
             entities = result.scalars().all()
-            items = [cls._DTO.model_validate(e) for e in entities]
+            items = [_DTO.model_validate(e) for e in entities]
 
-            count_stmt = sa.select(sa.func.count()).select_from(cls._Table)
+            count_stmt = sa.select(sa.func.count()).select_from(_Table)
             total = (await session.execute(count_stmt)).scalar() or 0
 
             return make_page_result(items, total, pagination)
@@ -230,11 +255,13 @@ class AsyncSQLAlchemyRepository(
     async def list_cursor(cls, pagination: CursorPagination | None = None) -> CursorResult[DTOModelT]:
         """分页列表 (cursor-based)."""
         p = pagination or CursorPagination()
+        _Table = cast("type[TableT]", cls._Table)
+        _DTO = cast("type[DTOModelT]", cls._DTO)
         async with cls._session_factory() as session:
-            stmt = build_cursor_stmt(cls._Table, pagination)
+            stmt = build_cursor_stmt(_Table, pagination)
             result = await session.execute(stmt)
             entities = result.scalars().all()
-            items = [cls._DTO.model_validate(e) for e in entities]
+            items = [_DTO.model_validate(e) for e in entities]
             return make_cursor_result(items, p.limit)
 
     @classmethod
@@ -251,8 +278,9 @@ class AsyncSQLAlchemyRepository(
     @classmethod
     async def update(cls, pk: int, data: CUModelT) -> TableT | None:  # pragma: no cover — async boundary
         """更新实体 (仅设置非空字段)."""
+        _Table = cast("type[TableT]", cls._Table)
         async with cls._session_factory() as session:
-            entity = await session.get(cls._Table, pk)
+            entity = await session.get(_Table, pk)
             if entity is None:
                 return None
             update_fields = data.model_dump(exclude_unset=True, exclude={"id"})
@@ -266,8 +294,9 @@ class AsyncSQLAlchemyRepository(
     @classmethod
     async def delete(cls, pk: int) -> None:  # pragma: no cover — async boundary
         """删除实体."""
+        _Table = cast("type[TableT]", cls._Table)
         async with cls._session_factory() as session:
-            entity = await session.get(cls._Table, pk)
+            entity = await session.get(_Table, pk)
             if entity is not None:
                 await session.delete(entity)
                 await session.commit()
@@ -291,11 +320,11 @@ class AsyncSQLAlchemyRepository(
         if not pk_list:
             return 0
         async with cls._session_factory() as session:
-            id_col = cls._Table.id  # pyright: ignore[reportAttributeAccessIssue]
+            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)
             stmt = sa.update(cls._Table).where(id_col.in_(pk_list)).values(**data)
-            result = await session.execute(stmt)
+            result = cast("sa.CursorResult[Any]", await session.execute(stmt))
             await session.commit()
-            return result.rowcount  # pyright: ignore[reportReturnType]
+            return result.rowcount
 
     @classmethod
     async def bulk_delete(cls, pks: Iterable[int]) -> int:
@@ -304,8 +333,8 @@ class AsyncSQLAlchemyRepository(
         if not pk_list:
             return 0
         async with cls._session_factory() as session:
-            id_col = cls._Table.id  # pyright: ignore[reportAttributeAccessIssue]
+            id_col: sa.Column[int] = cast("sa.Column[int]", cls._Table.id)
             stmt = sa.delete(cls._Table).where(id_col.in_(pk_list))
-            result = await session.execute(stmt)
+            result = cast("sa.CursorResult[Any]", await session.execute(stmt))
             await session.commit()
-            return result.rowcount  # pyright: ignore[reportReturnType]
+            return result.rowcount

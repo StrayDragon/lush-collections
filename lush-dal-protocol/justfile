@@ -37,9 +37,15 @@ clean:
 fmt:
   @uvx --default-index {{default_index}} ruff format
 
-# 类型检查(basedpyright).
+# 类型检查(basedpyright, 含 examples 下游类型检查 SSOT).
 typecheck:
-  @uvx --default-index {{default_index}} basedpyright
+  @uvx --default-index {{default_index}} basedpyright --level error
+  @echo "--- examples 下游类型检查 SSOT ---"
+  @uvx --default-index {{default_index}} basedpyright --level error examples/
+
+# 类型检查: 仅 examples (下游 SSOT 门禁).
+typecheck-examples:
+  @uv run -p {{python}} --default-index {{default_index}} basedpyright --level error examples/
 
 # Lint 检查(ruff check).
 lint:

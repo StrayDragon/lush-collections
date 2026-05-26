@@ -42,7 +42,7 @@ def build_offset_stmt(
     if order_by is not None:
         stmt = stmt.order_by(order_by)
     else:
-        stmt = stmt.order_by(table.id)  # pyright: ignore[reportAttributeAccessIssue]
+        stmt = stmt.order_by(table.id)
     return stmt.offset(p.skip).limit(p.limit)
 
 
@@ -55,7 +55,7 @@ def build_cursor_stmt(
     使用 id > cursor_value 的 keyset 分页方式.
     """
     p = pagination or CursorPagination()
-    id_col = table.id  # pyright: ignore[reportAttributeAccessIssue]
+    id_col = table.id
     stmt = sa.select(table).order_by(id_col)
 
     if p.cursor is not None:
