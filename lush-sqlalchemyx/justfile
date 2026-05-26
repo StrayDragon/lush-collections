@@ -48,9 +48,11 @@ clean:
 fmt:
   @uvx --default-index {{default_index}} ruff format
 
-# 类型检查(basedpyright).
+# 类型检查(basedpyright, 含 examples 下游 SSOT 门禁).
 typecheck:
-  @uvx --default-index {{default_index}} basedpyright
+  @uvx --default-index {{default_index}} basedpyright --level error
+  @echo "--- examples 下游 SSOT 门禁 ---"
+  @uvx --default-index {{default_index}} basedpyright examples/
 
 # 类型检查: 仅 examples (下游 SSOT 门禁, 必须 0 error 0 warning).
 typecheck-examples:
