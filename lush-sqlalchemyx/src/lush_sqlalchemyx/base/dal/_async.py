@@ -121,7 +121,8 @@ async def async_temp_set_lock_wait_timeout(
 # Async Table bases
 # ---------------------------------------------------------------------------
 
-AsyncSQLATableT = TypeVar("AsyncSQLATableT", bound="AsyncSqlATableBase")
+# 隐含约束: AsyncSQLATableT 应为 AsyncSqlATableBase (AsyncAttrs + DeclarativeBase) 子类.
+AsyncSQLATableT = TypeVar("AsyncSQLATableT")
 
 
 class AsyncSqlATableBase(AsyncAttrs, DeclarativeBase):

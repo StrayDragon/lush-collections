@@ -115,7 +115,8 @@ def sync_temp_set_lock_wait_timeout(
 # Sync Table bases
 # ---------------------------------------------------------------------------
 
-SyncSQLATableT = TypeVar("SyncSQLATableT", bound=DeclarativeBase)
+# 隐含约束: SyncSQLATableT 应为 DeclarativeBase 子类 (含 Flask-SQLAlchemy db.Model).
+SyncSQLATableT = TypeVar("SyncSQLATableT")
 
 
 class SyncSqlATableBase(DeclarativeBase):

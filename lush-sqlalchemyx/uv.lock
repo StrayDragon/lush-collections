@@ -668,7 +668,7 @@ wheels = [
 
 [[package]]
 name = "lush-dal-protocol"
-version = "0.1.1"
+version = "0.2.0"
 source = { directory = "../lush-dal-protocol" }
 dependencies = [
     { name = "pydantic" },
@@ -708,7 +708,7 @@ dev = [
 
 [[package]]
 name = "lush-sqlalchemyx"
-version = "0.2.1"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "lush-dal-protocol" },
