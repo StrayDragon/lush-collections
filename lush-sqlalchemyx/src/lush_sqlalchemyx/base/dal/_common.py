@@ -21,7 +21,7 @@ from lush_dal_protocol.dto import DTOModelT as DTOModelT  # noqa: PLC0414
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import event as sa_event
 from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
-from sqlalchemy.orm import DeclarativeBase, Mapped, ORMExecuteState, mapped_column, with_loader_criteria
+from sqlalchemy.orm import Mapped, ORMExecuteState, mapped_column, with_loader_criteria
 from sqlalchemy.orm import Session as SyncSession
 
 READONLY_SESSION_FLAG: Final[str] = "__lush_sqlalchemyx__readonly_session__"
@@ -139,7 +139,10 @@ DEFAULT_RETRY_CONFIG = RetryConfig(max_attempts=3, initial_delay=0.1, max_delay=
 # Pydantic CU / DTO models
 # ---------------------------------------------------------------------------
 
-SQLATableT = TypeVar("SQLATableT", bound=DeclarativeBase)
+# 隐含约束: SQLATableT 应为 SQLAlchemy DeclarativeBase 子类 (含 Flask-SQLAlchemy db.Model).
+# 不设 bound 是因为 Flask-SQLAlchemy 的 db.Model 运行时继承 DeclarativeBase,
+# 但静态类型系统看不到该链路, bound 会误拦合法下游.
+SQLATableT = TypeVar("SQLATableT")
 
 
 class BaseCU(_ProtocolBaseCU[SQLATableT]):
