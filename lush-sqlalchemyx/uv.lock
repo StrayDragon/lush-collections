@@ -708,7 +708,7 @@ dev = [
 
 [[package]]
 name = "lush-sqlalchemyx"
-version = "0.3.0"
+version = "0.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "lush-dal-protocol" },

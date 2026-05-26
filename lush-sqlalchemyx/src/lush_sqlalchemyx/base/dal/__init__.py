@@ -21,6 +21,7 @@ from lush_dal_protocol import (
     AbstractSyncReadDAL,
     AbstractSyncWriteDAL,
 )
+from lush_dal_protocol.params.pagination import CursorPagination, CursorResult, OffsetPagination, PageResult
 
 # --- async (requires sqlalchemy[asyncio]) ---
 from ._async import (
@@ -68,10 +69,6 @@ from ._common import (
 from ._common import __prevent_readonly_write as __prevent_readonly_write  # pyright: ignore[reportPrivateUsage]
 from ._common import __receive_before_flush as __receive_before_flush  # pyright: ignore[reportPrivateUsage]
 from ._pagination import (
-    CursorPagination,
-    CursorResult,
-    OffsetPagination,
-    PageResult,
     build_cursor_stmt,
     build_offset_stmt,
     decode_cursor,

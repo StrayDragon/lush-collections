@@ -301,7 +301,9 @@ def async_engine_sync_setup(mysql_endpoint: Any) -> Generator[Any, None, None]:
             await conn.run_sync(_PagTable.metadata.create_all)
         return eng
 
-    eng = asyncio.get_event_loop_policy().new_event_loop().run_until_complete(_create())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    eng = loop.run_until_complete(_create())
     yield eng
 
     async def _cleanup() -> None:
@@ -309,7 +311,7 @@ def async_engine_sync_setup(mysql_endpoint: Any) -> Generator[Any, None, None]:
             await conn.run_sync(_PagTable.metadata.drop_all)
         await eng.dispose()
 
-    asyncio.get_event_loop_policy().new_event_loop().run_until_complete(_cleanup())
+    loop.run_until_complete(_cleanup())
 
 
 def _make_async_session_factory(engine: Any) -> Any:
