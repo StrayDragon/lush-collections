@@ -52,6 +52,10 @@ fmt:
 typecheck:
   @uvx --default-index {{default_index}} basedpyright
 
+# 类型检查: 仅 examples (下游 SSOT 门禁, 必须 0 error 0 warning).
+typecheck-examples:
+  @uv run -p {{python}} --default-index {{default_index}} basedpyright examples/
+
 # Lint 检查(ruff check).
 lint:
   @uvx --default-index {{default_index}} ruff check

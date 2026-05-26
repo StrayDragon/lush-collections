@@ -304,3 +304,8 @@ reportUnknownArgumentType = false
 
 [[tool.basedpyright.executionEnvironments]]
 root = "src"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "examples"
+# examples 作为下游类型检查 SSOT, 仅继承全局设置, 不做额外放宽.
+# 如果此处报错, 说明库的类型变更破坏了合法下游用法.
