@@ -1,0 +1,38 @@
+{
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/.cache": true,
+      "**/dist": true,
+      "**/.pytest_cache": true,
+      "**/.ruff_cache": true,
+      "**/.uv-cache": true,
+      "**/.coverage": true,
+      "**/.venv": true,
+      "site": true,
+      ".venv": true,
+      "**/.claude": true,
+      "**/.codex": true,
+      "**/.cursor": true,
+      ".ruff_cache": true,
+      ".pytest_cache": true,
+      ".uv-cache": true,
+      ".coverage": true,
+      "**/*.pyc": true,
+      "**/*.pyo": true
+    },
+    "files.watcherExclude": {
+      "**/__pycache__": true,
+      "**/.cache": true,
+      "site": true,
+      "**/.claude": true,
+      "**/.codex": true,
+      "**/.cursor": true,
+      ".venv": true,
+      ".ruff_cache": true,
+      ".pytest_cache": true,
+      ".uv-cache": true,
+      ".coverage": true,
+      "**/*.pyc": true,
+      "**/*.pyo": true
+    }
+}
