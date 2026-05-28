@@ -52,6 +52,10 @@ from ._common import (
     StdBaseDTO,
     escape_like,
     filtered_in_sql_values,
+    is_soft_delete_hooks_registered,
+    register_soft_delete_hooks,
+    setup_dal_hooks,
+    unregister_soft_delete_hooks,
 )
 
 # Event listener references — accessed by tests via getattr(module, name).
@@ -106,6 +110,10 @@ __all__ = (
     "StdBaseDTO",
     "escape_like",
     "filtered_in_sql_values",
+    "is_soft_delete_hooks_registered",
+    "register_soft_delete_hooks",
+    "setup_dal_hooks",
+    "unregister_soft_delete_hooks",
     # async
     "AsyncBaseDAL",
     "AsyncRawDAL",

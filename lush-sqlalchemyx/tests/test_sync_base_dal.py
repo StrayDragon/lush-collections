@@ -26,8 +26,12 @@ from lush_sqlalchemyx.base.dal import (
     SyncSqlATableBase,
     SyncWriteDAL,
     SyncXDALOp,
+    is_soft_delete_hooks_registered,
+    register_soft_delete_hooks,
+    setup_dal_hooks,
     sync_temp_set_lock_wait_timeout,
     sync_with_retry,
+    unregister_soft_delete_hooks,
 )
 from lush_sqlalchemyx.base.dal._common import (
     READONLY_SESSION_FLAG,
@@ -483,6 +487,28 @@ class TestSyncCRUD:
         dto = _SyncTestDAL.ret_dto_after_get_by_id(sync_session, 999999)
         assert dto is None
 
+    def test_get_by_id_after_soft_delete_no_expire(self, sync_session: Session):
+        """get_by_id returns None for soft-deleted entity in identity map."""
+        entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="soft-id"))
+        eid = entity.id
+        _SyncTestDAL.delete_by_id(sync_session, eid)
+        # No expire_all — entity still in identity map with is_delete=1
+        assert _SyncTestDAL.get_by_id(sync_session, eid) is None
+
+    def test_exists_after_soft_delete_no_expire(self, sync_session: Session):
+        """exists returns False for soft-deleted entity in identity map."""
+        entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="soft-exists"))
+        eid = entity.id
+        _SyncTestDAL.delete_by_id(sync_session, eid)
+        assert _SyncTestDAL.exists(sync_session, eid) is False
+
+    def test_ret_dto_after_soft_delete_no_expire(self, sync_session: Session):
+        """ret_dto_after_get_by_id returns None for soft-deleted entity in identity map."""
+        entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="soft-dto"))
+        eid = entity.id
+        _SyncTestDAL.delete_by_id(sync_session, eid)
+        assert _SyncTestDAL.ret_dto_after_get_by_id(sync_session, eid) is None
+
 
 class TestSyncBatch:
     def test_batch_get_id__entity(self, sync_session: Session):
@@ -888,6 +914,66 @@ class TestSyncSoftDelete:
         deleted = result2.scalar_one_or_none()
         assert deleted is not None
         assert deleted.is_delete == 1
+
+
+class TestSoftDeleteHookRegistration:
+    """BDD 风格测试: hooks 已注册 vs 未注册的行为差异."""
+
+    @pytest.fixture(autouse=True)
+    def _restore_hooks(self) -> Generator[None, None, None]:
+        yield
+        register_soft_delete_hooks()
+
+    def test_without_hooks_physical_delete(self, sync_session: Session):
+        """Given: 软删除钩子未注册
+        When:  delete_by_id 调用
+        Then:  物理 DELETE — 行完全消失
+        """
+        unregister_soft_delete_hooks()
+        entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="no-hooks"))
+        eid = entity.id
+        _SyncTestDAL.delete_by_id(sync_session, eid)
+        sync_session.expire_all()
+        stmt = sa.select(_SyncTestTable).where(_SyncTestTable.id == eid)
+        assert sync_session.execute(stmt).scalar_one_or_none() is None
+
+    def test_with_hooks_soft_delete(self, sync_session: Session):
+        """Given: 软删除钩子已注册
+        When:  delete_by_id 调用
+        Then:  行保留, is_delete=1
+        """
+        register_soft_delete_hooks()
+        entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="with-hooks"))
+        eid = entity.id
+        _SyncTestDAL.delete_by_id(sync_session, eid)
+        sync_session.expire_all()
+        stmt = sa.select(_SyncTestTable).where(_SyncTestTable.id == eid).execution_options(include_soft_deleted=True)
+        row = sync_session.execute(stmt).scalar_one_or_none()
+        assert row is not None
+        assert row.is_delete == 1
+
+    def test_without_hooks_get_by_id_returns_none_after_physical_delete(self, sync_session: Session):
+        """Given: 钩子未注册
+        When:  delete_by_id 后调用 get_by_id
+        Then:  get_by_id 返回 None（因为行已被物理删除）
+        """
+        unregister_soft_delete_hooks()
+        entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="no-hooks-get"))
+        eid = entity.id
+        assert _SyncTestDAL.get_by_id(sync_session, eid) is not None
+        _SyncTestDAL.delete_by_id(sync_session, eid)
+        sync_session.expire_all()
+        assert _SyncTestDAL.get_by_id(sync_session, eid) is None
+
+    def test_setup_dal_hooks_registers_all(self, sync_session: Session):
+        """Given: 钩子未注册
+        When:  setup_dal_hooks 调用
+        Then:  所有钩子都已注册
+        """
+        unregister_soft_delete_hooks()
+        assert not is_soft_delete_hooks_registered()
+        setup_dal_hooks()
+        assert is_soft_delete_hooks_registered()
 
 
 class TestSyncTempLockTimeout:

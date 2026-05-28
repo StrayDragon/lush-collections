@@ -11,7 +11,7 @@
 """
 
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -45,6 +45,8 @@ from lush_sqlalchemyx.base.dal import (
     async_temp_set_lock_wait_timeout,
     async_with_retry,
     escape_like,
+    register_soft_delete_hooks,
+    unregister_soft_delete_hooks,
 )
 from lush_sqlalchemyx.mgrs.mysql import AsyncMySQLManager, async_must_rollback_if_in_transaction
 
@@ -585,6 +587,35 @@ class TestSoftDelete:
 
 
 # ========== 集成测试 ==========
+
+
+class TestSoftDeleteHookRegistrationAsync:
+    """Async BDD 风格测试: hooks 已注册 vs 未注册的行为差异（MySQL Docker）."""
+
+    @pytest.fixture(autouse=True)
+    def _restore_hooks(self) -> Generator[None, None, None]:
+        yield
+        register_soft_delete_hooks()
+
+    async def test_without_hooks_physical_delete(self, async_session: AsyncSession):
+        unregister_soft_delete_hooks()
+        entity = await _TestDAL.create(async_session, _TestCU(name="no-hooks-async"))
+        eid = entity.id
+        await _TestDAL.delete_by_id(async_session, eid)
+        async_session.expire_all()
+        stmt = sa.select(_TestTable).where(_TestTable.id == eid)
+        assert (await async_session.execute(stmt)).scalar_one_or_none() is None
+
+    async def test_with_hooks_soft_delete(self, async_session: AsyncSession):
+        register_soft_delete_hooks()
+        entity = await _TestDAL.create(async_session, _TestCU(name="hooks-async"))
+        eid = entity.id
+        await _TestDAL.delete_by_id(async_session, eid)
+        async_session.expire_all()
+        stmt = sa.select(_TestTable).where(_TestTable.id == eid).execution_options(include_soft_deleted=True)
+        row = (await async_session.execute(stmt)).scalar_one_or_none()
+        assert row is not None
+        assert row.is_delete == 1
 
 
 class TestBaseDALIntegration:

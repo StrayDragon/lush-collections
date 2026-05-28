@@ -314,6 +314,8 @@ class SyncWriteDALConformanceTests(_ConformanceHelpers):
         entity = dal_class.create(session, sample_cu)
         eid = self._get_entity_id(entity)
         dal_class.delete_by_id(session, eid)
+        # identity map 检查(无 refresh)— delete_by_id 后必须立即可见
+        assert dal_class.get_by_id(session, eid) is None
         self._post_write_refresh(session)
         assert dal_class.get_by_id(session, eid) is None
 
@@ -344,6 +346,8 @@ class SyncWriteDALConformanceTests(_ConformanceHelpers):
         eid = self._get_entity_id(entity)
         assert dal_class.exists(session, eid) is True
         dal_class.delete_by_id(session, eid)
+        # identity map 检查(无 refresh)
+        assert dal_class.exists(session, eid) is False
         self._post_write_refresh(session)
         assert dal_class.exists(session, eid) is False
 
@@ -699,6 +703,7 @@ class AsyncWriteDALConformanceTests(_ConformanceHelpers):
         entity = await dal_class.create(session, sample_cu)
         eid = self._get_entity_id(entity)
         await dal_class.delete_by_id(session, eid)
+        assert await dal_class.get_by_id(session, eid) is None
         self._post_write_refresh(session)
         assert await dal_class.get_by_id(session, eid) is None
 
@@ -728,6 +733,7 @@ class AsyncWriteDALConformanceTests(_ConformanceHelpers):
         eid = self._get_entity_id(entity)
         assert await dal_class.exists(session, eid) is True
         await dal_class.delete_by_id(session, eid)
+        assert await dal_class.exists(session, eid) is False
         self._post_write_refresh(session)
         assert await dal_class.exists(session, eid) is False
 
