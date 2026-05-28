@@ -1,4 +1,18 @@
-"""FastAPI 依赖工厂:为 AsyncMySQL 管理器与会话提供依赖注入工具."""
+"""FastAPI 依赖工厂:为 AsyncMySQL 管理器与会话提供依赖注入工具.
+
+使用本模块前, 请在 FastAPI lifespan 中调用 ``setup_dal_hooks()``::
+
+    from contextlib import asynccontextmanager
+    from lush_sqlalchemyx import setup_dal_hooks
+
+
+    @asynccontextmanager
+    async def lifespan(app):
+        setup_dal_hooks()
+        yield
+
+不调用则软删除、只读保护等 Session 事件钩子不会生效.
+"""
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import ClassVar, Generic
