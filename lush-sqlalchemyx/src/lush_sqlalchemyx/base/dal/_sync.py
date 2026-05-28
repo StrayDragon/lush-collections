@@ -326,7 +326,10 @@ class SyncReadDAL(
         session: Session,
         entity_id: int,
     ) -> SyncSQLATableT | None:
-        return session.get(cls._Table, entity_id)
+        entity = session.get(cls._Table, entity_id)
+        if entity is not None and isinstance(entity, SoftDeleteTableMixin) and entity.is_delete:
+            return None
+        return entity
 
     @classmethod
     def batch_get_field__entity(
@@ -398,6 +401,8 @@ class SyncReadDAL(
     ) -> DTOModelT | None:
         entity = session.get(cls._Table, entity_id)
         if entity:
+            if isinstance(entity, SoftDeleteTableMixin) and entity.is_delete:
+                return None
             if need_refresh:
                 session.refresh(entity)
             return cls._DTO.model_validate(entity)
@@ -419,7 +424,9 @@ class SyncReadDAL(
     @classmethod
     def exists(cls, session: Session, entity_id: int) -> bool:
         entity = session.get(cls._Table, entity_id)
-        return entity is not None
+        if entity is None:
+            return False
+        return not (isinstance(entity, SoftDeleteTableMixin) and entity.is_delete)
 
     @classmethod
     def get_by_id_for_update(

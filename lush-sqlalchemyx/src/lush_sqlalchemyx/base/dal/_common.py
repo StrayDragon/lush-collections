@@ -268,6 +268,65 @@ class FieldMixin:
 
 
 # ---------------------------------------------------------------------------
+# Soft-delete hook management API (explicit register/unregister/check)
+# ---------------------------------------------------------------------------
+
+
+def register_soft_delete_hooks() -> None:
+    """显式注册软删除 Session 事件监听器（幂等）。
+
+    在以下场景需要显式调用:
+    - 多进程 worker 子进程（import 可能未触发）
+    - 测试中自建 Session、未走应用启动链
+    - FastAPI lifespan / Flask app factory 显式初始化
+    """
+    if not sa_event.contains(SyncSession, "before_flush", __receive_before_flush):
+        sa_event.listen(SyncSession, "before_flush", __receive_before_flush, insert=True)
+    if not sa_event.contains(SyncSession, "do_orm_execute", __add_filtering_criteria):
+        sa_event.listen(SyncSession, "do_orm_execute", __add_filtering_criteria, insert=True)
+
+
+def unregister_soft_delete_hooks() -> None:
+    """注销软删除 Session 事件监听器（幂等）。"""
+    if sa_event.contains(SyncSession, "before_flush", __receive_before_flush):
+        sa_event.remove(SyncSession, "before_flush", __receive_before_flush)
+    if sa_event.contains(SyncSession, "do_orm_execute", __add_filtering_criteria):
+        sa_event.remove(SyncSession, "do_orm_execute", __add_filtering_criteria)
+
+
+def is_soft_delete_hooks_registered() -> bool:
+    """检查软删除钩子是否已注册。"""
+    return sa_event.contains(SyncSession, "before_flush", __receive_before_flush) and sa_event.contains(
+        SyncSession, "do_orm_execute", __add_filtering_criteria
+    )
+
+
+def setup_dal_hooks() -> None:
+    """注册所有必要的 Session 事件监听器（幂等）。
+
+    在应用生命周期开始时**调用一次**即可，无需关注具体注册了哪些钩子。
+    涵盖：软删除拦截、软删除查询过滤、只读保护。
+
+    FastAPI 示例::
+
+        @asynccontextmanager
+        async def lifespan(app):
+            setup_dal_hooks()
+            yield
+
+    Flask 示例::
+
+        def create_app():
+            app = Flask(__name__)
+            setup_dal_hooks()
+            return app
+    """
+    register_soft_delete_hooks()
+    if not sa_event.contains(SyncSession, "before_flush", __prevent_readonly_write):
+        sa_event.listen(SyncSession, "before_flush", __prevent_readonly_write, insert=True)
+
+
+# ---------------------------------------------------------------------------
 # Session event listeners (registered on SyncSession — works for both sync
 # and async since AsyncSession delegates to a SyncSession internally)
 # ---------------------------------------------------------------------------
@@ -354,4 +413,8 @@ __all__ = (
     "_ensure_strict_fields",
     "escape_like",
     "filtered_in_sql_values",
+    "is_soft_delete_hooks_registered",
+    "register_soft_delete_hooks",
+    "setup_dal_hooks",
+    "unregister_soft_delete_hooks",
 )

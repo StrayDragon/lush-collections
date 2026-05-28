@@ -333,7 +333,10 @@ class AsyncReadDAL(
         session: AsyncSession,
         entity_id: int,
     ) -> AsyncSQLATableT | None:
-        return await session.get(cls._Table, entity_id)
+        entity = await session.get(cls._Table, entity_id)
+        if entity is not None and isinstance(entity, SoftDeleteTableMixin) and entity.is_delete:
+            return None
+        return entity
 
     @classmethod
     async def batch_get_field__entity(
@@ -407,6 +410,8 @@ class AsyncReadDAL(
     ) -> DTOModelT | None:
         entity = await session.get(cls._Table, entity_id)
         if entity:
+            if isinstance(entity, SoftDeleteTableMixin) and entity.is_delete:
+                return None
             if need_refresh:
                 await session.refresh(entity)
             return cls._DTO.model_validate(entity)
@@ -428,7 +433,9 @@ class AsyncReadDAL(
     @classmethod
     async def exists(cls, session: AsyncSession, entity_id: int) -> bool:
         entity = await session.get(cls._Table, entity_id)
-        return entity is not None
+        if entity is None:
+            return False
+        return not (isinstance(entity, SoftDeleteTableMixin) and entity.is_delete)
 
     @classmethod
     async def get_by_id_for_update(

@@ -269,7 +269,107 @@ class _DataJsonBytesExample(dal_mod.FieldMixin.DataJsonBytes[_MsgData]):
         self.data_json = data_json
 
 
-def test_data_json_bytes_setter_non_basemodel_value_is_noop():
+class _SoftDeleteEntity(dal_mod.SoftDeleteTableMixin):
+    """Minimal soft-delete entity for unit tests - NOT a real SQLAlchemy model."""
+
+    def __init__(self, *, name: str, value: int = 0) -> None:
+        self.id = 1
+        self.name = name
+        self.value = value
+
+
+class _SoftDeleteCU(BaseCU["_SoftDeleteEntity"]):
+    _Table: ClassVar[type[_SoftDeleteEntity]] = _SoftDeleteEntity
+
+    name: str
+    value: int = 0
+
+
+class _SoftDeleteDTO(BaseDTO[_SoftDeleteCU]):
+    _CU: ClassVar[type[_SoftDeleteCU]] = _SoftDeleteCU
+
+    id: int
+    name: str
+    value: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class _SoftDeleteDAL(AsyncBaseDAL[_SoftDeleteEntity, _SoftDeleteDTO, _SoftDeleteCU]):
+    _Table = _SoftDeleteEntity
+    _DTO = _SoftDeleteDTO
+    _CU = _SoftDeleteCU
+
+
+@pytest.mark.asyncio
+async def test_get_by_id_returns_none_for_soft_deleted_in_identity_map():
+    entity = _SoftDeleteEntity(name="soft", value=1)
+    entity.delete()  # sets is_delete=1
+    session = _FakeAsyncSession(entities_by_id={1: entity})
+
+    result = await _SoftDeleteDAL.get_by_id(session, 1)  # type: ignore[arg-type]
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_exists_returns_false_for_soft_deleted_in_identity_map():
+    entity = _SoftDeleteEntity(name="soft", value=1)
+    entity.delete()
+    session = _FakeAsyncSession(entities_by_id={1: entity})
+
+    ok = await _SoftDeleteDAL.exists(session, 1)  # type: ignore[arg-type]
+    assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_ret_dto_after_get_by_id_returns_none_for_soft_deleted():
+    entity = _SoftDeleteEntity(name="soft", value=1)
+    entity.delete()
+    session = _FakeAsyncSession(entities_by_id={1: entity})
+
+    dto = await _SoftDeleteDAL.ret_dto_after_get_by_id(session, 1)  # type: ignore[arg-type]
+    assert dto is None
+
+
+def test_register_soft_delete_hooks_idempotent():
+    """register_soft_delete_hooks is idempotent and does not raise when already registered."""
+    dal_mod.register_soft_delete_hooks()
+    assert dal_mod.is_soft_delete_hooks_registered()
+
+
+def test_unregister_soft_delete_hooks_is_idempotent():
+    """unregister_soft_delete_hooks works when hooks are active."""
+    assert dal_mod.is_soft_delete_hooks_registered()
+    dal_mod.unregister_soft_delete_hooks()
+    assert not dal_mod.is_soft_delete_hooks_registered()
+    # ensure idempotent
+    dal_mod.unregister_soft_delete_hooks()
+    assert not dal_mod.is_soft_delete_hooks_registered()
+    # restore for other tests
+    dal_mod.register_soft_delete_hooks()
+    assert dal_mod.is_soft_delete_hooks_registered()
+
+
+def test_setup_dal_hooks_registers_all():
+    """setup_dal_hooks 注册所有钩子（幂等）。"""
+    dal_mod.unregister_soft_delete_hooks()
+    assert not dal_mod.is_soft_delete_hooks_registered()
+    dal_mod.setup_dal_hooks()
+    assert dal_mod.is_soft_delete_hooks_registered()
+
+
+def test_setup_dal_hooks_registers_readonly_protection():
+    """setup_dal_hooks 注册只读保护钩子分支."""
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session as SyncSession
+
+    readonly_fn = dal_mod.__prevent_readonly_write
+    if event.contains(SyncSession, "before_flush", readonly_fn):
+        event.remove(SyncSession, "before_flush", readonly_fn)
+
+    assert not event.contains(SyncSession, "before_flush", readonly_fn)
+    dal_mod.setup_dal_hooks()
+    assert event.contains(SyncSession, "before_flush", readonly_fn)
     _DataJsonBytesExample._DATA_JSON = _MsgData
     obj = _DataJsonBytesExample(b"{}")
 
