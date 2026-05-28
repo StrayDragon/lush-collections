@@ -304,7 +304,7 @@ class _SoftDeleteDAL(AsyncBaseDAL[_SoftDeleteEntity, _SoftDeleteDTO, _SoftDelete
 @pytest.mark.asyncio
 async def test_get_by_id_returns_none_for_soft_deleted_in_identity_map():
     entity = _SoftDeleteEntity(name="soft", value=1)
-    entity.delete()  # sets is_delete=1
+    entity.soft_delete()  # sets is_delete=1
     session = _FakeAsyncSession(entities_by_id={1: entity})
 
     result = await _SoftDeleteDAL.get_by_id(session, 1)  # type: ignore[arg-type]
@@ -314,7 +314,7 @@ async def test_get_by_id_returns_none_for_soft_deleted_in_identity_map():
 @pytest.mark.asyncio
 async def test_exists_returns_false_for_soft_deleted_in_identity_map():
     entity = _SoftDeleteEntity(name="soft", value=1)
-    entity.delete()
+    entity.soft_delete()
     session = _FakeAsyncSession(entities_by_id={1: entity})
 
     ok = await _SoftDeleteDAL.exists(session, 1)  # type: ignore[arg-type]
@@ -324,7 +324,7 @@ async def test_exists_returns_false_for_soft_deleted_in_identity_map():
 @pytest.mark.asyncio
 async def test_ret_dto_after_get_by_id_returns_none_for_soft_deleted():
     entity = _SoftDeleteEntity(name="soft", value=1)
-    entity.delete()
+    entity.soft_delete()
     session = _FakeAsyncSession(entities_by_id={1: entity})
 
     dto = await _SoftDeleteDAL.ret_dto_after_get_by_id(session, 1)  # type: ignore[arg-type]

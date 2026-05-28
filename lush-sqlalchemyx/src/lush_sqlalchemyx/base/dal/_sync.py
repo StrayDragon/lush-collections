@@ -28,6 +28,7 @@ from ._common import (
     CUModelT,
     DBRetryableError,
     DTOModelT,
+    FieldIsDeleteSoftDeleteTableMixin,
     ReadOnlyMixin,
     RetryConfig,
     SoftDeleteTableMixin,
@@ -136,7 +137,7 @@ class ReadOnlySyncBaseTable(SyncSqlATableBase, ReadOnlyMixin):
     __abstract__ = True
 
 
-class StdSyncBaseTable(BasicSyncBaseTable, SoftDeleteTableMixin):
+class StdSyncBaseTable(BasicSyncBaseTable, FieldIsDeleteSoftDeleteTableMixin):
     """标准同步表类: 包含 id/时间戳/操作人/软删除等标准字段.
 
     .. deprecated::
@@ -327,7 +328,7 @@ class SyncReadDAL(
         entity_id: int,
     ) -> SyncSQLATableT | None:
         entity = session.get(cls._Table, entity_id)
-        if entity is not None and isinstance(entity, SoftDeleteTableMixin) and entity.is_delete:
+        if entity is not None and isinstance(entity, SoftDeleteTableMixin) and entity.is_soft_deleted:
             return None
         return entity
 
@@ -401,7 +402,7 @@ class SyncReadDAL(
     ) -> DTOModelT | None:
         entity = session.get(cls._Table, entity_id)
         if entity:
-            if isinstance(entity, SoftDeleteTableMixin) and entity.is_delete:
+            if isinstance(entity, SoftDeleteTableMixin) and entity.is_soft_deleted:
                 return None
             if need_refresh:
                 session.refresh(entity)
@@ -426,7 +427,7 @@ class SyncReadDAL(
         entity = session.get(cls._Table, entity_id)
         if entity is None:
             return False
-        return not (isinstance(entity, SoftDeleteTableMixin) and entity.is_delete)
+        return not (isinstance(entity, SoftDeleteTableMixin) and entity.is_soft_deleted)
 
     @classmethod
     def get_by_id_for_update(
