@@ -1,6 +1,6 @@
 [project]
 name = "lush-dal-protocol"
-version = "0.2.1"
+version = "0.2.2"
 description = "DAL (Data Access Layer) protocol for the lush ecosystem"
 readme = "README.md"
 requires-python = ">=3.10"
