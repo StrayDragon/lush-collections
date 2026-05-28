@@ -528,29 +528,27 @@ class TestSoftDelete:
 
     def test_soft_delete_mixin_methods(self):
         """测试软删除Mixin的方法"""
-        # 使用_TestTable测试,因为它继承了SoftDeleteTableMixin
+        # 使用_TestTable测试,因为它继承了FieldIsDeleteSoftDeleteTableMixin
         instance = _TestTable(
             name="测试软删除",
             status=1,
             create_operator_id=1,
         )
-        # 手动设置is_delete属性,因为它有默认值
         instance.is_delete = 0
 
         # 测试初始状态
         assert instance.is_delete == 0
+        assert instance.is_soft_deleted is False
 
         # 测试删除
-        instance.delete()
+        instance.soft_delete()
         assert instance.is_delete == 1
-
-        # 测试自定义删除标记
-        instance.delete(2)
-        assert instance.is_delete == 2
+        assert instance.is_soft_deleted is True
 
         # 测试恢复
-        instance.undelete()
+        instance.soft_undelete()
         assert instance.is_delete == 0
+        assert instance.is_soft_deleted is False
 
     async def test_soft_delete_filtering(self, async_session: AsyncSession):
         """测试软删除过滤功能"""
@@ -562,7 +560,7 @@ class TestSoftDelete:
         record2 = await _TestDAL.create(async_session, cu2)
 
         # 手动标记一条记录为删除
-        record2.delete()
+        record2.soft_delete()
         await async_session.commit()
 
         # 正常查询应该只返回未删除的记录(至少包含我们刚创建的记录)
@@ -2853,7 +2851,7 @@ class TestIterRecordDtos:
 
         # 软删除部分记录
         for i in [0, 2, 4]:
-            entities[i].delete()
+            entities[i].soft_delete()
         await async_session.commit()
 
         # 不包含软删除记录

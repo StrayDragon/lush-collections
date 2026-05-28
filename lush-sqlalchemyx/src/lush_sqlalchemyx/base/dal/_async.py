@@ -31,6 +31,7 @@ from ._common import (
     CUModelT,
     DBRetryableError,
     DTOModelT,
+    FieldIsDeleteSoftDeleteTableMixin,
     ReadOnlyMixin,
     RetryConfig,
     SoftDeleteTableMixin,
@@ -142,7 +143,7 @@ class ReadOnlyBasicAsyncBaseTable(AsyncSqlATableBase, ReadOnlyMixin):
     __abstract__ = True
 
 
-class StdAsyncBaseTable(BasicAsyncBaseTable, SoftDeleteTableMixin):
+class StdAsyncBaseTable(BasicAsyncBaseTable, FieldIsDeleteSoftDeleteTableMixin):
     """标准异步表类: 包含 id/时间戳/操作人/软删除等标准字段.
 
     .. deprecated::
@@ -334,7 +335,7 @@ class AsyncReadDAL(
         entity_id: int,
     ) -> AsyncSQLATableT | None:
         entity = await session.get(cls._Table, entity_id)
-        if entity is not None and isinstance(entity, SoftDeleteTableMixin) and entity.is_delete:
+        if entity is not None and isinstance(entity, SoftDeleteTableMixin) and entity.is_soft_deleted:
             return None
         return entity
 
@@ -410,7 +411,7 @@ class AsyncReadDAL(
     ) -> DTOModelT | None:
         entity = await session.get(cls._Table, entity_id)
         if entity:
-            if isinstance(entity, SoftDeleteTableMixin) and entity.is_delete:
+            if isinstance(entity, SoftDeleteTableMixin) and entity.is_soft_deleted:
                 return None
             if need_refresh:
                 await session.refresh(entity)
@@ -435,7 +436,7 @@ class AsyncReadDAL(
         entity = await session.get(cls._Table, entity_id)
         if entity is None:
             return False
-        return not (isinstance(entity, SoftDeleteTableMixin) and entity.is_delete)
+        return not (isinstance(entity, SoftDeleteTableMixin) and entity.is_soft_deleted)
 
     @classmethod
     async def get_by_id_for_update(

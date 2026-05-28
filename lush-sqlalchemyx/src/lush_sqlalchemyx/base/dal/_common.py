@@ -212,15 +212,51 @@ class StdBaseDTO(BaseDTO[CUModelT]):
 
 
 class SoftDeleteTableMixin:
-    """软删除表混入类."""
+    """软删除表标记混入类 — 不强制任何列名或类型.
+
+    子类必须提供软删除列并覆写 ``is_soft_deleted`` property.
+    快捷方式: 继承 ``FieldIsDeleteSoftDeleteTableMixin`` 获得标准 ``is_delete`` 列.
+
+    自定义示例::
+
+        class MyTable(Base, SoftDeleteTableMixin):
+            __soft_delete_column__ = "deleted_at"
+
+            deleted_at: Mapped[datetime | None] = mapped_column(sa.DateTime, nullable=True, default=None)
+
+            @property
+            def is_soft_deleted(self) -> bool:
+                return self.deleted_at is not None
+
+            def soft_delete(self) -> None:
+                from datetime import datetime, timezone
+
+                self.deleted_at = datetime.now(timezone.utc)
+    """
+
+    __soft_delete_column__: ClassVar[str] = "is_delete"
+
+    def soft_delete(self) -> None:
+        """标记为软删除."""
+        setattr(self, self.__soft_delete_column__, 1)
+
+    def soft_undelete(self) -> None:
+        """恢复软删除."""
+        setattr(self, self.__soft_delete_column__, 0)
+
+    @property
+    def is_soft_deleted(self) -> bool:
+        """实体是否已被软删除（默认检查 ``is_delete != 0``，子类可覆写）."""
+        return bool(getattr(self, self.__soft_delete_column__))
+
+
+class FieldIsDeleteSoftDeleteTableMixin(SoftDeleteTableMixin):
+    """标准软删除混入类 — 提供 ``is_delete: Mapped[int]`` 列.
+
+    等价旧版 ``SoftDeleteTableMixin``，仅需 rename.
+    """
 
     is_delete: Mapped[int] = mapped_column(sa.Integer, default=0, comment="逻辑删除")
-
-    def delete(self, is_delete: int = 1) -> None:
-        self.is_delete = is_delete
-
-    def undelete(self) -> None:
-        self.is_delete = 0
 
 
 class ReadOnlyMixin:
@@ -336,7 +372,7 @@ def setup_dal_hooks() -> None:
 def __receive_before_flush(session: SyncSession, flush_context: Any, instances: Any) -> None:  # noqa: ARG001 # pyright: ignore[reportUnusedFunction, reportUnusedParameter]
     for instance in session.deleted:
         if isinstance(instance, SoftDeleteTableMixin):
-            instance.delete()
+            instance.soft_delete()
             session.add(instance)
 
 
@@ -351,7 +387,7 @@ def __add_filtering_criteria(execute_state: ORMExecuteState) -> None:  # pyright
         execute_state.statement = execute_state.statement.options(
             with_loader_criteria(
                 SoftDeleteTableMixin,
-                lambda t: t.is_delete == 0,
+                lambda cls: getattr(cls, getattr(cls, "__soft_delete_column__", "is_delete"), sa.null()) == 0,
                 include_aliases=True,
             )
         )
@@ -411,6 +447,7 @@ __all__ = (
     "T",
     "V",
     "_ensure_strict_fields",
+    "FieldIsDeleteSoftDeleteTableMixin",
     "escape_like",
     "filtered_in_sql_values",
     "is_soft_delete_hooks_registered",

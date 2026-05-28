@@ -1,6 +1,6 @@
 [project]
 name = "lush-sqlalchemyx"
-version = "0.3.2"
+version = "0.4.0"
 description = "SQLAlchemy helpers (DAL) and async MySQL managers, with some web frameworks integrations"
 readme = "README.md"
 requires-python = ">=3.10"

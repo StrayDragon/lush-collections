@@ -6,6 +6,21 @@
 - @lush-dal-protocol/AGENTS.md
 - @lush-sqlalchemyx/AGENTS.md
 
+## Commit Convention
+
+- 使用 conventional commits: `<type>: <subject>`.
+- subject 首字母**小写**, 句末不加句号.
+- type 参考: `feat`, `fix`, `refactor`, `bump`, `docs`, `test`, `dev`, `revert`.
+- **不在消息体中**列举具体文件或行号 — diff 已有.
+
+- **bump commit**: `lush-<pkg>: bump version to <ver>` (独立提交, 含 pyproject.toml 版本号变更 + 升级文档).
+
+## Upgrade Docs
+
+- **每次 minor/major (破坏性) 发布** 须在 `docs/upgrade/<pkg>/<from>-to-<to>.md` 记录升级指南.
+- 指南包含: 版本变更表、破坏性变更及迁移步骤、问题修复说明、降级/回退方式.
+- 非破坏性修复 (patch) 视严重程度可选记录.
+
 ## Upgrade Policy
 
 - 迭代/重构时 **不做兼容**, 除非用户明确要求.

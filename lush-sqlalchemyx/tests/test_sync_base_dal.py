@@ -1,5 +1,6 @@
 """Sync DAL tests — mirrors test_base_dal.py for the synchronous API."""
 
+import datetime
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any, ClassVar
@@ -19,6 +20,7 @@ from lush_sqlalchemyx.base.dal import (
     FieldMixin,
     ReadOnlySyncBaseDAL,
     ReadOnlySyncBaseTable,
+    SoftDeleteTableMixin,
     StdBaseCU,
     StdBaseDTO,
     StdSyncBaseTable,
@@ -1428,6 +1430,115 @@ class TestSyncFieldMixin:
         result = obj.x_data_json
         assert result is not None
         assert result.text == "from-str"
+
+
+class TestCustomSoftDeleteColumn:
+    """验证裸 SoftDeleteTableMixin + 自定义列名+类型正常工作."""
+
+    __custom_tables_created = False
+
+    @pytest.fixture(autouse=True)
+    def _setup_table(self, sync_manager: SyncMySQLManager):
+        if not TestCustomSoftDeleteColumn.__custom_tables_created:
+            _CustomDeletedAtTable.metadata.create_all(sync_manager.engine, checkfirst=True)
+            TestCustomSoftDeleteColumn.__custom_tables_created = True
+
+    def test_soft_delete_sets_custom_column(self, sync_session: Session):
+        entity = _CustomDeletedAtTable(name="dt-del")
+        sync_session.add(entity)
+        sync_session.flush()
+
+        assert entity.deleted_at is None
+        assert entity.is_soft_deleted is False
+
+        entity.soft_delete()
+        assert entity.deleted_at is not None
+        assert entity.is_soft_deleted is True
+
+        entity.soft_undelete()
+        assert entity.deleted_at is None
+        assert entity.is_soft_deleted is False
+
+    def test_do_orm_execute_filters_custom_column(self, sync_session: Session):
+        entity = _CustomDeletedAtTable(name="dt-filter")
+        sync_session.add(entity)
+        sync_session.flush()
+        eid = entity.id
+        entity.soft_delete()
+        sync_session.flush()
+
+        # Normal query should exclude soft-deleted
+        stmt = sa.select(_CustomDeletedAtTable).where(_CustomDeletedAtTable.id == eid)
+        result = sync_session.execute(stmt)
+        assert result.scalar_one_or_none() is None
+
+        # With include_soft_deleted, should find it
+        stmt2 = sa.select(_CustomDeletedAtTable).where(_CustomDeletedAtTable.id == eid).execution_options(include_soft_deleted=True)
+        result2 = sync_session.execute(stmt2)
+        found = result2.scalar_one_or_none()
+        assert found is not None
+        assert found.is_soft_deleted is True
+
+    def test_get_by_id_returns_none_for_custom_soft_delete(self, sync_session: Session):
+        entity = _CustomDeletedAtTable(name="dt-getbyid")
+        sync_session.add(entity)
+        sync_session.flush()
+        eid = entity.id
+
+        entity.soft_delete()
+        sync_session.flush()
+
+        found = _CustomDeletedAtDAL.get_by_id(sync_session, eid)
+        assert found is None
+
+    def test_exists_returns_false_for_custom_soft_delete(self, sync_session: Session):
+        entity = _CustomDeletedAtTable(name="dt-exists")
+        sync_session.add(entity)
+        sync_session.flush()
+        eid = entity.id
+
+        entity.soft_delete()
+        sync_session.flush()
+
+        assert _CustomDeletedAtDAL.exists(sync_session, eid) is False
+
+
+class _CustomDeletedAtTable(BasicSyncBaseTable, SoftDeleteTableMixin):
+    __tablename__ = "sync_test_custom_soft_delete"
+
+    __soft_delete_column__ = "deleted_at"
+
+    id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(sa.DateTime, nullable=True, default=None)
+
+    @property
+    def is_soft_deleted(self) -> bool:
+        return self.deleted_at is not None
+
+    def soft_delete(self) -> None:
+        self.deleted_at = datetime.datetime.now()
+
+    def soft_undelete(self) -> None:
+        self.deleted_at = None
+
+
+class _CustomDeletedAtCU(BaseCU["_CustomDeletedAtTable"]):
+    _Table: ClassVar[type[_CustomDeletedAtTable]] = _CustomDeletedAtTable
+    name: str
+
+
+class _CustomDeletedAtDTO(BaseDTO[_CustomDeletedAtCU]):
+    _CU: ClassVar[type[_CustomDeletedAtCU]] = _CustomDeletedAtCU
+    id: int
+    name: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class _CustomDeletedAtDAL(SyncBaseDAL[_CustomDeletedAtTable, _CustomDeletedAtDTO, _CustomDeletedAtCU]):
+    _Table = _CustomDeletedAtTable
+    _DTO = _CustomDeletedAtDTO
+    _CU = _CustomDeletedAtCU
 
 
 # ========== lush-dal-protocol conformance suite ==========
