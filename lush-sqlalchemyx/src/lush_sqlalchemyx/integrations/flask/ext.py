@@ -29,6 +29,7 @@ except ImportError as _exc:  # pragma: no cover
 
 from sqlalchemy.orm import Session
 
+from lush_sqlalchemyx import setup_dal_hooks
 from lush_sqlalchemyx.base.dal._common import CUModelT, DTOModelT, SQLATableT
 from lush_sqlalchemyx.base.dal._sync import SyncBaseDAL, SyncReadDAL, SyncWriteDAL
 from lush_sqlalchemyx.mgrs.mysql.sync_manager import SyncMySQLManager
@@ -66,9 +67,10 @@ class LushFlaskSQLAlchemy:
             self.init_db(db)
 
     def init_db(self, db: SQLAlchemy) -> None:
-        """绑定到 Flask-SQLAlchemy 实例."""
+        """绑定到 Flask-SQLAlchemy 实例, 并注册 DAL Session 事件钩子."""
         self._db = db
         self._manager = SyncMySQLManager.from_engine(db.engine)
+        setup_dal_hooks()
 
     @property
     def manager(self) -> SyncMySQLManager:

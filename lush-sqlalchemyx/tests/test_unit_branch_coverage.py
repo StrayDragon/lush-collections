@@ -17,6 +17,9 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 import lush_sqlalchemyx.base.dal as dal_mod
 from lush_sqlalchemyx.base.dal import AsyncBaseDAL, BaseCU, BaseDTO
 
+# 注册 DAL Session 事件钩子, 替代原先 import 时的 @listens_for 自动注册
+dal_mod.setup_dal_hooks()
+
 
 @dataclass
 class _FakeExecuteResult:

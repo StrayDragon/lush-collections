@@ -46,9 +46,13 @@ from lush_sqlalchemyx.base.dal import (
     async_with_retry,
     escape_like,
     register_soft_delete_hooks,
+    setup_dal_hooks,
     unregister_soft_delete_hooks,
 )
 from lush_sqlalchemyx.mgrs.mysql import AsyncMySQLManager, async_must_rollback_if_in_transaction
+
+# 注册 DAL Session 事件钩子, 替代原先 import 时的 @listens_for 自动注册
+setup_dal_hooks()
 
 # ========== 测试用数据模型 ==========
 

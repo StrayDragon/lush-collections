@@ -42,6 +42,9 @@ from lush_sqlalchemyx.base.dal._common import (
 from lush_sqlalchemyx.base.dal._sync import BasicSyncBaseTable
 from lush_sqlalchemyx.mgrs.mysql.sync_manager import SyncMySQLManager
 
+# 注册 DAL Session 事件钩子 (替代原先 import 时的 @listens_for 自动注册)
+setup_dal_hooks()
+
 # ========== Test models ==========
 
 

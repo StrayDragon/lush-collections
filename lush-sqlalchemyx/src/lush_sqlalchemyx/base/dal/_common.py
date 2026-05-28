@@ -343,6 +343,11 @@ def setup_dal_hooks() -> None:
     在应用生命周期开始时**调用一次**即可，无需关注具体注册了哪些钩子。
     涵盖：软删除拦截、软删除查询过滤、只读保护。
 
+    **时序说明**: 模型类的定义（继承 SoftDeleteTableMixin / ReadOnlyMixin）
+    可以在调用 setup_dal_hooks 之前或之后 — 均不影响钩子生效。
+    因为钩子注册在 SyncSession 上，在 flush/query 时通过 isinstance 和
+    with_loader_criteria 动态评估，不依赖模型类在注册时刻的状态。
+
     FastAPI 示例::
 
         @asynccontextmanager
@@ -364,11 +369,18 @@ def setup_dal_hooks() -> None:
 
 # ---------------------------------------------------------------------------
 # Session event listeners (registered on SyncSession — works for both sync
-# and async since AsyncSession delegates to a SyncSession internally)
+# and async since AsyncSession delegates to a SyncSession internally).
+#
+# 不再使用 @sa_event.listens_for 装饰器在 import 时自动注册。
+# 改为通过 setup_dal_hooks() / register_soft_delete_hooks() 显式注册。
+# 这样做的原因: 让注册时机清晰可预测, 避免用户对"何时调用 setup_dal_hooks"
+# 产生困惑。在 Flask/FastAPI 集成中 auto-call 保证开箱即用。
+#
+# 模型类定义在 setup_dal_hooks 之前或之后均不影响钩子生效 —
+# isinstance 和 with_loader_criteria 在 flush/query 时动态评估。
 # ---------------------------------------------------------------------------
 
 
-@sa_event.listens_for(SyncSession, "before_flush")
 def __receive_before_flush(session: SyncSession, flush_context: Any, instances: Any) -> None:  # noqa: ARG001 # pyright: ignore[reportUnusedFunction, reportUnusedParameter]
     for instance in session.deleted:
         if isinstance(instance, SoftDeleteTableMixin):
@@ -376,7 +388,6 @@ def __receive_before_flush(session: SyncSession, flush_context: Any, instances: 
             session.add(instance)
 
 
-@sa_event.listens_for(SyncSession, "do_orm_execute")
 def __add_filtering_criteria(execute_state: ORMExecuteState) -> None:  # pyright: ignore[reportUnusedFunction]
     if (
         not execute_state.is_column_load
@@ -393,7 +404,6 @@ def __add_filtering_criteria(execute_state: ORMExecuteState) -> None:  # pyright
         )
 
 
-@sa_event.listens_for(SyncSession, "before_flush")
 def __prevent_readonly_write(session: SyncSession, flush_context: Any, instances: Any) -> None:  # noqa: ARG001 # pyright: ignore[reportUnusedFunction, reportUnusedParameter]
     for obj in session.new.union(session.dirty).union(session.deleted):
         if isinstance(obj, ReadOnlyMixin):
