@@ -24,7 +24,14 @@ build-backend = "uv_build"
 package = true
 
 [dependency-groups]
-dev = ["fastapi[standard]>=0.117.1", "pytest>=8.4.1", "pytest-asyncio>=1.1.0", "pytest-cov>=6.2.1"]
+dev = [
+    "fastapi[standard]>=0.117.1",
+    "nest-asyncio>=1.6.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-bdd>=8.1.0",
+    "pytest-cov>=6.2.1",
+]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib --cov=lush_redisx --cov-branch --cov-report=term-missing --cov-fail-under=100"
@@ -32,6 +39,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"
+bdd_features_base_dir = "tests/features"
 
 [tool.coverage.run]
 branch = true
