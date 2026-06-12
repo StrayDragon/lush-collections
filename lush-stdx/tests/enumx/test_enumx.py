@@ -454,13 +454,11 @@ class TestMetaInfoIntEnumEdgeCases:
     """Edge case tests for MetaInfoIntEnum coverage."""
 
     def test_to_db_field_comment_empty(self):
-        """Test to_db_field_comment with empty enum (line 32)."""
+        """Test to_db_field_comment with empty enum."""
 
-        # Create an empty enum by directly using the class
         class EmptyIntEnum(MetaInfoIntEnum):
             pass
 
-        # Should return empty string for empty enum
         result = EmptyIntEnum.to_db_field_comment()
         assert result == ""
 
@@ -473,12 +471,31 @@ class TestMetaInfoIntEnumEdgeCases:
         members = list(EmptyIntEnum)
         assert members == []
 
+    def test_init_subclass_no_x_meta_declaration(self):
+        """__init_subclass__ when subclass does NOT declare _x_meta at all."""
+
+        class PlainSub(MetaInfoIntEnum):
+            A = 1, XMetaInfo("plain")
+
+        # __init_subclass__ should run without error (branch: "_x_meta" not in annotations)
+        assert PlainSub.A.x_meta.description == "plain"
+
+    def test_init_subclass_x_meta_same_type_no_narrowing(self):
+        """__init_subclass__ when subclass declares _x_meta as the same XMetaInfo."""
+
+        class SameMetaSub(MetaInfoIntEnum):
+            _x_meta: XMetaInfo  # pyright: ignore[reportIncompatibleVariableOverride]
+            X = 1, XMetaInfo("same")
+
+        # branch: xm_type is XMetaInfo → skip setattr, use inherited property
+        assert SameMetaSub.X.x_meta.description == "same"
+
 
 class TestMetaInfoStrEnumEdgeCases:
     """Edge case tests for MetaInfoStrEnum coverage."""
 
     def test_to_db_field_comment_empty(self):
-        """Test to_db_field_comment with empty StrEnum (line 99)."""
+        """Test to_db_field_comment with empty StrEnum."""
 
         class EmptyStrEnum(MetaInfoStrEnum):
             pass
@@ -494,6 +511,23 @@ class TestMetaInfoStrEnumEdgeCases:
 
         members = list(EmptyStrEnum)
         assert members == []
+
+    def test_init_subclass_no_x_meta_declaration(self):
+        """__init_subclass__ when StrEnum subclass does NOT declare _x_meta."""
+
+        class PlainSub(MetaInfoStrEnum):
+            A = "a", XMetaInfo("plain")
+
+        assert PlainSub.A.x_meta.description == "plain"
+
+    def test_init_subclass_x_meta_same_type_no_narrowing(self):
+        """__init_subclass__ when StrEnum subclass declares _x_meta as XMetaInfo."""
+
+        class SameMetaSub(MetaInfoStrEnum):
+            _x_meta: XMetaInfo  # pyright: ignore[reportIncompatibleVariableOverride]
+            X = "x", XMetaInfo("same")
+
+        assert SameMetaSub.X.x_meta.description == "same"
 
 
 class TestEnumFieldEdgeCases:
