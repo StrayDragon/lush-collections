@@ -19,22 +19,77 @@ class MetaInfoIntEnum(enum.IntEnum):
     """
     带有 XMetaInfo 的 IntEnum
 
-    行为与 IntEnum 基本一致, 可通过 ._x_meta 获取预定义的 XMetaInfo
+    行为与 IntEnum 基本一致, 可通过 ``.x_meta`` 获取预定义的 XMetaInfo。
+
+    基本用法:
+
+    .. code-block:: python
+
+        class OrderStatus(MetaInfoIntEnum):
+            PENDING = 1, XMetaInfo("待支付")
+            PAID = 2, XMetaInfo("已支付")
+
+
+        status = OrderStatus.PAID
+        print(status.x_meta.description)  # "已支付"
+
+    扩展 XMetaInfo (推荐):
+
+    .. code-block:: python
+
+        @dataclass(frozen=True, slots=True)
+        class PaymentMeta(XMetaInfo):
+            color: str = ""
+            icon: str = ""
+
+
+        class PaymentMethod(MetaInfoIntEnum):
+            _x_meta: PaymentMeta  # pyright: ignore[reportIncompatibleVariableOverride,reportUninitializedInstanceVariable]
+
+            WECHAT = 1, PaymentMeta("微信支付", color="#07c160", icon="💚")
+            ALIPAY = 2, PaymentMeta("支付宝", color="#1677ff", icon="💙")
+
+
+        pm = PaymentMethod.WECHAT
+        print(pm.x_meta.color)  # 运行时 .x_meta 返回 PaymentMeta
+        print(pm._x_meta.color)  # 类型检查时用 ._x_meta (仅需 reportPrivateUsage suppress)
+
+    应用级中间基类:
+
+    .. code-block:: python
+
+        class AppIntEnum(MetaInfoIntEnum):
+            _x_meta: PaymentMeta  # pyright: ignore[reportIncompatibleVariableOverride,reportUninitializedInstanceVariable]
+
+
+        class RefundReason(AppIntEnum):
+            QUALITY = 1, PaymentMeta("质量问题", color="#ff0000", icon="🔴")
     """
+
+    _x_meta: XMetaInfo  # pyright: ignore[reportUninitializedInstanceVariable]
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        """当子类声明了更窄的 _x_meta 类型时, 自动生成窄化的 x_meta property."""
+        super().__init_subclass__(**kwargs)
+        if "_x_meta" in cls.__annotations__:
+            xm_type = cls.__annotations__["_x_meta"]
+            if xm_type is not XMetaInfo:
+                # 自动生成窄化的 x_meta property, 运行时 .x_meta 返回子类声明的类型
+                cls.x_meta = property(lambda self, _t=xm_type: self._x_meta)
 
     def __new__(cls, value: int, meta: XMetaInfo) -> Self:
         obj = int.__new__(cls, value)
         obj._value_ = value
-        obj._x_meta = meta  # pyright: ignore[reportAttributeAccessIssue ]
+        obj._x_meta = meta
         return obj
 
     @classmethod
     def to_db_field_comment(cls) -> str:
-        return " ".join([f"{i.value}: {i.x_meta.description}" for i in cls])
+        return " ".join([f"{i.value}: {i._x_meta.description}" for i in cls])
 
     @property
     def x_meta(self) -> XMetaInfo:
-        return self._x_meta  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType ]
+        return self._x_meta
 
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any) -> core_schema.CoreSchema:
@@ -66,7 +121,7 @@ class MetaInfoIntEnum(enum.IntEnum):
         json_schema = handler(core_schema)
         json_schema = handler.resolve_ref_schema(json_schema)
 
-        descriptions = [f"* `{member.value}`: {member._x_meta.description}" for member in cls]  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType]
+        descriptions = [f"* `{member.value}`: {member._x_meta.description}" for member in cls]
         schema_description = "枚举值:\n\n" + "\n".join(descriptions)
 
         # 为 MetaInfoIntEnum 明确设置为 integer 类型(不支持 string)
@@ -86,13 +141,26 @@ class MetaInfoStrEnum(str, enum.Enum):
     """
     带有 XMetaInfo 的 StrEnum
 
-    行为与 StrEnum 基本一致, 可通过 ._x_meta 获取预定义的 XMetaInfo
+    行为与 StrEnum 基本一致, 可通过 ``.x_meta`` 获取预定义的 XMetaInfo。
+
+    继承与扩展用法同 :class:`MetaInfoIntEnum`。
     """
+
+    _x_meta: XMetaInfo
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        """当子类声明了更窄的 _x_meta 类型时, 自动生成窄化的 x_meta property."""
+        super().__init_subclass__(**kwargs)
+        if "_x_meta" in cls.__annotations__:
+            xm_type = cls.__annotations__["_x_meta"]
+            if xm_type is not XMetaInfo:
+                # 自动生成窄化的 x_meta property, 运行时 .x_meta 返回子类声明的类型
+                cls.x_meta = property(lambda self, _t=xm_type: self._x_meta)
 
     def __new__(cls, value: str, meta: XMetaInfo) -> Self:
         obj = str.__new__(cls, value)
         obj._value_ = value
-        obj._x_meta = meta  # pyright: ignore[reportAttributeAccessIssue ]
+        obj._x_meta = meta
         return obj
 
     def __str__(self) -> str:  # pyright: ignore[reportImplicitOverride]
@@ -100,11 +168,11 @@ class MetaInfoStrEnum(str, enum.Enum):
 
     @classmethod
     def to_db_field_comment(cls) -> str:
-        return " ".join([f"{i.value}: {i.x_meta.description}" for i in cls])
+        return " ".join([f"{i.value}: {i._x_meta.description}" for i in cls])
 
     @property
     def x_meta(self) -> XMetaInfo:
-        return self._x_meta  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType,reportUnknownVariableType ]
+        return self._x_meta
 
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any) -> core_schema.CoreSchema:
@@ -135,7 +203,7 @@ class MetaInfoStrEnum(str, enum.Enum):
         json_schema = handler(core_schema)
         json_schema = handler.resolve_ref_schema(json_schema)
 
-        descriptions = [f"* `{member.value}`: {member._x_meta.description}" for member in cls]  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType]
+        descriptions = [f"* `{member.value}`: {member._x_meta.description}" for member in cls]
         schema_description = "枚举值:\n\n" + "\n".join(descriptions)
 
         # 为 MetaInfoStrEnum 明确设置为 string 类型
