@@ -1,6 +1,6 @@
 [project]
 name = "lush-sqlalchemyx"
-version = "0.4.2"
+version = "0.6.0"
 description = "SQLAlchemy helpers (DAL) and async MySQL managers, with some web frameworks integrations"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -171,6 +171,7 @@ ignore = [
     "S101", # assert语句(测试中使用)
     "S105", # 硬编码密码字符串
     "S201", # Flask debug=True
+    "S608", # SQL注入(测试辅助函数的硬编码表名)
     "S301", # 可疑的pickle使用
     "S311", # 非加密安全的随机数
 

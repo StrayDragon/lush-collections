@@ -11,6 +11,9 @@ src/lush_sqlalchemyx/
 │   ├── _common.py                     # async/sync 共享: 类型变量、Mixin、工具函数
 │   ├── _async.py                      # Async DAL (RawRead/Read/Write/Base), 直接实现 ABC
 │   ├── _sync.py                       # Sync DAL (RawRead/Read/Write/Base), 直接实现 ABC
+│   ├── _dynamic.py                    # DynamicDAL: TableRef + DynamicSyncDAL/AsyncDAL (无 ORM Table class)
+│   ├── _pagination.py                 # 分页工具
+│   ├── _repository.py                 # Repository 高层封装
 │   └── __init__.py                    # 统一导出
 ├── mgrs/mysql/
 │   ├── manager.py / mapper.py         # Async MySQL Manager / Mapper
@@ -22,6 +25,19 @@ src/lush_sqlalchemyx/
 ```
 
 ## DAL 设计
+
+### 两条路径
+
+1. **ORM DAL** (`_sync.py` / `_async.py`): 需要定义 `DeclarativeBase` 子类, 走 ORM Session 事件链 (软删除/只读自动拦截).
+2. **Dynamic DAL** (`_dynamic.py`): 无需 ORM Table class, 用 `TableRef` + Pydantic CU/DTO + 表名直接操作, 走 SQLAlchemy Core. 软删除/只读在 DAL 方法层拦截.
+
+### Dynamic DAL
+
+- `TableRef`: 轻量表引用, `pk_column` 和 `columns` 均可选, 默认从 DTO 自动推导.
+- `DynamicSyncDAL` / `DynamicAsyncDAL`: API 与 ORM DAL 对齐, 新增 `restore_by_id`.
+- 软删除: SELECT 自动注入 `WHERE sd_col=0`, DELETE 转为 `UPDATE SET sd_col=1`.
+- 只读: 写入操作前检查 `config.is_readonly`, 拒绝则抛 `TypeError`.
+- 主键获取: `sa.table()` 不知道 PK 约束, 用 `result.lastrowid` 作为 fallback.
 
 ### 单实现层
 

@@ -62,6 +62,17 @@ from ._common import (
 # Event listener references — accessed by tests via getattr(module, name).
 from ._common import __prevent_readonly_write as __prevent_readonly_write  # pyright: ignore[reportPrivateUsage]
 from ._common import __receive_before_flush as __receive_before_flush  # pyright: ignore[reportPrivateUsage]
+
+# --- dynamic (no ORM table class) ---
+from ._dynamic import (
+    DynamicAsyncDAL,
+    DynamicSyncDAL,
+    DynamicTableConfig,
+    PrimaryKeyT,
+    TableRef,
+    derive_columns_from_dto,
+    derive_pk_from_dto,
+)
 from ._pagination import (
     build_cursor_stmt,
     build_offset_stmt,
@@ -116,6 +127,14 @@ __all__ = (
     "register_soft_delete_hooks",
     "setup_dal_hooks",
     "unregister_soft_delete_hooks",
+    # dynamic
+    "DynamicAsyncDAL",
+    "DynamicSyncDAL",
+    "DynamicTableConfig",
+    "PrimaryKeyT",
+    "TableRef",
+    "derive_columns_from_dto",
+    "derive_pk_from_dto",
     # async
     "AsyncBaseDAL",
     "AsyncRawDAL",
