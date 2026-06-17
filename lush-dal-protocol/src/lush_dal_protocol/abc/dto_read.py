@@ -1,6 +1,6 @@
-"""Base 读操作协议 — 无 EntityT, 适用于 Core DAL / 非 ORM 场景.
+"""Dto 读操作协议 — 无 EntityT, 适用于 Core DAL / 非 ORM 场景.
 
-与 ``AbstractSyncReadDAL`` / ``AbstractAsyncReadDAL`` 的区别:
+与 ``EntitySyncReadDAL`` / ``EntityAsyncReadDAL`` 的区别:
 - 无 ``EntityT`` 泛型参数, 所有读取方法直接返回 DTO
 - 无 ``need_refresh`` 参数 (无 ORM session.refresh 语义)
 - 无 ``batch_get_id__entity`` / ``iter_record_dtos`` (ORM 特有)
@@ -24,7 +24,7 @@ from ._types import NO_SESSION, NoSession, PrimaryKeyT, SessionT
 DTOModelT = TypeVarExt("DTOModelT", bound=BaseModel, default=BaseModel)
 
 
-class BaseSyncReadDAL(ABC, Generic[SessionT, DTOModelT, PrimaryKeyT]):
+class DtoSyncReadDAL(ABC, Generic[SessionT, DTOModelT, PrimaryKeyT]):
     """同步只读 DAL 协议 — 直接返回 DTO, 无 ORM 实体层.
 
     ``session`` 为 keyword-only 参数, 默认 ``NO_SESSION``.
@@ -46,8 +46,8 @@ class BaseSyncReadDAL(ABC, Generic[SessionT, DTOModelT, PrimaryKeyT]):
         """
 
 
-class BaseAsyncReadDAL(ABC, Generic[SessionT, DTOModelT, PrimaryKeyT]):
-    """异步只读 DAL 协议 — 语义与 ``BaseSyncReadDAL`` 一致, 所有方法为 ``async def``."""
+class DtoAsyncReadDAL(ABC, Generic[SessionT, DTOModelT, PrimaryKeyT]):
+    """异步只读 DAL 协议 — 语义与 ``DtoSyncReadDAL`` 一致, 所有方法为 ``async def``."""
 
     @abstractmethod
     async def get_by_id(

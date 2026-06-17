@@ -101,7 +101,8 @@ def _post_write_refresh(self, session):
 
 | Path | Reason |
 |------|--------|
-| `testing/conformance.py` | 一致性测试 mixin, 由下游和内存参考实现运行 |
+| `testing/conformance.py` | Entity* 一致性测试 mixin, 由下游和内存参考实现运行 |
+| `testing/dto_conformance.py` | Dto* 一致性测试 mixin, 由下游实现运行 |
 | `testing/reference.py` | 内存参考实现, 属测试基础设施, 非生产代码 |
 
 ## 依赖

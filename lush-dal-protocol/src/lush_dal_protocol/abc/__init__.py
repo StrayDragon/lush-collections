@@ -8,10 +8,10 @@ Lock / AdvancedWrite / BatchField / RawSQL 等 ORM 特有操作由具体实现�
 """
 
 from ._types import NO_ENTITY, NO_SESSION, NoEntity, NoSession
-from .base_composed import BaseAsyncBaseDAL, BaseSyncBaseDAL
-from .base_read import BaseAsyncReadDAL, BaseSyncReadDAL
-from .base_write import BaseAsyncWriteDAL, BaseSyncWriteDAL
 from .composed import AbstractAsyncBaseDAL, AbstractSyncBaseDAL
+from .dto_composed import DtoAsyncDAL, DtoSyncDAL
+from .dto_read import DtoAsyncReadDAL, DtoSyncReadDAL
+from .dto_write import DtoAsyncWriteDAL, DtoSyncWriteDAL
 from .read import AbstractAsyncReadDAL, AbstractSyncReadDAL
 from .sessionless import (
     AbstractAsyncSessionlessBaseDAL,
@@ -38,12 +38,12 @@ __all__ = [
     "AbstractSyncSessionlessReadDAL",
     "AbstractSyncSessionlessWriteDAL",
     "AbstractSyncWriteDAL",
-    "BaseAsyncBaseDAL",
-    "BaseAsyncReadDAL",
-    "BaseAsyncWriteDAL",
-    "BaseSyncBaseDAL",
-    "BaseSyncReadDAL",
-    "BaseSyncWriteDAL",
+    "DtoAsyncDAL",
+    "DtoAsyncReadDAL",
+    "DtoAsyncWriteDAL",
+    "DtoSyncDAL",
+    "DtoSyncReadDAL",
+    "DtoSyncWriteDAL",
     "NoEntity",
     "NoSession",
 ]

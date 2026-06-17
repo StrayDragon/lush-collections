@@ -483,12 +483,12 @@ def test_dyn_ro_bulk_create() -> None: ...
 # ================================================================
 
 from lush_dal_protocol.testing import (
-    BaseSyncFullConformanceTests,
+    DtoSyncFullConformanceTests,
 )
 
 
-class TestDynamicSyncDALConformance(BaseSyncFullConformanceTests):
-    """验证 DynamicSyncDAL 满足 BaseSyncBaseDAL 协议."""
+class TestDynamicSyncDALConformance(DtoSyncFullConformanceTests):
+    """验证 DynamicSyncDAL 满足 DtoSyncDAL 协议."""
 
     @pytest.fixture()
     def dal(self, dyn_session: Session) -> DynamicSyncDAL[_DynDTO, _DynDTO]:  # type: ignore[type-arg]
