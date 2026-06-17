@@ -11,6 +11,7 @@ import warnings
 from typing import Any, ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
+from typing_extensions import TypeVar as TypeVarExt
 
 OrmModelT = TypeVar("OrmModelT")
 
@@ -36,7 +37,7 @@ class BaseCU(BaseModel, Generic[OrmModelT]):
         return self._Table(**model_data)
 
 
-CUModelT = TypeVar("CUModelT", bound=BaseCU[Any])
+CUModelT = TypeVarExt("CUModelT", bound=BaseCU[Any], default=BaseCU[Any])
 
 
 class BaseDTO(BaseModel, Generic[CUModelT]):
@@ -54,7 +55,7 @@ class BaseDTO(BaseModel, Generic[CUModelT]):
         return self._CU.model_validate(self)
 
 
-DTOModelT = TypeVar("DTOModelT", bound=BaseDTO[Any] | BaseModel)
+DTOModelT = TypeVarExt("DTOModelT", bound=BaseDTO[Any] | BaseModel, default=BaseModel)
 
 
 class StdBaseCU(BaseCU[OrmModelT]):
