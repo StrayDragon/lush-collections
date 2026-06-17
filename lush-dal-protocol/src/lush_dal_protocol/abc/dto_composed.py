@@ -1,4 +1,4 @@
-"""组合 Base 协议 — 提供无 EntityT 的 Read + Write 组合."""
+"""组合 Dto 协议 — 提供无 EntityT 的 Read + Write 组合."""
 
 from __future__ import annotations
 
@@ -9,25 +9,25 @@ from pydantic import BaseModel
 from typing_extensions import TypeVar as TypeVarExt
 
 from ._types import PrimaryKeyT, SessionT
-from .base_read import BaseAsyncReadDAL, BaseSyncReadDAL
-from .base_write import BaseAsyncWriteDAL, BaseSyncWriteDAL
+from .dto_read import DtoAsyncReadDAL, DtoSyncReadDAL
+from .dto_write import DtoAsyncWriteDAL, DtoSyncWriteDAL
 
 CUModelT = TypeVarExt("CUModelT", bound=BaseModel, default=BaseModel)
 DTOModelT = TypeVarExt("DTOModelT", bound=BaseModel, default=BaseModel)
 
 
-class BaseSyncBaseDAL(
-    BaseSyncReadDAL[SessionT, DTOModelT, PrimaryKeyT],
-    BaseSyncWriteDAL[SessionT, DTOModelT, CUModelT, PrimaryKeyT],
+class DtoSyncDAL(
+    DtoSyncReadDAL[SessionT, DTOModelT, PrimaryKeyT],
+    DtoSyncWriteDAL[SessionT, DTOModelT, CUModelT, PrimaryKeyT],
     ABC,
     Generic[SessionT, DTOModelT, CUModelT, PrimaryKeyT],
 ):
     """同步完整 CRUD DAL 协议 (Read + Write), 无 EntityT."""
 
 
-class BaseAsyncBaseDAL(
-    BaseAsyncReadDAL[SessionT, DTOModelT, PrimaryKeyT],
-    BaseAsyncWriteDAL[SessionT, DTOModelT, CUModelT, PrimaryKeyT],
+class DtoAsyncDAL(
+    DtoAsyncReadDAL[SessionT, DTOModelT, PrimaryKeyT],
+    DtoAsyncWriteDAL[SessionT, DTOModelT, CUModelT, PrimaryKeyT],
     ABC,
     Generic[SessionT, DTOModelT, CUModelT, PrimaryKeyT],
 ):

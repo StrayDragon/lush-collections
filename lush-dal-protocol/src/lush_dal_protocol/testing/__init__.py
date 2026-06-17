@@ -7,22 +7,10 @@
 
 测试套件分两层:
 
-- **Abstract* conformance** (``conformance.py``) — 验证 ``AbstractSyncReadDAL`` / ``AbstractSyncWriteDAL`` 等 ORM 风格协议.
-- **Base* conformance** (``base_conformance.py``) — 验证 ``BaseSyncBaseDAL`` / ``BaseAsyncBaseDAL`` 等无 ORM 协议.
+- **Entity* conformance** (``conformance.py``) — 验证 ``AbstractSyncReadDAL`` / ``AbstractSyncWriteDAL`` 等 ORM 风格协议.
+- **Dto* conformance** (``dto_conformance.py``) — 验证 ``DtoSyncDAL`` / ``DtoAsyncDAL`` 等无 ORM 协议.
 """
 
-from .base_conformance import (
-    BaseAsyncConformanceTests,
-    BaseAsyncFieldIsolationConformanceTests,
-    BaseAsyncFullConformanceTests,
-    BaseAsyncReadConformanceTests,
-    BaseAsyncWriteConformanceTests,
-    BaseSyncConformanceTests,
-    BaseSyncFieldIsolationConformanceTests,
-    BaseSyncFullConformanceTests,
-    BaseSyncReadConformanceTests,
-    BaseSyncWriteConformanceTests,
-)
 from .conformance import (
     AsyncBaseDALConformanceTests,
     AsyncFieldIsolationDALConformanceTests,
@@ -32,6 +20,18 @@ from .conformance import (
     SyncFieldIsolationDALConformanceTests,
     SyncReadDALConformanceTests,
     SyncWriteDALConformanceTests,
+)
+from .dto_conformance import (
+    DtoAsyncConformanceTests,
+    DtoAsyncFieldIsolationConformanceTests,
+    DtoAsyncFullConformanceTests,
+    DtoAsyncReadConformanceTests,
+    DtoAsyncWriteConformanceTests,
+    DtoSyncConformanceTests,
+    DtoSyncFieldIsolationConformanceTests,
+    DtoSyncFullConformanceTests,
+    DtoSyncReadConformanceTests,
+    DtoSyncWriteConformanceTests,
 )
 from .reference import (
     InMemoryAsyncDAL,
@@ -43,22 +43,22 @@ from .reference import (
 )
 
 __all__ = [
-    # Abstract* conformance (ORM 风格)
+    # Entity* conformance (ORM 风格)
     "AsyncBaseDALConformanceTests",
     "AsyncFieldIsolationDALConformanceTests",
     "AsyncReadDALConformanceTests",
     "AsyncWriteDALConformanceTests",
-    # Base* conformance (无 ORM 风格)
-    "BaseAsyncConformanceTests",
-    "BaseAsyncFieldIsolationConformanceTests",
-    "BaseAsyncFullConformanceTests",
-    "BaseAsyncReadConformanceTests",
-    "BaseAsyncWriteConformanceTests",
-    "BaseSyncConformanceTests",
-    "BaseSyncFieldIsolationConformanceTests",
-    "BaseSyncFullConformanceTests",
-    "BaseSyncReadConformanceTests",
-    "BaseSyncWriteConformanceTests",
+    # Dto* conformance (无 ORM 风格)
+    "DtoAsyncConformanceTests",
+    "DtoAsyncFieldIsolationConformanceTests",
+    "DtoAsyncFullConformanceTests",
+    "DtoAsyncReadConformanceTests",
+    "DtoAsyncWriteConformanceTests",
+    "DtoSyncConformanceTests",
+    "DtoSyncFieldIsolationConformanceTests",
+    "DtoSyncFullConformanceTests",
+    "DtoSyncReadConformanceTests",
+    "DtoSyncWriteConformanceTests",
     # InMemory 参考实现
     "InMemoryAsyncDAL",
     "InMemoryCU",

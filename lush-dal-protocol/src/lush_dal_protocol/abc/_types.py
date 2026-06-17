@@ -11,22 +11,22 @@ class NoSession:
     用法::
 
         # 不关心 session 类型 (session 为可选 keyword arg)
-        class MyDAL(BaseSyncReadDAL[MyDTO, int]): ...
+        class MyDAL(DtoSyncReadDAL[MyDTO, int]): ...
 
 
         # 绑定 SQLAlchemy Session
-        class MyDAL(BaseSyncReadDAL[Session, MyDTO, int]): ...
+        class MyDAL(DtoSyncReadDAL[Session, MyDTO, int]): ...
 
 
         # 绑定其他 ORM 连接类型
-        class MyDAL(BaseSyncReadDAL[TortoiseConnection, MyDTO, int]): ...
+        class MyDAL(DtoSyncReadDAL[TortoiseConnection, MyDTO, int]): ...
     """
 
 
 class NoEntity:
     """万能占位类型 — 表示此 DAL 不绑定任何 ORM 实体类.
 
-    用于 ``EntityT`` 的默认值, 允许 ``Base*`` 协议跳过实体类型绑定.
+    用于 ``EntityT`` 的默认值, 允许 ``Dto*`` 协议跳过实体类型绑定.
     """
 
 

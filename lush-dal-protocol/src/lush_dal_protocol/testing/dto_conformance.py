@@ -1,7 +1,7 @@
-"""Base* 协议一致性验证测试套件.
+"""Dto* 协议一致性验证测试套件.
 
-为 ``BaseSyncBaseDAL`` / ``BaseAsyncBaseDAL`` 提供可复用的测试 mixin.
-与 ``Abstract*`` conformance 不同:
+为 ``DtoSyncDAL`` / ``DtoAsyncDAL`` 提供可复用的测试 mixin.
+与 ``Entity*`` conformance 不同:
 
 - 实例方法 (非 classmethod)
 - 仅覆盖 4 个核心方法: ``get_by_id``, ``create``, ``update_by_id``, ``delete_by_id``
@@ -23,9 +23,9 @@ Fixture 协议
 
 下游实现指引::
 
-    from lush_dal_protocol.testing import BaseSyncConformanceTests
+    from lush_dal_protocol.testing import DtoSyncConformanceTests
 
-    class TestMyDAL(BaseSyncConformanceTests):
+    class TestMyDAL(DtoSyncConformanceTests):
         @pytest.fixture
         def dal(self, session): return MySyncDAL(...)
 
@@ -45,7 +45,7 @@ from __future__ import annotations
 from typing import Any
 
 
-class _BaseConformanceHelpers:
+class _DtoConformanceHelpers:
     """共享辅助方法."""
 
     def _get_dto_id(self, dto: Any) -> Any:
@@ -64,8 +64,8 @@ class _BaseConformanceHelpers:
 # ===== Sync =====
 
 
-class BaseSyncReadConformanceTests(_BaseConformanceHelpers):
-    """同步 Base* Read 一致性测试."""
+class DtoSyncReadConformanceTests(_DtoConformanceHelpers):
+    """同步 Dto* Read 一致性测试."""
 
     def test_get_by_id_existing(self, dal: Any, session: Any, sample_cu: Any) -> None:
         created = dal.create(sample_cu, session=session)
@@ -86,8 +86,8 @@ class BaseSyncReadConformanceTests(_BaseConformanceHelpers):
         assert self._get_dto_id(found) == eid
 
 
-class BaseSyncWriteConformanceTests(_BaseConformanceHelpers):
-    """同步 Base* Write 一致性测试."""
+class DtoSyncWriteConformanceTests(_DtoConformanceHelpers):
+    """同步 Dto* Write 一致性测试."""
 
     def test_create_returns_dto(self, dal: Any, session: Any, sample_cu: Any) -> None:
         created = dal.create(sample_cu, session=session)
@@ -170,7 +170,7 @@ class BaseSyncWriteConformanceTests(_BaseConformanceHelpers):
         assert self._get_dto_id(e2) != self._get_dto_id(e1)
 
 
-class BaseSyncFieldIsolationConformanceTests(_BaseConformanceHelpers):
+class DtoSyncFieldIsolationConformanceTests(_DtoConformanceHelpers):
     """同步字段级隔离性验证."""
 
     def test_create_preserves_field_value(self, dal: Any, session: Any, make_cu: Any) -> None:
@@ -228,26 +228,26 @@ class BaseSyncFieldIsolationConformanceTests(_BaseConformanceHelpers):
 # ===== Sync Composed =====
 
 
-class BaseSyncConformanceTests(
-    BaseSyncReadConformanceTests,
-    BaseSyncWriteConformanceTests,
+class DtoSyncConformanceTests(
+    DtoSyncReadConformanceTests,
+    DtoSyncWriteConformanceTests,
 ):
-    """同步 Base* CRUD 一致性测试 (Read + Write)."""
+    """同步 Dto* CRUD 一致性测试 (Read + Write)."""
 
 
-class BaseSyncFullConformanceTests(
-    BaseSyncReadConformanceTests,
-    BaseSyncWriteConformanceTests,
-    BaseSyncFieldIsolationConformanceTests,
+class DtoSyncFullConformanceTests(
+    DtoSyncReadConformanceTests,
+    DtoSyncWriteConformanceTests,
+    DtoSyncFieldIsolationConformanceTests,
 ):
-    """同步 Base* 完整一致性测试 (Read + Write + FieldIsolation)."""
+    """同步 Dto* 完整一致性测试 (Read + Write + FieldIsolation)."""
 
 
 # ===== Async =====
 
 
-class BaseAsyncReadConformanceTests(_BaseConformanceHelpers):
-    """异步 Base* Read 一致性测试."""
+class DtoAsyncReadConformanceTests(_DtoConformanceHelpers):
+    """异步 Dto* Read 一致性测试."""
 
     async def test_get_by_id_existing(self, dal: Any, session: Any, sample_cu: Any) -> None:
         created = await dal.create(sample_cu, session=session)
@@ -267,8 +267,8 @@ class BaseAsyncReadConformanceTests(_BaseConformanceHelpers):
         assert self._get_dto_id(found) == eid
 
 
-class BaseAsyncWriteConformanceTests(_BaseConformanceHelpers):
-    """异步 Base* Write 一致性测试."""
+class DtoAsyncWriteConformanceTests(_DtoConformanceHelpers):
+    """异步 Dto* Write 一致性测试."""
 
     async def test_create_returns_dto(self, dal: Any, session: Any, sample_cu: Any) -> None:
         created = await dal.create(sample_cu, session=session)
@@ -348,7 +348,7 @@ class BaseAsyncWriteConformanceTests(_BaseConformanceHelpers):
         assert self._get_dto_id(e2) != self._get_dto_id(e1)
 
 
-class BaseAsyncFieldIsolationConformanceTests(_BaseConformanceHelpers):
+class DtoAsyncFieldIsolationConformanceTests(_DtoConformanceHelpers):
     """异步字段级隔离性验证."""
 
     async def test_create_preserves_field_value(self, dal: Any, session: Any, make_cu: Any) -> None:
@@ -401,16 +401,16 @@ class BaseAsyncFieldIsolationConformanceTests(_BaseConformanceHelpers):
 # ===== Async Composed =====
 
 
-class BaseAsyncConformanceTests(
-    BaseAsyncReadConformanceTests,
-    BaseAsyncWriteConformanceTests,
+class DtoAsyncConformanceTests(
+    DtoAsyncReadConformanceTests,
+    DtoAsyncWriteConformanceTests,
 ):
-    """异步 Base* CRUD 一致性测试 (Read + Write)."""
+    """异步 Dto* CRUD 一致性测试 (Read + Write)."""
 
 
-class BaseAsyncFullConformanceTests(
-    BaseAsyncReadConformanceTests,
-    BaseAsyncWriteConformanceTests,
-    BaseAsyncFieldIsolationConformanceTests,
+class DtoAsyncFullConformanceTests(
+    DtoAsyncReadConformanceTests,
+    DtoAsyncWriteConformanceTests,
+    DtoAsyncFieldIsolationConformanceTests,
 ):
-    """异步 Base* 完整一致性测试 (Read + Write + FieldIsolation)."""
+    """异步 Dto* 完整一致性测试 (Read + Write + FieldIsolation)."""

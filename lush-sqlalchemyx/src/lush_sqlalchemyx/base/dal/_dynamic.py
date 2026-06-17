@@ -22,7 +22,7 @@ from typing import Any, Generic, TypeVar
 
 import sqlalchemy as sa
 from lush_dal_protocol import NO_SESSION, NoSession
-from lush_dal_protocol.abc.base_composed import BaseAsyncBaseDAL, BaseSyncBaseDAL
+from lush_dal_protocol.abc.dto_composed import DtoAsyncDAL, DtoSyncDAL
 from pydantic import AliasChoices, AliasPath, BaseModel
 from sqlalchemy import ColumnElement, Result
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -358,7 +358,7 @@ class TableRef(Generic[PrimaryKeyT]):
 
 
 class DynamicSyncDAL(
-    BaseSyncBaseDAL[Session, DTOModelT, CUModelT, PrimaryKeyT],
+    DtoSyncDAL[Session, DTOModelT, CUModelT, PrimaryKeyT],
     Generic[DTOModelT, CUModelT, PrimaryKeyT],
 ):
     """无需 Table class 的同步动态 DAL.
@@ -366,7 +366,7 @@ class DynamicSyncDAL(
     用 SQLAlchemy Core 替代 ORM, 提供与 ``SyncBaseDAL`` 对齐的 CRUD API.
     支持软删除拦截和只读保护.
 
-    满足 ``BaseSyncBaseDAL[Session, DTOModelT, CUModelT, PrimaryKeyT]`` 协议.
+    满足 ``DtoSyncDAL[Session, DTOModelT, CUModelT, PrimaryKeyT]`` 协议.
 
     类型参数:
         DTOModelT: DTO 模型类型.
@@ -648,12 +648,12 @@ class DynamicSyncDAL(
 
 
 class DynamicAsyncDAL(
-    BaseAsyncBaseDAL[AsyncSession, DTOModelT, CUModelT, PrimaryKeyT],
+    DtoAsyncDAL[AsyncSession, DTOModelT, CUModelT, PrimaryKeyT],
     Generic[DTOModelT, CUModelT, PrimaryKeyT],
 ):
     """无需 Table class 的异步动态 DAL — ``DynamicSyncDAL`` 的异步镜像.
 
-    满足 ``BaseAsyncBaseDAL[AsyncSession, DTOModelT, CUModelT, PrimaryKeyT]`` 协议.
+    满足 ``DtoAsyncDAL[AsyncSession, DTOModelT, CUModelT, PrimaryKeyT]`` 协议.
 
     类型参数:
         DTOModelT: DTO 模型类型.
