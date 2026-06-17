@@ -10,6 +10,13 @@
 """
 
 from lush_sqlalchemyx.base.dal import (
+    DynamicAsyncDAL,
+    DynamicSyncDAL,
+    DynamicTableConfig,
+    PrimaryKeyT,
+    TableRef,
+    derive_columns_from_dto,
+    derive_pk_from_dto,
     is_soft_delete_hooks_registered,
     register_soft_delete_hooks,
     setup_dal_hooks,
@@ -17,6 +24,13 @@ from lush_sqlalchemyx.base.dal import (
 )
 
 __all__ = (
+    "DynamicAsyncDAL",
+    "DynamicSyncDAL",
+    "DynamicTableConfig",
+    "PrimaryKeyT",
+    "TableRef",
+    "derive_columns_from_dto",
+    "derive_pk_from_dto",
     "is_soft_delete_hooks_registered",
     "register_soft_delete_hooks",
     "setup_dal_hooks",
