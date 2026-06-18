@@ -121,6 +121,15 @@ class TestDeriveColumnsFromDto:
         cols = derive_columns_from_dto(MultiAliasDTO)
         assert cols["name"] == "db_name"
 
+    def test_validation_alias_str(self) -> None:
+        """validation_alias 为纯 str (非 AliasChoices/AliasPath) 时走 L57 分支."""
+
+        class VaStrDTO(BaseModel):
+            name: str = Field(validation_alias="db_name_col")
+
+        cols = derive_columns_from_dto(VaStrDTO)
+        assert cols["name"] == "db_name_col"
+
 
 class TestDerivePkFromDto:
     """derive_pk_from_dto 测试."""
@@ -240,6 +249,14 @@ class TestTableRef:
         ref = TableRef.of("t", SimpleDTO)
         ref.guard_readonly("创建")  # 不抛
 
+    def test_map_from_row_with_alias_choices(self) -> None:
+        """_db_col_to_val_key 中 AliasChoices 分支 (L298)."""
+        ref = TableRef.of("t", MultiAliasDTO)
+        # MultiAliasDTO.name 有 validation_alias=AliasChoices("db_name", "name", "full_name")
+        raw = {"db_name": "hello", "id": 1}
+        mapped = ref.map_from_row(raw)
+        assert mapped["db_name"] == "hello"
+
 
 # ================================================================
 # DynamicSyncDAL 测试 (SQLite)
@@ -314,6 +331,14 @@ class TestDynamicSyncDALCrud:
         ref = TableRef.of("user_log", SimpleDTO)
         dal = DynamicSyncDAL(ref, SimpleDTO)
         count = dal.update_by_id(999, SimpleCU(user_id=1, action="x"), session=sync_session)
+        assert count == 0
+
+    def test_update_with_empty_cu(self, sync_session: Session) -> None:
+        """update_by_id 传入空 CU 时 row_data 为空, 直接返回 0 (L556)."""
+        ref = TableRef.of("user_log", SimpleDTO)
+        dal = DynamicSyncDAL(ref, SimpleDTO)
+        # model_construct() 跳过校验, exclude_unset 后为空
+        count = dal.update_by_id(1, SimpleCU.model_construct(), session=sync_session)
         assert count == 0
 
     def test_hard_delete(self, sync_session: Session) -> None:
@@ -612,6 +637,19 @@ class TestDynamicAsyncDALCrud:
         )
         assert n == 2
 
+    async def test_bulk_create_empty(self, async_session: AsyncSession) -> None:
+        """async bulk_create 空列表返回 0 (L844)."""
+        ref = TableRef.of("user_log", SimpleDTO)
+        dal = DynamicAsyncDAL(ref, SimpleDTO)
+        assert await dal.bulk_create([], session=async_session) == 0
+
+    async def test_update_with_empty_cu(self, async_session: AsyncSession) -> None:
+        """async update_by_id 传入空 CU 时返回 0 (L795)."""
+        ref = TableRef.of("user_log", SimpleDTO)
+        dal = DynamicAsyncDAL(ref, SimpleDTO)
+        count = await dal.update_by_id(1, SimpleCU.model_construct(), session=async_session)
+        assert count == 0
+
     async def test_list_by(self, async_session: AsyncSession) -> None:
         ref = TableRef.of("user_log", SimpleDTO)
         dal = DynamicAsyncDAL(ref, SimpleDTO)
@@ -770,6 +808,25 @@ class TestCoverageEdgeCases:
         dal = DynamicSyncDAL(TableRef.of("dyn_items", SimpleDTO), SimpleDTO)
         result = dal.bulk_create(empty_gen(), session=sync_session)
         assert result == 0
+
+    def test_resolve_pk_uses_ipk(self) -> None:
+        """resolve_pk 在 inserted_primary_key 有值时返回 ipk[0] (L347)."""
+        from unittest.mock import MagicMock
+
+        ref = TableRef.of("t", SimpleDTO)
+        mock_result = MagicMock()
+        mock_result.inserted_primary_key = (42,)
+        assert ref.resolve_pk(mock_result) == 42
+
+    def test_resolve_pk_fallback_to_lastrowid(self) -> None:
+        """resolve_pk 在 inserted_primary_key 为空时回退到 lastrowid."""
+        from unittest.mock import MagicMock
+
+        ref = TableRef.of("t", SimpleDTO)
+        mock_result = MagicMock()
+        mock_result.inserted_primary_key = None
+        mock_result.lastrowid = 99
+        assert ref.resolve_pk(mock_result) == 99
 
 
 # ================================================================

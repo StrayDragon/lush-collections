@@ -112,6 +112,10 @@ class TestAsyncDALConformance(AsyncBaseDALConformanceTests):
 | `_sync.py` `hasattr` 检查 | 防御性类型守卫 |
 | `integrations/flask/ext.py` ImportError | flask-sqlalchemy 可选依赖 |
 | `shortcuts/meta.py` 文件级 | DDL 工具脚本, 非核心库运行时路径 |
+| `_dynamic.py` `_db_col_to_val_key` L302 `field_info.alias` | Pydantic v2 会同步 alias→validation_alias, 此分支仅防御性保留 |
+| `_dynamic.py` `DynamicSyncDAL.create` RuntimeError (pk 为 None / 读取失败) | 防御性 unreachable, SQLite INSERT 总能获取 PK 并读取 |
+| `_dynamic.py` `DynamicAsyncDAL.create` L775-781 | coverage.py 异步协程计量局限, 逻辑已由 `test_create_and_get` 覆盖 |
+| `_dynamic.py` `DynamicAsyncDAL.bulk_create` L846 `return len(rows)` | coverage.py 异步协程计量局限, 逻辑已由 `test_bulk_create` 覆盖 |
 
 ## 修改守则
 

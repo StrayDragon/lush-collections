@@ -64,6 +64,9 @@ bdd_features_base_dir = "tests/features"
 branch = true
 
 [tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = true
 exclude_also = [
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
