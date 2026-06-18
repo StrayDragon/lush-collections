@@ -256,7 +256,9 @@ class FieldIsDeleteSoftDeleteTableMixin(SoftDeleteTableMixin):
     等价旧版 ``SoftDeleteTableMixin``，仅需 rename.
     """
 
-    is_delete: Mapped[int] = mapped_column(sa.Integer, default=0, comment="逻辑删除")
+    is_delete: Mapped[int] = mapped_column(
+        sa.SmallInteger, default=0, comment="逻辑删除"
+    )  # NOTE(@l8ng): 可以优化, 比如给个配置配置mysql可以用tinyint, 现在用 smallint 是因为基本主流数据库都支持
 
 
 class ReadOnlyMixin:
