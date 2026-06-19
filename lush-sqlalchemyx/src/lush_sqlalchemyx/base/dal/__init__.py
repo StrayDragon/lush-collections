@@ -28,8 +28,7 @@ from ._async import (
     BasicAsyncBaseTable,
     ReadOnlyAsyncBaseDAL,
     ReadOnlyBasicAsyncBaseTable,
-    StdAsyncBaseTable,
-    StdReadOnlyBasicAsyncBaseTable,
+
     async_temp_set_lock_wait_timeout,
     async_with_retry,
 )
@@ -49,8 +48,7 @@ from ._common import (
     RetryConfig,
     SoftDeleteTableMixin,
     SQLATableT,
-    StdBaseCU,
-    StdBaseDTO,
+
     escape_like,
     filtered_in_sql_values,
     is_soft_delete_hooks_registered,
@@ -88,8 +86,7 @@ from ._sync import (
     BasicSyncBaseTable,
     ReadOnlySyncBaseDAL,
     ReadOnlySyncBaseTable,
-    StdReadOnlySyncBaseTable,
-    StdSyncBaseTable,
+
     SyncBaseDAL,
     SyncRawDAL,
     SyncRawReadDAL,
@@ -119,8 +116,6 @@ __all__ = (
     "SQLATableT",
     "SoftDeleteTableMixin",
     "FieldIsDeleteSoftDeleteTableMixin",
-    "StdBaseCU",
-    "StdBaseDTO",
     "escape_like",
     "filtered_in_sql_values",
     "is_soft_delete_hooks_registered",
@@ -147,16 +142,14 @@ __all__ = (
     "BasicAsyncBaseTable",
     "ReadOnlyAsyncBaseDAL",
     "ReadOnlyBasicAsyncBaseTable",
-    "StdAsyncBaseTable",
-    "StdReadOnlyBasicAsyncBaseTable",
+
     "async_temp_set_lock_wait_timeout",
     "async_with_retry",
     # sync
     "BasicSyncBaseTable",
     "ReadOnlySyncBaseDAL",
     "ReadOnlySyncBaseTable",
-    "StdReadOnlySyncBaseTable",
-    "StdSyncBaseTable",
+
     "SyncBaseDAL",
     "SyncRawDAL",
     "SyncRawReadDAL",

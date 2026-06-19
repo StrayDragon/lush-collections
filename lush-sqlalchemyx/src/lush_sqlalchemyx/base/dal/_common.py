@@ -5,10 +5,8 @@
 
 from __future__ import annotations
 
-import datetime
 import logging
 import random
-import warnings
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any, ClassVar, Final, Generic, TypeVar, cast
@@ -18,7 +16,7 @@ from lush_dal_protocol.dto import BaseCU as _ProtocolBaseCU
 from lush_dal_protocol.dto import BaseDTO as _ProtocolBaseDTO
 from lush_dal_protocol.dto import CUModelT as CUModelT  # noqa: PLC0414
 from lush_dal_protocol.dto import DTOModelT as DTOModelT  # noqa: PLC0414
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import event as sa_event
 from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
 from sqlalchemy.orm import Mapped, ORMExecuteState, mapped_column, with_loader_criteria
@@ -163,47 +161,7 @@ class BaseDTO(_ProtocolBaseDTO[CUModelT]):
     model_config = ConfigDict(from_attributes=True)
 
 
-class StdBaseCU(BaseCU[SQLATableT]):
-    """标准 CU 基类: 包含创建人/修改人等标准字段.
 
-    .. deprecated::
-        此类预设了特定业务字段, 下游应自行继承 ``BaseCU`` 定义所需字段.
-    """
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        warnings.warn(
-            f"{cls.__name__} 继承了已废弃的 StdBaseCU, 请改为直接继承 BaseCU 并自行定义所需字段",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-    create_operator_id: int = 0
-    update_operator_id: int | None = None
-
-
-class StdBaseDTO(BaseDTO[CUModelT]):
-    """标准 DTO 基类: 包含 id/时间戳/操作人等标准字段.
-
-    .. deprecated::
-        此类预设了特定业务字段, 下游应自行继承 ``BaseDTO`` 定义所需字段.
-    """
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        warnings.warn(
-            f"{cls.__name__} 继承了已废弃的 StdBaseDTO, 请改为直接继承 BaseDTO 并自行定义所需字段",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-    id: int = Field(..., description="ID")
-    create_datetime: datetime.datetime = Field(..., description="创建时间")
-    create_operator_id: int = Field(..., description="创建人")
-    update_datetime: datetime.datetime | None = Field(None, description="修改时间")
-    update_operator_id: int | None = Field(None, description="修改人")
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------------------------------------------------------------------------
@@ -454,8 +412,7 @@ __all__ = (
     "SQLATableT",
     "SQLAlchemyOperationalError",
     "SoftDeleteTableMixin",
-    "StdBaseCU",
-    "StdBaseDTO",
+
     "T",
     "V",
     "_ensure_strict_fields",

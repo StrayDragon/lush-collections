@@ -11,6 +11,7 @@
 """
 
 import asyncio
+import datetime
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 from typing import Any, ClassVar
@@ -35,13 +36,10 @@ from lush_sqlalchemyx.base.dal import (
     BaseDTO,
     BasicAsyncBaseTable,
     DBRetryableError,
+    FieldIsDeleteSoftDeleteTableMixin,
     FieldMixin,
     ReadOnlyAsyncBaseDAL,
     ReadOnlyBasicAsyncBaseTable,
-    StdAsyncBaseTable,
-    StdBaseCU,
-    StdBaseDTO,
-    StdReadOnlyBasicAsyncBaseTable,
     async_temp_set_lock_wait_timeout,
     async_with_retry,
     escape_like,
@@ -62,13 +60,19 @@ class _TestStatus(MetaInfoIntEnum):
     INACTIVE = (2, XMetaInfo(description="非活跃"))
 
 
-class _TestTable(StdAsyncBaseTable):
+class _TestTable(BasicAsyncBaseTable, FieldIsDeleteSoftDeleteTableMixin):
     __tablename__ = "unit_testing_test_table"
 
+    id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
     status: Mapped[int] = mapped_column(sa.SmallInteger, nullable=False, default=1)
     description: Mapped[str | None] = mapped_column(sa.String(200), nullable=True)
     value: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    create_operator_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    update_operator_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    update_datetime: Mapped[datetime.datetime | None] = mapped_column(
+        sa.DateTime, nullable=True, onupdate=sa.sql.func.now()
+    )
 
 
 class _TestTableSimple(BasicAsyncBaseTable):
@@ -81,11 +85,12 @@ class _TestTableSimple(BasicAsyncBaseTable):
     version: Mapped[int] = mapped_column(sa.BigInteger, nullable=False, default=1, server_default="1")
 
 
-class _TestTableWithVersion(StdAsyncBaseTable):
+class _TestTableWithVersion(BasicAsyncBaseTable, FieldIsDeleteSoftDeleteTableMixin):
     """带version字段的测试表,用于测试乐观锁"""
 
     __tablename__ = "unit_testing_test_table_with_version"
 
+    id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
     value: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     version: Mapped[int] = mapped_column(
@@ -95,15 +100,19 @@ class _TestTableWithVersion(StdAsyncBaseTable):
         server_default="0",
         comment="乐观锁版本号",
     )
+    create_operator_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    update_operator_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
 
 
-class _TestCU(StdBaseCU["_TestTable"]):
+class _TestCU(BaseCU["_TestTable"]):
     _Table: ClassVar[type[_TestTable]] = _TestTable
 
     name: str
     status: _TestStatus = _TestStatus.ACTIVE
     description: str | None = None
     value: int = 0
+    create_operator_id: int = 0
+    update_operator_id: int | None = None
 
 
 class _TestSimpleVO(BaseCU["_TestTableSimple"]):
@@ -112,13 +121,16 @@ class _TestSimpleVO(BaseCU["_TestTableSimple"]):
     name: str
 
 
-class _TestDTO(StdBaseDTO[_TestCU]):
+class _TestDTO(BaseDTO[_TestCU]):
     _CU: ClassVar[type[_TestCU]] = _TestCU
 
+    id: int = Field(..., description="ID")
     name: str = Field(..., description="名称")
     status: int = Field(..., description="状态")
     description: str | None = Field(None, description="描述")
     value: int = Field(..., description="值")
+    create_operator_id: int = Field(..., description="创建人")
+    update_operator_id: int | None = Field(None, description="修改人")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -144,19 +156,24 @@ class _TestSimpleDAL(AsyncBaseDAL[_TestTableSimple, _TestSimpleDTO, _TestSimpleV
     _CU = _TestSimpleVO
 
 
-class _TestVersionCU(StdBaseCU["_TestTableWithVersion"]):
+class _TestVersionCU(BaseCU["_TestTableWithVersion"]):
     _Table: ClassVar[type[_TestTableWithVersion]] = _TestTableWithVersion
 
     name: str
     value: int = 0
+    create_operator_id: int = 0
+    update_operator_id: int | None = None
 
 
-class _TestVersionDTO(StdBaseDTO[_TestVersionCU]):
+class _TestVersionDTO(BaseDTO[_TestVersionCU]):
     _CU: ClassVar[type[_TestVersionCU]] = _TestVersionCU
 
+    id: int
     name: str
     value: int
     version: int
+    create_operator_id: int
+    update_operator_id: int | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -167,11 +184,12 @@ class _TestVersionDAL(AsyncBaseDAL[_TestTableWithVersion, _TestVersionDTO, _Test
     _CU = _TestVersionCU
 
 
-class _TestTableWithCustomVersion(StdAsyncBaseTable):
+class _TestTableWithCustomVersion(BasicAsyncBaseTable, FieldIsDeleteSoftDeleteTableMixin):
     """带自定义version字段名的测试表"""
 
     __tablename__ = "unit_testing_test_table_custom_version"
 
+    id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
     value: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     row_version: Mapped[int] = mapped_column(
@@ -181,21 +199,28 @@ class _TestTableWithCustomVersion(StdAsyncBaseTable):
         server_default="0",
         comment="自定义版本号字段",
     )
+    create_operator_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    update_operator_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
 
 
-class _TestCustomVersionCU(StdBaseCU["_TestTableWithCustomVersion"]):
+class _TestCustomVersionCU(BaseCU["_TestTableWithCustomVersion"]):
     _Table: ClassVar[type[_TestTableWithCustomVersion]] = _TestTableWithCustomVersion
 
     name: str
     value: int = 0
+    create_operator_id: int = 0
+    update_operator_id: int | None = None
 
 
-class _TestCustomVersionDTO(StdBaseDTO[_TestCustomVersionCU]):
+class _TestCustomVersionDTO(BaseDTO[_TestCustomVersionCU]):
     _CU: ClassVar[type[_TestCustomVersionCU]] = _TestCustomVersionCU
 
+    id: int
     name: str
     value: int
     row_version: int
+    create_operator_id: int
+    update_operator_id: int | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1096,33 +1121,31 @@ class TestAbstractInterfaces:
             assert callable(getattr(_ReadOnlyTestDAL, read_method)), f"读取方法应该可调用: {read_method}"
 
 
-class TestStandardCUBase:
-    """测试标准CU基类功能"""
+class TestBaseCUInheritance:
+    """测试 BaseCU 继承模式 — 验证用户自行声明业务字段的正确方式."""
 
-    def test_std_base_cu_inheritance(self):
-        """测试StdBaseCU继承关系"""
-        assert issubclass(_TestCU, StdBaseCU)
-        assert issubclass(StdBaseCU, BaseCU)
+    def test_base_cu_inheritance(self):
+        """测试 BaseCU 继承关系"""
+        assert issubclass(_TestCU, BaseCU)
 
-    def test_std_base_cu_required_fields(self):
-        """测试StdBaseCU包含必需的标准字段"""
-        # 检查StdBaseCU有标准字段
-        assert hasattr(StdBaseCU, "__annotations__")
-        annotations = StdBaseCU.__annotations__
+    def test_base_cu_with_custom_fields(self):
+        """测试 BaseCU 包含用户自定义的字段"""
+        annotations = _TestCU.__annotations__
 
         expected_fields = {
+            "name": str,
+            "status": _TestStatus,
             "create_operator_id": int,
             "update_operator_id": int | None,
         }
 
         for field_name in expected_fields:
-            assert field_name in annotations, f"StdBaseCU应该有字段: {field_name}"
-            # 注意:这里类型检查可能需要更复杂的逻辑,暂时只检查字段存在
+            assert field_name in annotations, f"BaseCU 子类应该有字段: {field_name}"
 
-    async def test_std_base_cu_create_with_std_fields(self, async_session: AsyncSession):
-        """测试使用StdBaseCU创建记录包含标准字段"""
+    async def test_base_cu_create_with_custom_fields(self, async_session: AsyncSession):
+        """测试使用 BaseCU 创建记录包含自定义字段"""
         cu = _TestCU(
-            name="标准字段测试",
+            name="业务字段测试",
             status=_TestStatus.ACTIVE,
             value=100,
             create_operator_id=123,
@@ -1133,10 +1156,10 @@ class TestStandardCUBase:
 
         assert created.create_operator_id == 123
         assert created.update_operator_id == 456
-        assert created.name == "标准字段测试"
+        assert created.name == "业务字段测试"
 
-    async def test_std_base_cu_to_sqla_model(self, async_session: AsyncSession):
-        """测试StdBaseCU的to_sqla_model方法"""
+    async def test_base_cu_to_sqla_model(self, async_session: AsyncSession):
+        """测试 BaseCU 的 to_sqla_model 方法"""
         cu = _TestCU(
             name="转换测试",
             status=_TestStatus.INACTIVE,
@@ -1144,7 +1167,6 @@ class TestStandardCUBase:
             create_operator_id=999,
         )
 
-        # 测试转换为SQLAlchemy模型
         model = cu.to_sqla_model()
 
         assert isinstance(model, _TestTable)
@@ -1266,24 +1288,29 @@ class _TestDataModel(BaseModel):
     is_active: bool = Field(default=True, description="是否激活")
 
 
-class _TestDataJsonTable(StdAsyncBaseTable):
+class _TestDataJsonTable(BasicAsyncBaseTable, FieldIsDeleteSoftDeleteTableMixin):
     """测试DataJson的表"""
 
     __tablename__ = "unit_testing_test_datajson_table"
 
+    id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
     # 使用 LargeBinary 存储序列化后的 JSON 数据
     data_json: Mapped[bytes] = mapped_column(sa.LargeBinary, nullable=False, default=b"{}", comment="数据JSON")
     status: Mapped[int] = mapped_column(sa.SmallInteger, nullable=False, default=1)
+    create_operator_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    update_operator_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
 
 
-class _TestDataJsonCU(StdBaseCU["_TestDataJsonTable"]):
+class _TestDataJsonCU(BaseCU["_TestDataJsonTable"]):
     _Table: ClassVar[type[_TestDataJsonTable]] = _TestDataJsonTable
 
     name: str
     # 使用 DataJson 类型,支持 Pydantic 模型对象
     data_json: DataJson[_TestDataModel] = _TestDataModel(title="Default", tags=["test"])
     status: int = 1
+    create_operator_id: int = 0
+    update_operator_id: int | None = None
 
     @field_serializer("data_json")
     def serialize_data_json(self, value: Any) -> bytes:
@@ -1292,8 +1319,11 @@ class _TestDataJsonCU(StdBaseCU["_TestDataJsonTable"]):
 
 
 # DTO 继承自 CU,自动处理 DataJson 的序列化/反序列化
-class _TestDataJsonDTO(_TestDataJsonCU, StdBaseDTO[_TestDataJsonCU]):
+class _TestDataJsonDTO(_TestDataJsonCU, BaseDTO[_TestDataJsonCU]):
     _CU: ClassVar[type[_TestDataJsonCU]] = _TestDataJsonCU
+    id: int
+    create_operator_id: int
+    update_operator_id: int | None = None
 
 
 class _TestDataJsonDAL(AsyncBaseDAL[_TestDataJsonTable, _TestDataJsonDTO, _TestDataJsonCU]):
@@ -1401,7 +1431,7 @@ class TestDataJsonBytesField:
             a: int = 1
             b: str = "x"
 
-        class T(StdReadOnlyBasicAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
+        class T(ReadOnlyBasicAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
             __tablename__ = "unit_testing_table_datajson_mixin"
 
             # 定义与只读表相同的字段,但我们不向数据库写入,仅用于内存层行为验证
@@ -1761,10 +1791,12 @@ class TestNewUpdateApisMore:
 
         from pydantic import Field as PydField
 
-        class _StrictCU(StdBaseCU["_TestTable"]):  # type: ignore[name-defined]
+        class _StrictCU(BaseCU["_TestTable"]):  # type: ignore[name-defined]
             _Table: ClassVar[type[_TestTable]] = _TestTable
 
             name: str
+            create_operator_id: int = 0
+            update_operator_id: int | None = None
             # 使用 exclude=True 使其在 model_dump 时被排除
             extra: str = PydField(default="", exclude=True)
 
@@ -4238,8 +4270,9 @@ class TestFieldMixinDataJsonBytes:
             a: int = 0
             b: str = ""
 
-        class TestDataJsonBytesTable(StdAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
+        class TestDataJsonBytesTable(BasicAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
             __tablename__ = "test_datajson_bytes_table"
+            id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
             name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
             data_json: Mapped[bytes] = mapped_column(sa.LargeBinary, nullable=False, default=b"{}")
 
@@ -4268,8 +4301,9 @@ class TestFieldMixinDataJsonBytes:
             b: str = ""
 
         # 创建表但不设置 _DATA_JSON
-        class UnboundTable(StdAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
+        class UnboundTable(BasicAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
             __tablename__ = "unbound_table_bytes"
+            id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
             name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
             data_json: Mapped[bytes] = mapped_column(sa.LargeBinary)
 
@@ -4293,8 +4327,9 @@ class TestFieldMixinDataJsonBytes:
             a: int = 0
             b: str = ""
 
-        class SampleDataJsonBytesTable(StdAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
+        class SampleDataJsonBytesTable(BasicAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
             __tablename__ = "test_datajson_bytes_table2"
+            id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
             name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
             data_json: Mapped[bytes] = mapped_column(sa.LargeBinary, nullable=False, default=b"{}")
 
@@ -4320,8 +4355,9 @@ class TestFieldMixinDataJsonBytes:
             a: int = 0
             b: str = ""
 
-        class SampleDataJsonBytesTable2(StdAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
+        class SampleDataJsonBytesTable2(BasicAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
             __tablename__ = "test_datajson_bytes_table3"
+            id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
             name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
             data_json: Mapped[bytes] = mapped_column(sa.LargeBinary, nullable=False, default=b"{}")
 
@@ -4340,8 +4376,9 @@ class TestFieldMixinDataJsonBytes:
             a: int = 0
             b: str = ""
 
-        class SampleDataJsonBytesTable2(StdAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
+        class SampleDataJsonBytesTable2(BasicAsyncBaseTable, FieldMixin.DataJsonBytes[DM]):
             __tablename__ = "test_datajson_bytes_table4"
+            id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
             name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
             data_json: Mapped[bytes] = mapped_column(sa.LargeBinary, nullable=False, default=b"{}")
 
@@ -4654,35 +4691,4 @@ class TestV2AsyncDALAdvancedWrite:
         assert cnt == 0
 
 
-class TestStdDeprecationWarnings:
-    """Std* 基类弃用警告测试."""
 
-    def test_std_async_base_table_warns(self):
-        with pytest.warns(DeprecationWarning, match="StdAsyncBaseTable"):
-
-            class _DeprecatedAsync(StdAsyncBaseTable):
-                __tablename__ = "deprecated_async"
-
-    def test_std_async_abstract_subclass_no_warn(self):
-        import warnings as _w
-
-        with _w.catch_warnings():
-            _w.simplefilter("error", DeprecationWarning)
-
-            class _AbstractAsync(StdAsyncBaseTable):
-                __abstract__ = True
-
-    def test_std_readonly_async_warns(self):
-        with pytest.warns(DeprecationWarning, match="StdReadOnlyBasicAsyncBaseTable"):
-
-            class _DeprecatedROAsync(StdReadOnlyBasicAsyncBaseTable):
-                __tablename__ = "deprecated_ro_async"
-
-    def test_std_readonly_async_abstract_no_warn(self):
-        import warnings as _w
-
-        with _w.catch_warnings():
-            _w.simplefilter("error", DeprecationWarning)
-
-            class _AbstractROAsync(StdReadOnlyBasicAsyncBaseTable):
-                __abstract__ = True

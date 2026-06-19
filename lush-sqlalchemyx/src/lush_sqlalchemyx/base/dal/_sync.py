@@ -6,10 +6,8 @@
 
 from __future__ import annotations
 
-import datetime
 import logging
 import time
-import warnings
 from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, ParamSpec, TypeVar, cast
@@ -18,7 +16,7 @@ import sqlalchemy as sa
 from lush_dal_protocol.abc import AbstractSyncReadDAL, AbstractSyncWriteDAL
 from pydantic import BaseModel
 from sqlalchemy import ColumnExpressionArgument
-from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute, Mapped, Session, mapped_column
+from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute, Session
 
 from ._common import (
     OPTIMISTIC_LOCK_ERROR_MSG_TRAIT,
@@ -28,7 +26,6 @@ from ._common import (
     CUModelT,
     DBRetryableError,
     DTOModelT,
-    FieldIsDeleteSoftDeleteTableMixin,
     ReadOnlyMixin,
     RetryConfig,
     SoftDeleteTableMixin,
@@ -135,106 +132,6 @@ class ReadOnlySyncBaseTable(SyncSqlATableBase, ReadOnlyMixin):
     """只读同步表基类."""
 
     __abstract__ = True
-
-
-class StdSyncBaseTable(BasicSyncBaseTable, FieldIsDeleteSoftDeleteTableMixin):
-    """标准同步表类: 包含 id/时间戳/操作人/软删除等标准字段.
-
-    .. deprecated::
-        此类预设了特定业务字段, 下游应自行继承 ``BasicSyncBaseTable`` 定义所需字段.
-    """
-
-    __abstract__ = True
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        if not cls.__dict__.get("__abstract__", False):
-            warnings.warn(
-                f"{cls.__name__} 继承了已废弃的 StdSyncBaseTable, 请改为直接继承 BasicSyncBaseTable 并自行定义所需字段",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-    id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
-
-    create_datetime: Mapped[datetime.datetime] = mapped_column(
-        sa.DateTime,
-        nullable=False,
-        comment="创建时间",
-        server_default=sa.sql.func.now(),
-        server_onupdate=sa.FetchedValue(),
-    )
-
-    create_operator_id: Mapped[int] = mapped_column(
-        sa.Integer,
-        nullable=False,
-        comment="创建人",
-        default=0,
-    )
-
-    update_datetime: Mapped[datetime.datetime] = mapped_column(
-        sa.DateTime,
-        nullable=True,
-        comment="修改时间",
-        server_default=sa.sql.func.now(),
-        onupdate=sa.sql.func.now(),
-        server_onupdate=sa.FetchedValue(),
-    )
-    update_operator_id: Mapped[int | None] = mapped_column(
-        sa.Integer,
-        nullable=True,
-        comment="修改人",
-    )
-
-
-class StdReadOnlySyncBaseTable(ReadOnlySyncBaseTable):
-    """标准只读同步表基类: 包含 id/时间戳/操作人等标准字段.
-
-    .. deprecated::
-        此类预设了特定业务字段, 下游应自行继承 ``ReadOnlySyncBaseTable`` 定义所需字段.
-    """
-
-    __abstract__ = True
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        if not cls.__dict__.get("__abstract__", False):
-            warnings.warn(
-                f"{cls.__name__} 继承了已废弃的 StdReadOnlySyncBaseTable, 请改为直接继承 ReadOnlySyncBaseTable 并自行定义所需字段",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-    id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
-
-    create_datetime: Mapped[datetime.datetime] = mapped_column(
-        sa.DateTime,
-        nullable=False,
-        comment="创建时间",
-        server_default=sa.sql.func.now(),
-        server_onupdate=sa.FetchedValue(),
-    )
-
-    create_operator_id: Mapped[int] = mapped_column(
-        sa.Integer,
-        nullable=False,
-        comment="创建人",
-        default=0,
-    )
-
-    update_datetime: Mapped[datetime.datetime] = mapped_column(
-        sa.DateTime,
-        nullable=True,
-        comment="修改时间",
-        server_default=sa.sql.func.now(),
-        onupdate=sa.sql.func.now(),
-        server_onupdate=sa.FetchedValue(),
-    )
-    update_operator_id: Mapped[int | None] = mapped_column(
-        sa.Integer,
-        nullable=True,
-        comment="修改人",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -852,8 +749,6 @@ __all__ = (
     "BasicSyncBaseTable",
     "ReadOnlySyncBaseDAL",
     "ReadOnlySyncBaseTable",
-    "StdReadOnlySyncBaseTable",
-    "StdSyncBaseTable",
     "SyncBaseDAL",
     "SyncRawDAL",
     "SyncRawReadDAL",

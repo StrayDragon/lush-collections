@@ -16,14 +16,13 @@ from sqlalchemy.pool import NullPool
 from lush_sqlalchemyx.base.dal import (
     BaseCU,
     BaseDTO,
+    BasicSyncBaseTable,
     DBRetryableError,
+    FieldIsDeleteSoftDeleteTableMixin,
     FieldMixin,
     ReadOnlySyncBaseDAL,
     ReadOnlySyncBaseTable,
     SoftDeleteTableMixin,
-    StdBaseCU,
-    StdBaseDTO,
-    StdSyncBaseTable,
     SyncBaseDAL,
     SyncSqlATableBase,
     SyncWriteDAL,
@@ -48,13 +47,16 @@ setup_dal_hooks()
 # ========== Test models ==========
 
 
-class _SyncTestTable(StdSyncBaseTable):
+class _SyncTestTable(BasicSyncBaseTable, FieldIsDeleteSoftDeleteTableMixin):
     __tablename__ = "sync_test_table"
 
+    id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
     status: Mapped[int] = mapped_column(sa.SmallInteger, nullable=False, default=1)
     description: Mapped[str | None] = mapped_column(sa.String(200), nullable=True)
     value: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    create_operator_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    update_operator_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
 
 
 class _SyncSimpleTable(BasicSyncBaseTable):
@@ -65,12 +67,15 @@ class _SyncSimpleTable(BasicSyncBaseTable):
     version: Mapped[int] = mapped_column(sa.BigInteger, nullable=False, default=1, server_default="1")
 
 
-class _SyncVersionTable(StdSyncBaseTable):
+class _SyncVersionTable(BasicSyncBaseTable, FieldIsDeleteSoftDeleteTableMixin):
     __tablename__ = "sync_test_version"
 
+    id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(sa.String(50), nullable=False)
     value: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     version: Mapped[int] = mapped_column(sa.BigInteger, nullable=False, default=0, server_default="0")
+    create_operator_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    update_operator_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
 
 
 class _SyncReadOnlyTable(ReadOnlySyncBaseTable):
@@ -81,12 +86,14 @@ class _SyncReadOnlyTable(ReadOnlySyncBaseTable):
     value: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
 
 
-class _SyncTestCU(StdBaseCU["_SyncTestTable"]):
+class _SyncTestCU(BaseCU["_SyncTestTable"]):
     _Table: ClassVar[type[_SyncTestTable]] = _SyncTestTable
     name: str
     status: int = 1
     description: str | None = None
     value: int = 0
+    create_operator_id: int = 0
+    update_operator_id: int | None = None
 
 
 class _SyncSimpleCU(BaseCU["_SyncSimpleTable"]):
@@ -94,12 +101,15 @@ class _SyncSimpleCU(BaseCU["_SyncSimpleTable"]):
     name: str
 
 
-class _SyncTestDTO(StdBaseDTO[_SyncTestCU]):
+class _SyncTestDTO(BaseDTO[_SyncTestCU]):
     _CU: ClassVar[type[_SyncTestCU]] = _SyncTestCU
+    id: int = Field(...)
     name: str = Field(...)
     status: int = Field(...)
     description: str | None = Field(None)
     value: int = Field(...)
+    create_operator_id: int = Field(...)
+    update_operator_id: int | None = Field(None)
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -110,17 +120,22 @@ class _SyncSimpleDTO(BaseDTO[_SyncSimpleCU]):
     model_config = ConfigDict(from_attributes=True)
 
 
-class _SyncVersionCU(StdBaseCU["_SyncVersionTable"]):
+class _SyncVersionCU(BaseCU["_SyncVersionTable"]):
     _Table: ClassVar[type[_SyncVersionTable]] = _SyncVersionTable
     name: str
     value: int = 0
+    create_operator_id: int = 0
+    update_operator_id: int | None = None
 
 
-class _SyncVersionDTO(StdBaseDTO[_SyncVersionCU]):
+class _SyncVersionDTO(BaseDTO[_SyncVersionCU]):
     _CU: ClassVar[type[_SyncVersionCU]] = _SyncVersionCU
+    id: int
     name: str
     value: int
     version: int
+    create_operator_id: int
+    update_operator_id: int | None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -1393,8 +1408,9 @@ class TestSyncFieldMixin:
         class _DataModel(BaseModel):
             text: str = ""
 
-        class _JsonTable(StdSyncBaseTable, FieldMixin.DataJsonBytes[_DataModel]):
+        class _JsonTable(BasicSyncBaseTable, FieldMixin.DataJsonBytes[_DataModel]):
             __tablename__ = "sync_test_json"
+            id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
             data_json: Mapped[bytes] = mapped_column(sa.LargeBinary, nullable=True)
 
         _JsonTable._DATA_JSON = _DataModel
@@ -1421,8 +1437,9 @@ class TestSyncFieldMixin:
         class _DataModel(BaseModel):
             text: str = ""
 
-        class _StrJsonTable(StdSyncBaseTable, FieldMixin.DataJsonBytes[_DataModel]):
+        class _StrJsonTable(BasicSyncBaseTable, FieldMixin.DataJsonBytes[_DataModel]):
             __tablename__ = "sync_test_str_json"
+            id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
             data_json: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
 
         _StrJsonTable._DATA_JSON = _DataModel
@@ -1720,44 +1737,6 @@ class TestV2SyncDALAdvancedWrite:
             update_data={_SyncTestTable.value: 30},
         )
         assert cnt == 0
-
-
-class TestStdSyncDeprecationWarnings:
-    """Std* 同步基类弃用警告测试."""
-
-    def test_std_sync_base_table_warns(self):
-        with pytest.warns(DeprecationWarning, match="StdSyncBaseTable"):
-
-            class _DeprecatedSync(StdSyncBaseTable):
-                __tablename__ = "deprecated_sync_warn"
-
-    def test_std_sync_abstract_subclass_no_warn(self):
-        import warnings as _w
-
-        with _w.catch_warnings():
-            _w.simplefilter("error", DeprecationWarning)
-
-            class _AbstractSync(StdSyncBaseTable):
-                __abstract__ = True
-
-    def test_std_readonly_sync_warns(self):
-        from lush_sqlalchemyx.base.dal._sync import StdReadOnlySyncBaseTable
-
-        with pytest.warns(DeprecationWarning, match="StdReadOnlySyncBaseTable"):
-
-            class _DeprecatedROSync(StdReadOnlySyncBaseTable):
-                __tablename__ = "deprecated_ro_sync_warn"
-
-    def test_std_readonly_sync_abstract_no_warn(self):
-        import warnings as _w
-
-        from lush_sqlalchemyx.base.dal._sync import StdReadOnlySyncBaseTable
-
-        with _w.catch_warnings():
-            _w.simplefilter("error", DeprecationWarning)
-
-            class _AbstractROSync(StdReadOnlySyncBaseTable):
-                __abstract__ = True
 
 
 class TestSyncDALConformance(SyncBaseDALConformanceTests):
