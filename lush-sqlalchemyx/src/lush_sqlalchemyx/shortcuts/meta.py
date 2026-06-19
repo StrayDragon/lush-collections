@@ -12,37 +12,17 @@ from sqlalchemy.sql.compiler import Compiled
 
 @dataclasses.dataclass
 class TableDDLInfo:
+    """DDL 元数据容器."""
+
     create_table: Compiled
     index_ddls: list[Compiled]
 
     def print_sql(self) -> None:
-        create_table_sql = str(self.create_table)
-
-        fields = create_table_sql.split("\n")
-        before_fields: list[str] = []
-        other_fields: list[str] = []
-
-        for field in fields:
-            if not field.strip():
-                continue
-            if (
-                "id INTEGER NOT NULL AUTO_INCREMENT" in field
-                or "create_datetime DATETIME" in field
-                or "create_operator_id INTEGER" in field
-                or "update_datetime DATETIME" in field
-                or "update_operator_id INTEGER" in field
-                or "is_delete INTEGER" in field
-            ):
-                before_fields.append(field)
-            else:
-                other_fields.append(field)
-
-        if before_fields:
-            other_fields = [other_fields[0], *before_fields, *other_fields[1:]]
-        create_table_sql = "\n".join(other_fields)
-        if not create_table_sql.endswith(";"):
-            create_table_sql = create_table_sql + ";"
-        print(create_table_sql)
+        """打印 CREATE TABLE + CREATE INDEX SQL."""
+        output = str(self.create_table)
+        if not output.endswith(";"):
+            output += ";"
+        print(output)
         for index_ddl in self.index_ddls:
             index_ddl_sql = str(index_ddl)
             if not index_ddl_sql.endswith(";"):

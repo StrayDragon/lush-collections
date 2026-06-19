@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager, suppress
-from typing import Any
+from typing import Any, ClassVar
 
 import sqlalchemy as sa
 from sqlalchemy import CursorResult, TextClause, create_engine, text
@@ -12,21 +12,22 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from lush_sqlalchemyx.base.dal._common import READONLY_SESSION_FLAG
+from lush_sqlalchemyx.mgrs.mysql._pool_config import MySQLPoolConfig
 
 
 class SyncMySQLManager:
-    """同步数据库管理器"""
+    """同步 MySQL 数据库管理器."""
 
-    def __init__(self, database_url: str, **engine_kwargs: Any) -> None:
-        default_kwargs: dict[str, Any] = {
-            "pool_size": 20,
-            "max_overflow": 30,
-            "pool_pre_ping": True,
-            "pool_recycle": 3600,
-            "echo": False,
-        }
+    _default_pool_config: ClassVar[type[MySQLPoolConfig]] = MySQLPoolConfig
 
-        final_kwargs = default_kwargs.copy()
+    def __init__(
+        self,
+        database_url: str,
+        pool_config: MySQLPoolConfig | None = None,
+        **engine_kwargs: Any,
+    ) -> None:
+        base = pool_config or self._default_pool_config()
+        final_kwargs = base.to_engine_kwargs()
 
         if "poolclass" in engine_kwargs:
             for key in ("pool_size", "max_overflow", "pool_recycle"):

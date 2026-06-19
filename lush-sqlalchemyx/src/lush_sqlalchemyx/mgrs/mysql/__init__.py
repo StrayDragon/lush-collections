@@ -1,3 +1,5 @@
+from ._pool_config import MySQLPoolConfig
+
 from .manager import (
     AsyncMySQLManager,
     SessionT,
@@ -15,6 +17,8 @@ from .sync_manager import (
 from .sync_mapper import SyncDBEnumT, SyncMySQLManagersMapper
 
 __all__ = [
+    # config
+    "MySQLPoolConfig",
     # async
     "AsyncMySQLManager",
     "AsyncMySQLManagersMapper",
