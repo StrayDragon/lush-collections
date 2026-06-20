@@ -23,6 +23,21 @@ class TestCSPManager:
         manager = CSPManager(strict=True)
         assert manager is not None
 
+    def test_manager_with_extra_directives(self):
+        """测试自定义指令初始化"""
+
+        manager = CSPManager(extra_directives=["img-src 'self' https:"])
+        policy = manager.build_csp_policy("test")
+        assert any("img-src" in d and "https:" in d for d in policy)
+
+    def test_manager_with_extra_headers(self):
+        """测试自定义响应头"""
+
+        manager = CSPManager(extra_headers={"Cache-Control": "no-cache"})
+        response = Response()
+        manager.set_security_headers(response)
+        assert response.headers["Cache-Control"] == "no-cache"
+
     def test_global_csp_manager_instance(self):
         """测试全局 CSP 管理器实例"""
 
@@ -129,21 +144,37 @@ class TestSetSecurityHeaders:
         assert "script-src 'self' 'nonce-test'" in csp_header
         assert "'unsafe-inline'" not in csp_header.split(";")[1]
 
-    def test_csp_header_style_src(self):
-        """测试 style-src 指令"""
+    def test_csp_header_style_src_default(self):
+        """测试默认 style-src 指令 (不含 unsafe-inline)"""
 
-        manager = CSPManager()
+        manager = CSPManager(strict=True)
         response = Response()
 
         manager.set_security_headers(response)
 
         csp_header = response.headers["Content-Security-Policy"]
+        # 默认 style-src 不含 'unsafe-inline'; 业务方通过 extra_directives 添加
+        assert "style-src 'self'" in csp_header
+
+    def test_csp_header_style_src_with_extra(self):
+        """测试通过 extra_directives 自定义 style-src"""
+
+        manager = CSPManager(
+            extra_directives=["style-src 'self' 'unsafe-inline' https://fonts.googleapis.com"],
+        )
+        response = Response()
+
+        manager.set_security_headers(response, nonce="test")
+
+        csp_header = response.headers["Content-Security-Policy"]
         assert "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com" in csp_header
 
-    def test_csp_header_font_src(self):
-        """测试 font-src 指令"""
+    def test_csp_header_font_src_with_extra(self):
+        """测试通过 extra_directives 自定义 font-src"""
 
-        manager = CSPManager()
+        manager = CSPManager(
+            extra_directives=["font-src 'self' https://fonts.gstatic.com"],
+        )
         response = Response()
 
         manager.set_security_headers(response)
@@ -155,6 +186,19 @@ class TestSetSecurityHeaders:
         """测试 img-src 指令"""
 
         manager = CSPManager()
+        response = Response()
+
+        manager.set_security_headers(response)
+
+        csp_header = response.headers["Content-Security-Policy"]
+        assert "img-src 'self' data:" in csp_header
+
+    def test_csp_header_img_src_with_extra(self):
+        """测试通过 extra_directives 扩展 img-src"""
+
+        manager = CSPManager(
+            extra_directives=["img-src 'self' data: https:"],
+        )
         response = Response()
 
         manager.set_security_headers(response)
@@ -194,6 +238,26 @@ class TestSetSecurityHeaders:
 
         csp_header = response.headers["Content-Security-Policy"]
         assert "upgrade-insecure-requests" in csp_header
+
+    def test_multiple_extra_directives(self):
+        """测试多条额外指令"""
+
+        manager = CSPManager(
+            extra_directives=[
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                "font-src 'self' https://fonts.gstatic.com",
+                "img-src 'self' data: https:",
+                "connect-src 'self' https://api.example.com",
+            ],
+        )
+        response = Response()
+        manager.set_security_headers(response, nonce="test")
+
+        csp_header = response.headers["Content-Security-Policy"]
+        assert "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com" in csp_header
+        assert "font-src 'self' https://fonts.gstatic.com" in csp_header
+        assert "img-src 'self' data: https:" in csp_header
+        assert "connect-src 'self' https://api.example.com" in csp_header
 
 
 class TestOtherSecurityHeaders:
@@ -251,10 +315,16 @@ class TestOtherSecurityHeaders:
         assert "max-age=31536000" in hsts_header
         assert "includeSubDomains" in hsts_header
 
-    def test_cache_control_headers(self):
-        """测试防止缓存的头"""
+    def test_extra_headers_are_set(self):
+        """测试通过 extra_headers 自定义的响应头被设置"""
 
-        manager = CSPManager()
+        manager = CSPManager(
+            extra_headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
         response = Response()
 
         manager.set_security_headers(response)
@@ -263,14 +333,52 @@ class TestOtherSecurityHeaders:
         assert response.headers["Pragma"] == "no-cache"
         assert response.headers["Expires"] == "0"
 
+    def test_extra_headers_override_base(self):
+        """测试 extra_headers 覆盖基础头"""
+
+        manager = CSPManager(
+            extra_headers={"X-Frame-Options": "SAMEORIGIN"},
+        )
+        response = Response()
+
+        manager.set_security_headers(response)
+
+        assert response.headers["X-Frame-Options"] == "SAMEORIGIN"
+
 
 class TestIntegrationScenarios:
     """测试集成场景"""
 
-    def test_all_security_headers_set_together(self):
-        """测试所有安全头同时设置"""
+    def test_all_base_headers_set_together(self):
+        """测试所有基础安全头同时设置"""
 
         manager = CSPManager()
+        response = Response()
+
+        manager.set_security_headers(response)
+
+        expected_headers = [
+            "Content-Security-Policy",
+            "X-Content-Type-Options",
+            "X-Frame-Options",
+            "X-XSS-Protection",
+            "Referrer-Policy",
+            "Strict-Transport-Security",
+        ]
+
+        for header in expected_headers:
+            assert header in response.headers, f"缺少头: {header}"
+
+    def test_all_headers_with_extra(self):
+        """测试基础头 + 自定义头同时设置"""
+
+        manager = CSPManager(
+            extra_headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
         response = Response()
 
         manager.set_security_headers(response)
@@ -288,7 +396,7 @@ class TestIntegrationScenarios:
         ]
 
         for header in expected_headers:
-            assert header in response.headers
+            assert header in response.headers, f"缺少头: {header}"
 
     def test_multiple_calls_override_headers(self):
         """测试多次调用会覆盖头"""
