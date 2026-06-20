@@ -68,15 +68,6 @@ SENTRY_DEFAULT_DENYLIST: Final[frozenset[str]] = frozenset(
     }
 )
 
-# 业务特定的敏感数据字段列表
-#
-# 匹配规则: 使用 **子串匹配** (.*xxx.*, 不区分大小写)
-# - 'token' 会匹配: access_token, user_token, my_token_field 等
-# - 'secret' 会匹配: user_secret, api_secret, secret_key 等
-# - 'corpid' 会匹配: corpid, CorpId, CORPID, my_corpid 等
-#
-# 这里添加业务特定的敏感字段,包括企业微信相关字段
-BUSINESS_SENSITIVE_FIELDS: Final[frozenset[str]] = frozenset()
 
 # URL中可能包含敏感信息的模式
 SENSITIVE_URL_PATTERNS: Final[list[Pattern[str]]] = [

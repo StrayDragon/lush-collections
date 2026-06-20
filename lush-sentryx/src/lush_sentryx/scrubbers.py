@@ -7,7 +7,6 @@
 import logging
 
 from lush_sentryx_core.sdk.v2 import (
-    BUSINESS_SENSITIVE_FIELDS,
     SENTRY_DEFAULT_DENYLIST,
     deep_scrub_sensitive_data,
     scrub_stacktrace_vars,
@@ -27,7 +26,6 @@ __all__ = [
 
 def create_enhanced_scrubber(
     denylist: set[str] | None = None,
-    enable_business_fields: bool = True,
 ) -> EventScrubber:
     """创建增强的敏感数据清理器 (Sentry SDK 2.x)
 
@@ -43,61 +41,45 @@ def create_enhanced_scrubber(
     - 嵌套字典和列表 (递归处理)
 
     Args:
-        denylist: 额外的敏感字段列表,会与默认字段合并
-        enable_business_fields: 是否启用业务敏感字段过滤 (默认 True)
+        denylist: 额外的敏感字段列表,会与 Sentry 默认字段合并
 
     Returns:
-        EventScrubber: 配置了业务特定敏感字段的清理器
+        EventScrubber: 配置了敏感字段的清理器
 
     Note:
         - Sentry 默认的 DEFAULT_DENYLIST 始终启用
-        - 业务敏感字段 (BUSINESS_SENSITIVE_FIELDS) 根据 enable_business_fields 参数控制
+        - 额外的业务敏感字段通过 denylist 参数传入
 
     Example:
-        >>> scrubber = create_enhanced_scrubber(denylist={"custom_secret", "internal_token"}, enable_business_fields=True)
+        >>> scrubber = create_enhanced_scrubber(denylist={"custom_secret", "internal_token"})
 
     See Also:
         - https://docs.sentry.io/platforms/python/data-management/sensitive-data/
     """
     try:
-        # 始终包含 Sentry 默认敏感字段
         final_denylist: set[str] = set(SENTRY_DEFAULT_DENYLIST)
 
-        # 根据参数决定是否添加业务敏感字段
-        if enable_business_fields:
-            final_denylist |= set(BUSINESS_SENSITIVE_FIELDS)
-        else:
-            _logger.warning("⚠️ 业务敏感字段过滤已禁用 - 仅使用 Sentry 默认过滤")
-
-        # 添加用户自定义字段
         if denylist:
             final_denylist |= denylist
 
-        # EventScrubber 在 SDK 2.x 中只接受 denylist 参数
-        # send_default_pii 应该在 sentry_sdk.init() 中设置
         return EventScrubber(denylist=list(final_denylist))
     except Exception as e:
         _logger.warning("创建EventScrubber失败, 使用默认配置: %s", e)
-        # 降级方案: 使用默认配置
         return EventScrubber()
 
 
 def get_all_sensitive_fields(
-    enable_business_fields: bool = True,
     additional_denylist: set[str] | None = None,
 ) -> set[str]:
     """获取所有敏感字段的集合
 
     Args:
-        enable_business_fields: 是否包含业务敏感字段
         additional_denylist: 额外的敏感字段
 
     Returns:
         所有敏感字段的集合
     """
     result = set(SENTRY_DEFAULT_DENYLIST)
-    if enable_business_fields:
-        result |= set(BUSINESS_SENSITIVE_FIELDS)
     if additional_denylist:
         result |= additional_denylist
     return result

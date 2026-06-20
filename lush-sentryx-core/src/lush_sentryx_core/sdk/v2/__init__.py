@@ -28,7 +28,6 @@ Note:
 """
 
 from lush_sentryx_core.sdk.v2.const import (
-    BUSINESS_SENSITIVE_FIELDS,
     FILTERED_PLACEHOLDER,
     SENSITIVE_URL_PATTERNS,
     SENTRY_DEFAULT_DENYLIST,
@@ -69,7 +68,6 @@ __all__ = [  # noqa: RUF022
     "SensitiveFields",
     "TransactionProcessor",
     # 常量
-    "BUSINESS_SENSITIVE_FIELDS",
     "FILTERED_PLACEHOLDER",
     "SENSITIVE_URL_PATTERNS",
     "SENTRY_DEFAULT_DENYLIST",
