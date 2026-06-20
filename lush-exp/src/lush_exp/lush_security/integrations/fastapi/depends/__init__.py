@@ -17,12 +17,49 @@ class LoggerLike(Protocol):
     def exception(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
+class EncryptedParamNaming:
+    """加密参数命名约定配置.
+
+    控制 `PageSecurityHelper` 查找加密参数时的命名规则.
+    业务项目可自定义后缀和备选前缀来匹配自己的 URL 参数约定.
+
+    Example:
+        默认约定 (suffix="_encrypted"):
+            task_id_encrypted=xxx
+
+        自定义约定:
+            naming = EncryptedParamNaming(
+                suffix="_token",
+                extra_fallback_prefixes=["cipher_"],
+            )
+            匹配 task_id_token 或 cipher_task_id
+    """
+
+    def __init__(
+        self,
+        suffix: str = "_encrypted",
+        extra_fallback_prefixes: list[str] | None = None,
+    ) -> None:
+        self.suffix: str = suffix
+        # 保留向后兼容: enc_xxx, encrypted_xxx 作为备选前缀
+        default_prefixes = ["enc_", "encrypted_"]
+        if extra_fallback_prefixes:
+            default_prefixes.extend(extra_fallback_prefixes)
+        self.fallback_prefixes: list[str] = default_prefixes
+
+
 class PageSecurityHelper:
     """页面安全助手, 封装常见的解密访问逻辑."""
 
-    def __init__(self, request: Request, jwt_manager: JWTManager) -> None:
+    def __init__(
+        self,
+        request: Request,
+        jwt_manager: JWTManager,
+        param_naming: EncryptedParamNaming | None = None,
+    ) -> None:
         self.request: Request = request
         self._jwt_manager: JWTManager = jwt_manager
+        self._param_naming: EncryptedParamNaming = param_naming or EncryptedParamNaming()
 
     @property
     def jwt_manager(self) -> JWTManager:
@@ -37,11 +74,11 @@ class PageSecurityHelper:
                 if (value := decrypted_params.get(param_name)) is not None:
                     return int(value)
 
-            encrypted_param_names = [
-                f"{param_name}_encrypted",
-                f"enc_{param_name}",
-                f"encrypted_{param_name}",
-            ]
+            encrypted_param_names = [f"{param_name}{self._param_naming.suffix}"]
+            for prefix in self._param_naming.fallback_prefixes:
+                encrypted_param_names.append(f"{prefix}{param_name}")
+                encrypted_param_names.append(f"{prefix.rstrip('_')}_{param_name}")
+
             for encrypted_name in encrypted_param_names:
                 if encrypted_value := self.request.query_params.get(encrypted_name):
                     return self._jwt_manager.decrypt_id(encrypted_value, int)
@@ -64,11 +101,16 @@ class PageSecurityHelper:
 
 
 class PageSecurityFastAPIDepends:
-    """FastAPI 页面安全相关依赖工厂."""
+    """FastAPI 页面安全相关依赖工厂.
+
+    组合了 JWT 参数解密和 CSP 安全头设置.
+    业务项目可通过 `configure()` 注入自定义的命名约定和设置.
+    """
 
     _config: ClassVar[SimpleNamespace] = SimpleNamespace(
         jwt_manager_provider=None,
         csp_manager_provider=None,
+        param_naming=None,
         logger=cast("LoggerLike", getLogger(__name__)),
     )
 
@@ -78,10 +120,12 @@ class PageSecurityFastAPIDepends:
         *,
         jwt_manager_provider: Callable[[], JWTManager],
         csp_manager_provider: Callable[[], CSPManager],
+        param_naming: EncryptedParamNaming | None = None,
         logger: LoggerLike | None = None,
     ) -> None:
         cls._config.jwt_manager_provider = jwt_manager_provider
         cls._config.csp_manager_provider = csp_manager_provider
+        cls._config.param_naming = param_naming
         if logger is not None:
             cls._config.logger = logger
 
@@ -98,6 +142,11 @@ class PageSecurityFastAPIDepends:
         if provider is None:
             raise RuntimeError("PageSecurityFastAPIDepends 未配置 csp_manager_provider")
         return provider()
+
+    @staticmethod
+    def _get_param_naming() -> EncryptedParamNaming:
+        naming = cast("EncryptedParamNaming | None", PageSecurityFastAPIDepends._config.param_naming)
+        return naming or EncryptedParamNaming()
 
     @staticmethod
     def _get_logger() -> LoggerLike:
@@ -139,6 +188,7 @@ class PageSecurityFastAPIDepends:
             return
 
         logger = cls._get_logger()
+        naming = cls._get_param_naming()
 
         try:
             query_params = dict(request.query_params)
@@ -148,7 +198,7 @@ class PageSecurityFastAPIDepends:
                 encrypted_token = query_params[jwt_manager.config.encrypt_params_key_name]
                 decrypted_params = jwt_manager.decrypt_query_params(encrypted_token)
             else:
-                encrypted_suffix = jwt_manager.config.encrypt_id_key_suffix
+                encrypted_suffix = naming.suffix
                 encrypted_id_params = [key for key in query_params if key.endswith(encrypted_suffix)]
 
                 for encrypted_param in encrypted_id_params:
@@ -191,10 +241,15 @@ class PageSecurityFastAPIDepends:
     @classmethod
     async def process_page_security_helper(cls, request: Request) -> PageSecurityHelper:
         """构造页面安全助手."""
-        return PageSecurityHelper(request, cls._get_jwt_manager())
+        return PageSecurityHelper(
+            request,
+            cls._get_jwt_manager(),
+            param_naming=cls._get_param_naming(),
+        )
 
 
 __all__ = [
+    "EncryptedParamNaming",
     "LoggerLike",
     "PageSecurityFastAPIDepends",
     "PageSecurityHelper",
