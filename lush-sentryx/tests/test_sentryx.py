@@ -44,7 +44,6 @@ class TestSentryConfig:
         assert config.environment == "production"
         assert config.traces_sample_rate == 0.0
         assert config.send_default_pii is False
-        assert config.scrub_business_sensitive_fields is True
         assert config.additional_denylist == set()
         assert config.service_name == "service"
         assert config.service_version == "1.0.0"
@@ -390,10 +389,9 @@ class TestEventFiltering:
 
     def test_additional_filter_request_data(self):
         """测试额外过滤器处理请求数据"""
-        from lush_sentryx_core.sdk.v2 import BUSINESS_SENSITIVE_FIELDS
         from sentry_sdk.scrubber import DEFAULT_DENYLIST
 
-        all_fields = set(DEFAULT_DENYLIST) | BUSINESS_SENSITIVE_FIELDS
+        all_fields = set(DEFAULT_DENYLIST)
         filter_func = create_additional_filter(all_fields)
 
         event = {
@@ -414,10 +412,9 @@ class TestEventFiltering:
 
     def test_additional_filter_user_context(self):
         """测试额外过滤器处理用户上下文"""
-        from lush_sentryx_core.sdk.v2 import BUSINESS_SENSITIVE_FIELDS
         from sentry_sdk.scrubber import DEFAULT_DENYLIST
 
-        all_fields = set(DEFAULT_DENYLIST) | BUSINESS_SENSITIVE_FIELDS
+        all_fields = set(DEFAULT_DENYLIST)
         filter_func = create_additional_filter(all_fields)
 
         event = {
@@ -443,10 +440,9 @@ class TestEventFiltering:
 
     def test_additional_filter_exception_handling(self):
         """测试过滤器异常处理"""
-        from lush_sentryx_core.sdk.v2 import BUSINESS_SENSITIVE_FIELDS
         from sentry_sdk.scrubber import DEFAULT_DENYLIST
 
-        all_fields = set(DEFAULT_DENYLIST) | BUSINESS_SENSITIVE_FIELDS
+        all_fields = set(DEFAULT_DENYLIST)
         filter_func = create_additional_filter(all_fields)
 
         # 模拟一个会导致过滤异常的事件

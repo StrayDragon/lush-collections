@@ -46,7 +46,6 @@ from lush_sentryx_core import sdk
 # 从 v2 重新导出常用 API (保持向后兼容)
 from lush_sentryx_core.sdk.v2 import (
     # 常量
-    BUSINESS_SENSITIVE_FIELDS,
     FILTERED_PLACEHOLDER,
     SENSITIVE_URL_PATTERNS,
     SENTRY_DEFAULT_DENYLIST,
@@ -85,7 +84,6 @@ __all__ = [  # noqa: RUF022
     "SensitiveFields",
     "TransactionProcessor",
     # 常量
-    "BUSINESS_SENSITIVE_FIELDS",
     "FILTERED_PLACEHOLDER",
     "SENSITIVE_URL_PATTERNS",
     "SENTRY_DEFAULT_DENYLIST",

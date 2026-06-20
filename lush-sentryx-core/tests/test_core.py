@@ -375,7 +375,6 @@ class TestConstants:
     def test_constants_available(self):
         """测试常量可用性"""
         from lush_sentryx_core.sdk.v2 import (
-            BUSINESS_SENSITIVE_FIELDS,
             FILTERED_PLACEHOLDER,
             SENSITIVE_URL_PATTERNS,
             SENTRY_DEFAULT_DENYLIST,
@@ -385,7 +384,6 @@ class TestConstants:
         assert "password" in SENTRY_DEFAULT_DENYLIST
         assert "token" in SENTRY_DEFAULT_DENYLIST
 
-        assert isinstance(BUSINESS_SENSITIVE_FIELDS, frozenset)
         assert FILTERED_PLACEHOLDER == "[Filtered]"
         assert len(SENSITIVE_URL_PATTERNS) > 0
 

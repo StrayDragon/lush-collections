@@ -13,7 +13,6 @@ from typing import Any, Literal
 
 import sentry_sdk
 from lush_sentryx_core import (
-    BUSINESS_SENSITIVE_FIELDS,
     SENTRY_DEFAULT_DENYLIST,
     create_additional_filter,
     create_transaction_filter,
@@ -123,15 +122,15 @@ class SentryConfig:
             ...     environment="production",
             ...     service_name="my-service",
             ...     service_version="2.1.0",
-            ...     scrub_business_sensitive_fields=True,
             ...     additional_denylist={"custom_secret", "internal_token"},
             ...     traces_sample_rate=0.1,
             ... )
 
     Note:
-        - 生产环境建议: send_default_pii=False, scrub_business_sensitive_fields=True
+        - 生产环境建议: send_default_pii=False
         - traces_sample_rate 设置为 0.0 可以禁用性能追踪,节省配额
         - additional_denylist 使用子串匹配,不区分大小写
+        - 业务特定敏感字段通过 additional_denylist 参数传入
 
     Raises:
         ValueError: 当 traces_sample_rate 不在 0.0-1.0 范围内时抛出
@@ -154,7 +153,6 @@ class SentryConfig:
         "logging_level",
         "max_breadcrumbs",
         "redis_integration",
-        "scrub_business_sensitive_fields",
         "send_default_pii",
         "service_name",
         "service_version",
@@ -172,7 +170,6 @@ class SentryConfig:
     attach_stacktrace: bool
     include_local_variables: bool
     debug: bool
-    scrub_business_sensitive_fields: bool
     additional_denylist: set[str]
     integrations: list[Integration]
     extra_before_send: EventProcessor | None
@@ -198,7 +195,6 @@ class SentryConfig:
         include_local_variables: bool = True,
         debug: bool = False,
         # 敏感数据过滤
-        scrub_business_sensitive_fields: bool = True,
         additional_denylist: set[str] | None = None,
         # 集成与钩子
         integrations: list[Integration] | None = None,
@@ -226,7 +222,6 @@ class SentryConfig:
         self.attach_stacktrace = attach_stacktrace
         self.include_local_variables = include_local_variables
         self.debug = debug
-        self.scrub_business_sensitive_fields = scrub_business_sensitive_fields
         self.additional_denylist = additional_denylist if additional_denylist is not None else set()
         self.integrations = integrations if integrations is not None else []
         self.extra_before_send = extra_before_send
@@ -279,7 +274,7 @@ class SentryConfig:
             return False
 
         all_denylist: set[str] = (
-            set(SENTRY_DEFAULT_DENYLIST) | set(BUSINESS_SENSITIVE_FIELDS) | set(DEFAULT_EXTENDED_DENYLIST) | set(self.additional_denylist)
+            set(SENTRY_DEFAULT_DENYLIST) | set(DEFAULT_EXTENDED_DENYLIST) | set(self.additional_denylist)
         )
 
         base_before_send = create_additional_filter(all_denylist)
@@ -382,7 +377,6 @@ class SentryManager:
         self.config = config
         self.logger = logger or logging.getLogger(__name__)
         self._initialized = False
-        self._scrub_business_fields_enabled = config.scrub_business_sensitive_fields
 
     @property
     def is_initialized(self) -> bool:
@@ -415,12 +409,10 @@ class SentryManager:
             # 按照官方文档创建 EventScrubber (SDK 2.x)
             enhanced_scrubber = create_enhanced_scrubber(
                 denylist=self.config.additional_denylist,
-                enable_business_fields=self.config.scrub_business_sensitive_fields,
             )
 
             # 计算所有敏感字段 (用于深度清理)
             all_sensitive_fields = get_all_sensitive_fields(
-                enable_business_fields=self.config.scrub_business_sensitive_fields,
                 additional_denylist=self.config.additional_denylist,
             )
 
