@@ -25,8 +25,9 @@ def _install_dummy_integration_module(monkeypatch: pytest.MonkeyPatch, module_na
 
 def test_scrubbers_branches(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.WARNING)
-    _ = create_enhanced_scrubber(enable_business_fields=False)
-    assert any("业务敏感字段过滤已禁用" in r.message for r in caplog.records)
+    # 正常调用,传入自定义 denylist
+    scrubber = create_enhanced_scrubber(denylist={"custom_secret"})
+    assert scrubber is not None
 
     class _BoomScrubber:
         def __init__(self, *args, **kwargs):  # noqa: ANN002, ANN003
@@ -36,14 +37,18 @@ def test_scrubbers_branches(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogC
     monkeypatch.setattr("lush_sentryx.scrubbers.EventScrubber", _BoomScrubber)
     scrubber = create_enhanced_scrubber()
     assert isinstance(scrubber, _BoomScrubber)
+    assert any("创建EventScrubber失败" in r.message for r in caplog.records)
 
-    fields = get_all_sensitive_fields(enable_business_fields=False, additional_denylist={"x"})
+    fields = get_all_sensitive_fields(additional_denylist={"x"})
     assert "x" in fields
 
 
 def test_scrubbers_get_all_sensitive_fields_default_branches() -> None:
-    fields = get_all_sensitive_fields(enable_business_fields=True, additional_denylist=None)
+    fields = get_all_sensitive_fields(additional_denylist=None)
     assert isinstance(fields, set)
+    # 传入额外的 denylist
+    fields2 = get_all_sensitive_fields(additional_denylist={"extra_field"})
+    assert "extra_field" in fields2
 
 
 def test_extras_default_integrations_importerror_and_success(monkeypatch: pytest.MonkeyPatch) -> None:
