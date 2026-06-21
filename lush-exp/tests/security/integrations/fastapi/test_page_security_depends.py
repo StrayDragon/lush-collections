@@ -12,7 +12,7 @@ from fastapi import Request, Response
 from fastapi.responses import HTMLResponse
 
 from lush_exp.lush_security.csp import CSPManager
-from lush_exp.lush_security.integrations.fastapi.depends import PageSecurityFastAPIDepends, PageSecurityHelper
+from lush_exp.lush_security.integrations.fastapi.depends import EncryptedParamNaming, PageSecurityFastAPIDepends, PageSecurityHelper
 from lush_exp.lush_security.jwt_manager import JWTConfig, JWTManager
 
 
@@ -327,3 +327,25 @@ async def test_process_page_security_helper_builds_helper(reset_page_security_de
     assert isinstance(helper, PageSecurityHelper)
     assert helper.request is request
     assert helper.jwt_manager is jwt_mgr
+
+
+def test_encrypted_param_naming_defaults() -> None:
+    naming = EncryptedParamNaming()
+    assert naming.suffix == "_encrypted"
+    assert "enc_" in naming.fallback_prefixes
+    assert "encrypted_" in naming.fallback_prefixes
+
+
+def test_encrypted_param_naming_with_extra_fallback_prefixes() -> None:
+    naming = EncryptedParamNaming(suffix="_token", extra_fallback_prefixes=["cipher_"])
+    assert naming.suffix == "_token"
+    assert "enc_" in naming.fallback_prefixes
+    assert "encrypted_" in naming.fallback_prefixes
+    assert "cipher_" in naming.fallback_prefixes
+
+
+def test_encrypted_param_naming_no_extra_fallback_prefixes() -> None:
+    naming = EncryptedParamNaming(extra_fallback_prefixes=None)
+    assert "enc_" in naming.fallback_prefixes
+    assert "encrypted_" in naming.fallback_prefixes
+    assert len(naming.fallback_prefixes) == 2
