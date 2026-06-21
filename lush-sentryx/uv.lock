@@ -336,7 +336,7 @@ wheels = [
 
 [[package]]
 name = "lush-sentryx"
-version = "0.2.2"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "lush-sentryx-core" },
@@ -391,7 +391,7 @@ fastapi = [{ name = "fastapi", specifier = ">=0.117.1" }]
 
 [[package]]
 name = "lush-sentryx-core"
-version = "0.1.1"
+version = "0.2.0"
 source = { directory = "../lush-sentryx-core" }
 
 [package.metadata]
