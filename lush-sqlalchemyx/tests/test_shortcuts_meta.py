@@ -59,6 +59,8 @@ def test_print_sql_does_not_reorder_when_no_special_fields(capsys):
 
 
 def test_print_sql_does_not_append_semicolon_when_already_present(capsys):
+    """覆盖 23->25 分支: create_table SQL 已以分号结尾时不重复添加."""
+
     class _DummyCompiled:
         def __init__(self, sql: str) -> None:
             self._sql = sql
@@ -67,7 +69,7 @@ def test_print_sql_does_not_append_semicolon_when_already_present(capsys):
             return self._sql
 
     info = TableDDLInfo(
-        create_table=_DummyCompiled("CREATE TABLE t (id INT);\n"),
+        create_table=_DummyCompiled("CREATE TABLE t (id INT);"),
         index_ddls=[_DummyCompiled("CREATE INDEX idx_t_id ON t (id);")],
     )
     info.print_sql()
@@ -75,4 +77,27 @@ def test_print_sql_does_not_append_semicolon_when_already_present(capsys):
     captured = capsys.readouterr().out
     assert "CREATE TABLE" in captured.upper()
     assert "CREATE INDEX" in captured.upper()
-    assert ";;" not in captured
+    assert captured.count(";;") == 0, f"Should not double-up semicolons: {captured!r}"
+
+
+def test_print_sql_appends_semicolon_when_missing(capsys):
+    """覆盖 23->25 分支: output 不以分号结尾时添加分号."""
+
+    class _DummyCompiled:
+        def __init__(self, sql: str) -> None:
+            self._sql = sql
+
+        def __str__(self) -> str:
+            return self._sql
+
+    info = TableDDLInfo(
+        create_table=_DummyCompiled("CREATE TABLE t (id INT)"),  # 不以分号结尾
+        index_ddls=[_DummyCompiled("CREATE INDEX idx_t_id ON t (id)")],  # 不以分号结尾
+    )
+    info.print_sql()
+
+    captured = capsys.readouterr().out
+    # 每行末尾应该被添加了分号
+    lines = [line for line in captured.strip().split("\n") if line.strip()]
+    for line in lines:
+        assert line.rstrip().endswith(";"), f"Expected line to end with semicolon: {line!r}"
