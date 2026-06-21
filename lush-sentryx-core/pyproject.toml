@@ -1,6 +1,6 @@
 [project]
 name = "lush-sentryx-core"
-version = "0.1.1"
+version = "0.2.0"
 description = "Core scrubbing and masking utilities for Sentry events, SDK-agnostic."
 readme = "README.md"
 requires-python = ">=3.10"
