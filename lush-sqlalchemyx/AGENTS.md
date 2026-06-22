@@ -94,6 +94,12 @@ class TestAsyncDALConformance(AsyncBaseDALConformanceTests):
 
 无 omit 条目 — 所有源码均计入覆盖率.
 
+### 公共 API 边界
+
+- `_common.py` 中的双下划线事件监听器 (`__receive_before_flush`、`__add_filtering_criteria`、`__prevent_readonly_write`) 为内部实现细节，不通过 `__init__.py` re-export。
+- `_pagination.py` 中的 `encode_cursor` / `decode_cursor` 为内部游标编解码工具，不暴露到公共 API。
+- 测试如需访问这些内部函数，须使用 `getattr(module, "_CommonModule__<name>")` name-mangled 形式。
+
 ### basedpyright 规则
 
 | 范围 | 规则 | 原因 |

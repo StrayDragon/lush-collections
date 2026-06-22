@@ -26,11 +26,10 @@ from lush_sqlalchemyx.base.dal import (
     SyncSQLAlchemyRepository,
     build_cursor_stmt,
     build_offset_stmt,
-    decode_cursor,
-    encode_cursor,
     make_cursor_result,
     make_page_result,
 )
+from lush_sqlalchemyx.base.dal._pagination import decode_cursor, encode_cursor
 
 # ─── Models ──────────────────────────────────────────────────
 

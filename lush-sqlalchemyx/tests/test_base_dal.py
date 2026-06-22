@@ -70,9 +70,7 @@ class _TestTable(BasicAsyncBaseTable, FieldIsDeleteSoftDeleteTableMixin):
     value: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     create_operator_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     update_operator_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
-    update_datetime: Mapped[datetime.datetime | None] = mapped_column(
-        sa.DateTime, nullable=True, onupdate=sa.sql.func.now()
-    )
+    update_datetime: Mapped[datetime.datetime | None] = mapped_column(sa.DateTime, nullable=True, onupdate=sa.sql.func.now())
 
 
 class _TestTableSimple(BasicAsyncBaseTable):
@@ -838,8 +836,10 @@ async def _create_readonly_test_data(async_session: AsyncSession, name: str, val
 
     import lush_sqlalchemyx.base.dal as base_dal_module
 
-    # 获取事件监听器函数
-    prevent_readonly_write = getattr(base_dal_module, "__prevent_readonly_write", None)
+    # 获取事件监听器函数 (name-mangled internal function)
+    prevent_readonly_write = getattr(base_dal_module, "_CommonModule__prevent_readonly_write", None) or getattr(
+        base_dal_module, "__prevent_readonly_write", None
+    )
 
     if prevent_readonly_write:
         # 临时移除事件监听器
@@ -4689,6 +4689,3 @@ class TestV2AsyncDALAdvancedWrite:
             update_data={_TestTable.value: 30},
         )
         assert cnt == 0
-
-
-

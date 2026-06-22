@@ -98,6 +98,11 @@ class _UnitDAL(AsyncBaseDAL[_UnitEntity, _UnitDTO, _UnitCU]):
 
 
 def test_receive_before_flush_ignores_non_soft_delete_instance():
+    """验证 before_flush 对非 SoftDeleteTableMixin 实例不做任何操作."""
+    import lush_sqlalchemyx.base.dal._common as common_mod
+
+    listener = getattr(common_mod, "_CommonModule__receive_before_flush", None) or getattr(common_mod, "__receive_before_flush")
+
     class _FakeSyncSession:
         def __init__(self) -> None:
             self.deleted = [object()]
@@ -106,7 +111,7 @@ def test_receive_before_flush_ignores_non_soft_delete_instance():
         def add(self, obj: object) -> None:
             self.added.append(obj)
 
-    dal_mod.__receive_before_flush(_FakeSyncSession(), flush_context=None, instances=None)  # type: ignore[attr-defined]
+    listener(_FakeSyncSession(), flush_context=None, instances=None)
 
 
 @pytest.mark.asyncio
@@ -366,7 +371,9 @@ def test_setup_dal_hooks_registers_readonly_protection():
     from sqlalchemy import event
     from sqlalchemy.orm import Session as SyncSession
 
-    readonly_fn = dal_mod.__prevent_readonly_write
+    import lush_sqlalchemyx.base.dal._common as common_mod
+
+    readonly_fn = getattr(common_mod, "_CommonModule__prevent_readonly_write", None) or getattr(common_mod, "__prevent_readonly_write")
     if event.contains(SyncSession, "before_flush", readonly_fn):
         event.remove(SyncSession, "before_flush", readonly_fn)
 

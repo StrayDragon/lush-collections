@@ -2,6 +2,32 @@
 
 本文件记录 `lush-sqlalchemyx` 的破坏性变更和重要变更，帮助从低版本升级。
 
+## 0.7.0
+
+### Breaking Changes
+
+**移除内部实现细节的公共导出**
+
+以下符号不再从 `lush_sqlalchemyx.base.dal` 导出，属于框架内部实现细节：
+
+| 被移除的符号 | 说明 | 替代方案 |
+|---|---|---|
+| `__prevent_readonly_write` | 只读保护事件监听器 | 通过 `setup_dal_hooks()` 注册，无需直接访问 |
+| `__receive_before_flush` | 软删除事件监听器 | 通过 `setup_dal_hooks()` 注册，无需直接访问 |
+| `encode_cursor` | 游标 base64 编码 | 内部实现，由 `CursorResult.next_cursor` 自动处理 |
+| `decode_cursor` | 游标 base64 解码 | 内部实现，由 `CursorPagination.cursor` 自动处理 |
+
+如果你的代码依赖这些符号，需要改为从内部路径导入：
+```python
+# 不推荐（内部路径可能变更）
+from lush_sqlalchemyx.base.dal._pagination import encode_cursor, decode_cursor
+from lush_sqlalchemyx.base.dal._common import __prevent_readonly_write
+```
+
+### Changes
+
+- `AGENTS.md` 新增"公共 API 边界"章节，明确内部函数不可导出
+
 ## 0.6.0
 
 ### Breaking Changes
