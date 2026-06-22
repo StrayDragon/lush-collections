@@ -15,11 +15,13 @@
 
 - **bump commit**: `lush-<pkg>: bump version to <ver>` (独立提交, 含 pyproject.toml 版本号变更 + 升级文档).
 
-## Upgrade Docs
+## Changelog
 
-- **每次 minor/major (破坏性) 发布** 须在 `docs/upgrade/<pkg>/<from>-to-<to>.md` 记录升级指南.
-- 指南包含: 版本变更表、破坏性变更及迁移步骤、问题修复说明、降级/回退方式.
-- 非破坏性修复 (patch) 视严重程度可选记录.
+- 每个子包维护自己的 `CHANGELOG.md` (位于包根目录).
+- **每次 minor/major (破坏性) 发布** 须在 `CHANGELOG.md` 记录破坏性变更和重要变更.
+- 记录内容: 破坏性变更 (Breaking Changes) + 重要变更 (Changes).
+- 非破坏性修复 (patch) 不记录.
+- 格式参考: [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/).
 
 ## Upgrade Policy
 

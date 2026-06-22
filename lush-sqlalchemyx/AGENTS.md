@@ -125,5 +125,5 @@ class TestAsyncDALConformance(AsyncBaseDALConformanceTests):
 - 新方法须加入 `__init__.py` 的 `__all__`.
 - 可选依赖导入须经 `_compat.py` 的 `require_async()` 守卫.
 - 不得用 `pragma: no cover` 跳过可测逻辑.
-- **破坏性变更**: 必须在 `docs/upgrade/lush-sqlalchemyx/` (项目git根目录../) 中编写升级指南.
+- **破坏性变更**: 必须在 `CHANGELOG.md` 中记录破坏性变更和重要变更.
 - **提交前**: 运行 `ruff check` + `ruff format` + `basedpyright --level error` + 完整测试套件.
