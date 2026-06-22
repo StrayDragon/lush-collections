@@ -320,7 +320,7 @@ class DebounceGuard(Generic[TContext]):
         context: TContext | None = None,
     ) -> None:
         redis_key = await self._build_key(request, context)
-        result = await redis_mgr.op_prefixed.debounce_check_and_set(
+        result = await redis_mgr.op_prefixed.throttle_check_and_set(
             redis_key,
             window_seconds=self._window_seconds,
         )

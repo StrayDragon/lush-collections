@@ -209,7 +209,7 @@ def test_throttle_factory(fake_redis_manager: FakeRedisManager) -> None:
 
 def test_debounce_first_request_blocked(app_with_debounce: FastAPI, fake_redis_manager: FakeRedisManager) -> None:
     """测试防抖: 第一次请求会被拒绝(需要等待窗口期)"""
-    fake_redis_manager.op_prefixed.set_debounce_results(
+    fake_redis_manager.op_prefixed.set_throttle_results(
         [DebounceResult(allowed=False, remaining_seconds=3.0, redis_key="debounce:search:testclient")]
     )
 
@@ -224,7 +224,7 @@ def test_debounce_first_request_blocked(app_with_debounce: FastAPI, fake_redis_m
 
 def test_debounce_allowed_after_window(app_with_debounce: FastAPI, fake_redis_manager: FakeRedisManager) -> None:
     """测试防抖: 窗口期后没有新请求时允许执行"""
-    fake_redis_manager.op_prefixed.set_debounce_results(
+    fake_redis_manager.op_prefixed.set_throttle_results(
         [
             DebounceResult(allowed=False, remaining_seconds=3.0, redis_key="debounce:search:testclient"),
             DebounceResult(allowed=True, remaining_seconds=0.0, redis_key="debounce:search:testclient"),
@@ -245,7 +245,7 @@ def test_debounce_allowed_after_window(app_with_debounce: FastAPI, fake_redis_ma
 
 def test_debounce_reset_on_new_request(app_with_debounce: FastAPI, fake_redis_manager: FakeRedisManager) -> None:
     """测试防抖: 新请求会重置计时器"""
-    fake_redis_manager.op_prefixed.set_debounce_results(
+    fake_redis_manager.op_prefixed.set_throttle_results(
         [
             DebounceResult(allowed=False, remaining_seconds=3.0, redis_key="debounce:search:testclient"),
             DebounceResult(allowed=False, remaining_seconds=3.0, redis_key="debounce:search:testclient"),
@@ -280,7 +280,7 @@ def test_debounce_factory(fake_redis_manager: FakeRedisManager) -> None:
     async def auto_save(_guard: Annotated[None, Depends(debounce)]) -> dict:
         return {"saved": True}
 
-    fake_redis_manager.op_prefixed.set_debounce_results(
+    fake_redis_manager.op_prefixed.set_throttle_results(
         [DebounceResult(allowed=False, remaining_seconds=5.0, redis_key="debounce:auto_save:testclient")]
     )
 
@@ -288,7 +288,7 @@ def test_debounce_factory(fake_redis_manager: FakeRedisManager) -> None:
     response = client.post("/save")
 
     assert response.status_code == 429
-    assert fake_redis_manager.op_prefixed.debounce_calls[0][1] == 5
+    assert fake_redis_manager.op_prefixed.throttle_calls[0][1] == 5
 
 
 def test_debounce_custom_exception_factory(fake_redis_manager: FakeRedisManager) -> None:
@@ -318,7 +318,7 @@ def test_debounce_custom_exception_factory(fake_redis_manager: FakeRedisManager)
     async def custom_detail(_guard: Annotated[None, Depends(debounce)]) -> dict:
         return {"status": "ok"}
 
-    fake_redis_manager.op_prefixed.set_debounce_results(
+    fake_redis_manager.op_prefixed.set_throttle_results(
         [DebounceResult(allowed=False, remaining_seconds=1.5, redis_key="debounce:custom_detail:testclient")]
     )
 
