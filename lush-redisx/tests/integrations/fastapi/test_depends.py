@@ -39,6 +39,12 @@ class _FakePrefixedOp:
             raise AssertionError("Unexpected debounce_check_and_set invocation")
         return self._debounce_results.pop(0)
 
+    async def throttle_check_and_set(self, key: str, *, window_seconds: int) -> DebounceResult:
+        self.debounce_calls.append(_FakeDebounceCall(key=key, window_seconds=window_seconds))
+        if not self._debounce_results:
+            raise AssertionError("Unexpected throttle_check_and_set invocation")
+        return self._debounce_results.pop(0)
+
     async def set(self, key: str, value: str, *, expire: int | None, nx: bool) -> bool:
         self.set_calls.append((key, value, expire, nx))
         if self._set_results:

@@ -33,10 +33,16 @@ class SerializationMode(str, Enum):
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
-class DebounceResult:
+class ThrottleResult:
+    """节流检查结果."""
+
     allowed: bool
     remaining_seconds: float
     redis_key: str
+
+
+# 向后兼容别名
+DebounceResult = ThrottleResult
 
 
 class RedisCacheStrategy(ABC):
@@ -113,10 +119,12 @@ class AsyncRedisPrefixedOp:
         key_prefix: str,
         *,
         logger: FilteringBoundLogger | None = None,
+        default_null_value_strategy: RedisCacheStrategy | None = None,
     ) -> None:
         self.redis = redis
         self.key_prefix = key_prefix
         self.logger = logger or _DEFAULT_LOGGER
+        self.default_null_value_strategy: RedisCacheStrategy = default_null_value_strategy or DEFAULT_NULL_VALUE_STRATEGY
 
     def get_real_key(self, key: str) -> str:
         return _apply_prefix(key, self.key_prefix)
@@ -206,9 +214,21 @@ class AsyncRedisPrefixedOp:
         *,
         ttl: int | timedelta = 300,
         serializer: SerializationMode = SerializationMode.JSON,
-        null_value_strategy: RedisCacheStrategy = DEFAULT_NULL_VALUE_STRATEGY,
+        null_value_strategy: RedisCacheStrategy | None = None,
         force_call_producer: bool = False,
     ) -> Any:
+        """缓存读取或写入: 优先从缓存读取, 缓存未命中时调用 producer 并写入.
+
+        Args:
+            key: 缓存键.
+            producer: 缓存未命中时调用的异步生产者.
+            ttl: 默认过期时间.
+            serializer: 序列化模式.
+            null_value_strategy: null 值缓存策略.
+                为 ``None`` 时使用实例级 ``default_null_value_strategy``.
+            force_call_producer: 是否强制调用 producer (忽略缓存).
+        """
+        strategy = null_value_strategy if null_value_strategy is not None else self.default_null_value_strategy
         prefixed_key = _apply_prefix(key, self.key_prefix)
         if not force_call_producer:
             raw = await self.redis.get(prefixed_key)
@@ -219,7 +239,6 @@ class AsyncRedisPrefixedOp:
 
         default_expire_seconds: int = int(ttl.total_seconds()) if isinstance(ttl, timedelta) else int(ttl)
 
-        strategy: RedisCacheStrategy = null_value_strategy
         if not strategy.should_cache(value):
             return value
         expire_seconds = strategy.ttl_for(value, default_expire_seconds)
@@ -233,16 +252,16 @@ class AsyncRedisPrefixedOp:
         window_seconds: int,
         *,
         value: str = "1",
-    ) -> DebounceResult:
-        """节流检查: 在时间窗口内只允许第一次请求通过
+    ) -> ThrottleResult:
+        """节流检查: 在时间窗口内只允许第一次请求通过.
 
         Args:
-            key: Redis 键
-            window_seconds: 时间窗口(秒)
-            value: 存储的值
+            key: Redis 键.
+            window_seconds: 时间窗口(秒).
+            value: 存储的值.
 
         Returns:
-            DebounceResult: 包含是否允许、剩余时间等信息
+            ThrottleResult: 包含是否允许、剩余时间等信息.
         """
         prefixed_key = _apply_prefix(key, self.key_prefix)
 
@@ -255,7 +274,7 @@ class AsyncRedisPrefixedOp:
             )
 
             if was_set:
-                return DebounceResult(
+                return ThrottleResult(
                     allowed=True,
                     remaining_seconds=0.0,
                     redis_key=prefixed_key,
@@ -264,14 +283,14 @@ class AsyncRedisPrefixedOp:
             ttl = await self.redis.ttl(prefixed_key)
             remaining_seconds = max(0.0, float(ttl)) if ttl > 0 else 0.0
 
-            return DebounceResult(
+            return ThrottleResult(
                 allowed=False,
                 remaining_seconds=remaining_seconds,
                 redis_key=prefixed_key,
             )
         except RedisError as exc:
             self.logger.warning("Redis throttle_check_and_set error", key=key, error=str(exc))
-            return DebounceResult(
+            return ThrottleResult(
                 allowed=True,
                 remaining_seconds=0.0,
                 redis_key=prefixed_key,
@@ -283,62 +302,30 @@ class AsyncRedisPrefixedOp:
         window_seconds: int,
         *,
         value: str = "1",
-    ) -> DebounceResult:
-        """防抖检查(实际上是节流的另一种实现)
+    ) -> ThrottleResult:
+        """防抖检查 — 委托给 :meth:`throttle_check_and_set`.
 
-        注意: 此方法的命名可能有误导性.它实际上实现的是节流(throttle)逻辑:
-        - 如果键不存在,设置键并允许
-        - 如果键存在,拒绝并返回剩余时间
+        .. deprecated::
+            请改用 :meth:`throttle_check_and_set`, 两者行为完全相同.
+        """
+        return await self.throttle_check_and_set(key, window_seconds, value=value)
+
+    async def throttle_get_remaining(self, key: str) -> ThrottleResult:
+        """查询节流键的剩余时间.
 
         Args:
-            key: Redis 键
-            window_seconds: 时间窗口(秒)
-            value: 存储的值
+            key: Redis 键.
 
         Returns:
-            DebounceResult: 包含是否允许、剩余时间等信息
+            ThrottleResult: 包含是否允许、剩余时间等信息.
         """
-        prefixed_key = _apply_prefix(key, self.key_prefix)
-
-        try:
-            was_set = await self.redis.set(
-                prefixed_key,
-                value,
-                ex=window_seconds,
-                nx=True,
-            )
-
-            if was_set:
-                return DebounceResult(
-                    allowed=True,
-                    remaining_seconds=0.0,
-                    redis_key=prefixed_key,
-                )
-
-            ttl = await self.redis.ttl(prefixed_key)
-            remaining_seconds = max(0.0, float(ttl)) if ttl > 0 else 0.0
-
-            return DebounceResult(
-                allowed=False,
-                remaining_seconds=remaining_seconds,
-                redis_key=prefixed_key,
-            )
-        except RedisError as exc:
-            self.logger.warning("Redis debounce_check_and_set error", key=key, error=str(exc))
-            return DebounceResult(
-                allowed=True,
-                remaining_seconds=0.0,
-                redis_key=prefixed_key,
-            )
-
-    async def debounce_get_remaining(self, key: str) -> DebounceResult:
         prefixed_key = _apply_prefix(key, self.key_prefix)
 
         try:
             exists = await self.redis.exists(prefixed_key)
 
             if not exists:
-                return DebounceResult(
+                return ThrottleResult(
                     allowed=True,
                     remaining_seconds=0.0,
                     redis_key=prefixed_key,
@@ -347,27 +334,45 @@ class AsyncRedisPrefixedOp:
             ttl = await self.redis.ttl(prefixed_key)
             remaining_seconds = max(0.0, float(ttl)) if ttl > 0 else 0.0
 
-            return DebounceResult(
+            return ThrottleResult(
                 allowed=remaining_seconds == 0.0,
                 remaining_seconds=remaining_seconds,
                 redis_key=prefixed_key,
             )
         except RedisError as exc:
-            self.logger.warning("Redis debounce_get_remaining error", key=key, error=str(exc))
-            return DebounceResult(
+            self.logger.warning("Redis throttle_get_remaining error", key=key, error=str(exc))
+            return ThrottleResult(
                 allowed=True,
                 remaining_seconds=0.0,
                 redis_key=prefixed_key,
             )
 
-    async def debounce_action(
+    async def debounce_get_remaining(self, key: str) -> ThrottleResult:
+        """查询节流剩余时间 — 委托给 :meth:`throttle_get_remaining`.
+
+        .. deprecated::
+            请改用 :meth:`throttle_get_remaining`, 两者行为完全相同.
+        """
+        return await self.throttle_get_remaining(key)
+
+    async def throttle_action(
         self,
         action: str,
         window_seconds: int,
         *,
         group_by: str | list[str] | None = None,
-    ) -> DebounceResult:
-        key_parts = ["debounce", action]
+    ) -> ThrottleResult:
+        """基于 action 名称的节流检查.
+
+        Args:
+            action: 操作名称.
+            window_seconds: 时间窗口(秒).
+            group_by: 可选分组键, 用于区分不同来源的同一操作.
+
+        Returns:
+            ThrottleResult: 包含是否允许、剩余时间等信息.
+        """
+        key_parts = ["throttle", action]
 
         if group_by:
             if isinstance(group_by, str):
@@ -377,7 +382,21 @@ class AsyncRedisPrefixedOp:
 
         key = ":".join(key_parts)
 
-        return await self.debounce_check_and_set(key, window_seconds)
+        return await self.throttle_check_and_set(key, window_seconds)
+
+    async def debounce_action(
+        self,
+        action: str,
+        window_seconds: int,
+        *,
+        group_by: str | list[str] | None = None,
+    ) -> ThrottleResult:
+        """基于 action 名称的防抖检查 — 委托给 :meth:`throttle_action`.
+
+        .. deprecated::
+            请改用 :meth:`throttle_action`, 两者行为完全相同.
+        """
+        return await self.throttle_action(action, window_seconds, group_by=group_by)
 
     def async_cached_with(
         self,
@@ -385,8 +404,18 @@ class AsyncRedisPrefixedOp:
         *,
         ttl: int | timedelta = 300,
         serializer: SerializationMode = SerializationMode.JSON,
-        null_value_strategy: RedisCacheStrategy = DEFAULT_NULL_VALUE_STRATEGY,
+        null_value_strategy: RedisCacheStrategy | None = None,
     ) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
+        """异步函数缓存装饰器.
+
+        Args:
+            key_builder: 从函数参数构建缓存键.
+            ttl: 默认过期时间.
+            serializer: 序列化模式.
+            null_value_strategy: null 值缓存策略.
+                为 ``None`` 时使用实例级 ``default_null_value_strategy``.
+        """
+
         def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
             async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
                 key = key_builder(*args, **kwargs)
@@ -679,10 +708,32 @@ class AsyncRedisManager:
         health_check_interval: int = 30,
         key_prefix: str = "",
         logger: FilteringBoundLogger | None = None,
+        default_null_value_strategy: RedisCacheStrategy | None = None,
         **kwargs: Any,
     ) -> None:
+        """异步 Redis 管理器.
+
+        Args:
+            host: Redis 主机.
+            port: Redis 端口.
+            password: Redis 密码.
+            db: Redis 数据库编号.
+            max_connections: 最大连接数.
+            retry_on_timeout: 超时时是否重试.
+            socket_keepalive: 是否启用 socket keepalive.
+            socket_keepalive_options: socket keepalive 选项.
+            socket_connect_timeout: 连接超时(秒).
+            socket_timeout: 操作超时(秒).
+            health_check_interval: 健康检查间隔(秒).
+            key_prefix: 全局 key 前缀.
+            logger: 日志记录器.
+            default_null_value_strategy: 缓存 null 值的默认策略.
+                为 ``None`` 时使用 ``DEFAULT_NULL_VALUE_STRATEGY`` (即 ``RedisSkipNone``).
+                可通过 ``cache_get_or_set`` 的同名参数单次覆盖.
+        """
         self.key_prefix: str = key_prefix or ""
         self.logger: FilteringBoundLogger = logger or _DEFAULT_LOGGER
+        self.default_null_value_strategy: RedisCacheStrategy = default_null_value_strategy or DEFAULT_NULL_VALUE_STRATEGY
 
         self.pool: ConnectionPool = ConnectionPool(
             host=host,
@@ -701,7 +752,12 @@ class AsyncRedisManager:
         )
 
         self.origin_redis_conn: Redis = redis.Redis(connection_pool=self.pool)
-        self.op_prefixed: AsyncRedisPrefixedOp = AsyncRedisPrefixedOp(self.origin_redis_conn, key_prefix, logger=self.logger)
+        self.op_prefixed: AsyncRedisPrefixedOp = AsyncRedisPrefixedOp(
+            self.origin_redis_conn,
+            key_prefix,
+            logger=self.logger,
+            default_null_value_strategy=self.default_null_value_strategy,
+        )
 
         self.connection_info = {
             "host": host,

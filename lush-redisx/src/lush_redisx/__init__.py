@@ -11,6 +11,7 @@ from .async_redis import (
     RedisSkipNone,
     RedisTTLNone,
     SerializationMode,
+    ThrottleResult,
     build_cache_key,
 )
 
@@ -21,11 +22,12 @@ __all__ = [
     "DEFAULT_TTL_NONE_STRATEGY",
     "AsyncRedisManager",
     "AsyncRedisPrefixedOp",
-    "DebounceResult",
+    "DebounceResult",  # 向后兼容, ThrottleResult 别名
     "RedisCacheAll",
     "RedisCacheStrategy",
     "RedisSkipNone",
     "RedisTTLNone",
     "SerializationMode",
+    "ThrottleResult",
     "build_cache_key",
 ]

@@ -1,6 +1,6 @@
 [project]
 name = "lush-redisx"
-version = "0.1.1"
+version = "0.1.2"
 description = "Async Redis manager and FastAPI integrations (mutex/idempotency/rate-limit)."
 readme = "README.md"
 requires-python = ">=3.10"
