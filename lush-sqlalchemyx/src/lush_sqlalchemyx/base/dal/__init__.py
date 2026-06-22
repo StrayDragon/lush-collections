@@ -28,7 +28,6 @@ from ._async import (
     BasicAsyncBaseTable,
     ReadOnlyAsyncBaseDAL,
     ReadOnlyBasicAsyncBaseTable,
-
     async_temp_set_lock_wait_timeout,
     async_with_retry,
 )
@@ -48,7 +47,6 @@ from ._common import (
     RetryConfig,
     SoftDeleteTableMixin,
     SQLATableT,
-
     escape_like,
     filtered_in_sql_values,
     is_soft_delete_hooks_registered,
@@ -56,10 +54,6 @@ from ._common import (
     setup_dal_hooks,
     unregister_soft_delete_hooks,
 )
-
-# Event listener references — accessed by tests via getattr(module, name).
-from ._common import __prevent_readonly_write as __prevent_readonly_write  # pyright: ignore[reportPrivateUsage]
-from ._common import __receive_before_flush as __receive_before_flush  # pyright: ignore[reportPrivateUsage]
 
 # --- dynamic (no ORM table class) ---
 from ._dynamic import (
@@ -74,8 +68,6 @@ from ._dynamic import (
 from ._pagination import (
     build_cursor_stmt,
     build_offset_stmt,
-    decode_cursor,
-    encode_cursor,
     make_cursor_result,
     make_page_result,
 )
@@ -86,7 +78,6 @@ from ._sync import (
     BasicSyncBaseTable,
     ReadOnlySyncBaseDAL,
     ReadOnlySyncBaseTable,
-
     SyncBaseDAL,
     SyncRawDAL,
     SyncRawReadDAL,
@@ -142,14 +133,12 @@ __all__ = (
     "BasicAsyncBaseTable",
     "ReadOnlyAsyncBaseDAL",
     "ReadOnlyBasicAsyncBaseTable",
-
     "async_temp_set_lock_wait_timeout",
     "async_with_retry",
     # sync
     "BasicSyncBaseTable",
     "ReadOnlySyncBaseDAL",
     "ReadOnlySyncBaseTable",
-
     "SyncBaseDAL",
     "SyncRawDAL",
     "SyncRawReadDAL",
@@ -167,8 +156,6 @@ __all__ = (
     "PageResult",
     "build_cursor_stmt",
     "build_offset_stmt",
-    "decode_cursor",
-    "encode_cursor",
     "make_cursor_result",
     "make_page_result",
     # repository
