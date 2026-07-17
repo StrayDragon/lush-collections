@@ -71,7 +71,6 @@ from ._pagination import (
     make_cursor_result,
     make_page_result,
 )
-from ._repository import AsyncSQLAlchemyRepository, SyncSQLAlchemyRepository
 
 # --- sync ---
 from ._sync import (
@@ -158,9 +157,6 @@ __all__ = (
     "build_offset_stmt",
     "make_cursor_result",
     "make_page_result",
-    # repository
-    "AsyncSQLAlchemyRepository",
-    "SyncSQLAlchemyRepository",
     # lush-dal-protocol ABCs
     "AbstractAsyncBaseDAL",
     "AbstractAsyncReadDAL",

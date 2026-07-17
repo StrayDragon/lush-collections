@@ -16,7 +16,7 @@ dependencies = [
     "typing-extensions>=4.12.2",
     "lush-pydanticx>=0.1.0",
     "lush-stdx>=0.1.0",
-    "lush-dal-protocol>=0.2.2",
+    "lush-dal-protocol>=0.5.0",
 ]
 
 [project.optional-dependencies]

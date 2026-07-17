@@ -2,6 +2,25 @@
 
 本文件记录 `lush-dal-protocol` 的破坏性变更和重要变更，帮助从低版本升级。
 
+## 0.5.0
+
+### Breaking Changes
+
+**移除 Repository ABC**
+
+| 被移除的符号 | 说明 |
+|---|---|
+| `AbstractSyncRepository` | 无下游实现使用, 已删除 |
+| `AbstractAsyncRepository` | 无下游实现使用, 已删除 |
+| `examples/example_03_repository.py` | 对应示例已删除 |
+
+分页类型 (`OffsetPagination` / `PageResult` 等) 保留, 供 DAL 与分页工具使用.
+
+### Changes
+
+- `AGENTS.md` 修正 conformance 套件文档: 删除不存在的 Lock/AdvancedWrite 套件行; 注明 Full = Read+Write+FieldIsolation
+- 导出 `SyncFullDALConformanceTests` / `AsyncFullDALConformanceTests`
+
 ## 0.4.0
 
 ### Breaking Changes

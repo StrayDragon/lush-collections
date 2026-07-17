@@ -38,7 +38,6 @@ from lush_sqlalchemyx.base.dal._common import (
     READONLY_SESSION_FLAG,
     RetryConfig,
 )
-from lush_sqlalchemyx.base.dal._sync import BasicSyncBaseTable
 from lush_sqlalchemyx.mgrs.mysql.sync_manager import SyncMySQLManager
 
 # 注册 DAL Session 事件钩子 (替代原先 import 时的 @listens_for 自动注册)
@@ -1479,6 +1478,16 @@ class TestCustomSoftDeleteColumn:
         assert entity.deleted_at is None
         assert entity.is_soft_deleted is False
 
+    def test_do_orm_execute_includes_active_custom_column(self, sync_session: Session):
+        entity = _CustomDeletedAtTable(name="dt-active")
+        sync_session.add(entity)
+        sync_session.flush()
+        eid = entity.id
+
+        stmt = sa.select(_CustomDeletedAtTable).where(_CustomDeletedAtTable.id == eid)
+        result = sync_session.execute(stmt)
+        assert result.scalar_one_or_none() is not None
+
     def test_do_orm_execute_filters_custom_column(self, sync_session: Session):
         entity = _CustomDeletedAtTable(name="dt-filter")
         sync_session.add(entity)
@@ -1542,6 +1551,10 @@ class _CustomDeletedAtTable(BasicSyncBaseTable, SoftDeleteTableMixin):
     def soft_undelete(self) -> None:
         self.deleted_at = None
 
+    @classmethod
+    def soft_delete_loader_criteria(cls) -> Any:
+        return cls.deleted_at.is_(None)
+
 
 class _CustomDeletedAtCU(BaseCU["_CustomDeletedAtTable"]):
     _Table: ClassVar[type[_CustomDeletedAtTable]] = _CustomDeletedAtTable
@@ -1564,7 +1577,7 @@ class _CustomDeletedAtDAL(SyncBaseDAL[_CustomDeletedAtTable, _CustomDeletedAtDTO
 # ========== lush-dal-protocol conformance suite ==========
 
 
-from lush_dal_protocol.testing import SyncBaseDALConformanceTests
+from lush_dal_protocol.testing import SyncFullDALConformanceTests
 
 # ========== V2 Sync DAL tests ==========
 from lush_sqlalchemyx.base.dal import SyncBaseDAL
@@ -1739,7 +1752,7 @@ class TestV2SyncDALAdvancedWrite:
         assert cnt == 0
 
 
-class TestSyncDALConformance(SyncBaseDALConformanceTests):
+class TestSyncDALConformance(SyncFullDALConformanceTests):
     """继承 lush-dal-protocol 一致性套件, 验证 SyncBaseDAL 符合协议约定."""
 
     def _post_write_refresh(self, session: Any) -> None:
@@ -1757,8 +1770,12 @@ class TestSyncDALConformance(SyncBaseDALConformanceTests):
     def sample_cu(self):
         return _SyncSimpleCU(name="conformance-test")
 
+    @pytest.fixture
+    def make_cu(self):
+        return lambda label: _SyncSimpleCU(name=f"conformance-{label}")
 
-class TestSyncDALV2Conformance(SyncBaseDALConformanceTests):
+
+class TestSyncDALV2Conformance(SyncFullDALConformanceTests):
     """继承 lush-dal-protocol 一致性套件 (Read+Write+FieldIsolation)."""
 
     def _post_write_refresh(self, session: Any) -> None:

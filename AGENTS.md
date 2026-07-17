@@ -5,6 +5,15 @@
 子模块文档:
 - @lush-dal-protocol/AGENTS.md
 - @lush-sqlalchemyx/AGENTS.md
+- @lush-redisx/AGENTS.md
+- @lush-stdx/AGENTS.md
+- @lush-pydanticx/AGENTS.md
+- @lush-fastapix/AGENTS.md
+- @lush-logx/AGENTS.md
+- @lush-sentryx-core/AGENTS.md
+- @lush-sentryx/AGENTS.md
+- @lush-wecom/AGENTS.md
+- @lush-exp/AGENTS.md
 
 ## Commit Convention
 
@@ -50,8 +59,7 @@
 
 ### 一致性测试套件
 
-- `lush-dal-protocol` 提供 `lush_dal_protocol.protocols.api_contracts` 一致性测试 mixin.
-- 所有 DAL 实现包 **必须** 继承并运行该套件.
+- 一致性测试 mixin 位于 `lush_dal_protocol.testing` (`conformance` / `dto_conformance`), 下游 DAL 实现包 **必须** 继承并运行该套件.
 
 ## CI / Publishing
 

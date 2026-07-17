@@ -14,10 +14,12 @@
 from .conformance import (
     AsyncBaseDALConformanceTests,
     AsyncFieldIsolationDALConformanceTests,
+    AsyncFullDALConformanceTests,
     AsyncReadDALConformanceTests,
     AsyncWriteDALConformanceTests,
     SyncBaseDALConformanceTests,
     SyncFieldIsolationDALConformanceTests,
+    SyncFullDALConformanceTests,
     SyncReadDALConformanceTests,
     SyncWriteDALConformanceTests,
 )
@@ -46,6 +48,7 @@ __all__ = [
     # Entity* conformance (ORM 风格)
     "AsyncBaseDALConformanceTests",
     "AsyncFieldIsolationDALConformanceTests",
+    "AsyncFullDALConformanceTests",
     "AsyncReadDALConformanceTests",
     "AsyncWriteDALConformanceTests",
     # Dto* conformance (无 ORM 风格)
@@ -68,6 +71,7 @@ __all__ = [
     "InMemorySyncDAL",
     "SyncBaseDALConformanceTests",
     "SyncFieldIsolationDALConformanceTests",
+    "SyncFullDALConformanceTests",
     "SyncReadDALConformanceTests",
     "SyncWriteDALConformanceTests",
 ]

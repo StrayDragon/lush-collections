@@ -28,7 +28,6 @@ from .abc._types import NO_ENTITY, NO_SESSION, NoEntity, NoSession, PrimaryKeyT
 from .dto import BaseCU, BaseDTO, CUModelT, DTOModelT, StdBaseCU, StdBaseDTO
 from .errors import DBRetryableError
 from .params import CursorPagination, CursorResult, OffsetPagination, PageResult
-from .repository import AbstractAsyncRepository, AbstractSyncRepository
 from .utils import DEFAULT_RETRY_CONFIG, RetryConfig, escape_like, filtered_in_sql_values
 
 __all__ = [
@@ -37,14 +36,12 @@ __all__ = [
     "NO_SESSION",
     "AbstractAsyncBaseDAL",
     "AbstractAsyncReadDAL",
-    "AbstractAsyncRepository",
     "AbstractAsyncSessionlessBaseDAL",
     "AbstractAsyncSessionlessReadDAL",
     "AbstractAsyncSessionlessWriteDAL",
     "AbstractAsyncWriteDAL",
     "AbstractSyncBaseDAL",
     "AbstractSyncReadDAL",
-    "AbstractSyncRepository",
     "AbstractSyncSessionlessBaseDAL",
     "AbstractSyncSessionlessReadDAL",
     "AbstractSyncSessionlessWriteDAL",

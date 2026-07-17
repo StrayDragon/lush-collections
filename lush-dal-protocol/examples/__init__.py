@@ -9,6 +9,5 @@
 示例场景:
 1. example_01_dto.py — 使用 BaseCU/BaseDTO 创建自定义 DTO
 2. example_02_pagination.py — 使用分页类型
-3. example_03_repository.py — 实现 Repository ABC
-4. example_04_protocol_only.py — 仅使用协议类型 (不依赖具体 ORM)
+3. example_04_protocol_only.py — 仅使用协议类型 (不依赖具体 ORM)
 """

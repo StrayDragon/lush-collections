@@ -834,11 +834,11 @@ async def _create_readonly_test_data(async_session: AsyncSession, name: str, val
     from sqlalchemy import event
     from sqlalchemy.orm import Session as SyncSession
 
-    import lush_sqlalchemyx.base.dal as base_dal_module
+    import lush_sqlalchemyx.base.dal._common as common_mod
 
     # 获取事件监听器函数 (name-mangled internal function)
-    prevent_readonly_write = getattr(base_dal_module, "_CommonModule__prevent_readonly_write", None) or getattr(
-        base_dal_module, "__prevent_readonly_write", None
+    prevent_readonly_write = getattr(common_mod, "_CommonModule__prevent_readonly_write", None) or getattr(
+        common_mod, "__prevent_readonly_write", None
     )
 
     if prevent_readonly_write:
@@ -3604,14 +3604,14 @@ class TestRetryConfig:
         """测试无效的max_attempts"""
         from lush_sqlalchemyx.base.dal import RetryConfig
 
-        with pytest.raises(ValueError, match="max_attempts必须>=1"):
+        with pytest.raises(ValueError, match=r"max_attempts\s*必须>=1"):
             RetryConfig(max_attempts=0)
 
     def test_invalid_initial_delay(self) -> None:
         """测试无效的initial_delay"""
         from lush_sqlalchemyx.base.dal import RetryConfig
 
-        with pytest.raises(ValueError, match="initial_delay必须>=0"):
+        with pytest.raises(ValueError, match=r"initial_delay\s*必须>=0"):
             RetryConfig(initial_delay=-0.1)
 
     def test_invalid_max_delay(self) -> None:
@@ -3625,7 +3625,7 @@ class TestRetryConfig:
         """测试无效的exponential_base"""
         from lush_sqlalchemyx.base.dal import RetryConfig
 
-        with pytest.raises(ValueError, match="exponential_base必须>1"):
+        with pytest.raises(ValueError, match=r"exponential_base\s*必须>1"):
             RetryConfig(exponential_base=1.0)
 
     def test_calculate_delay_first_attempt(self) -> None:
@@ -4397,10 +4397,10 @@ class TestFieldMixinDataJsonBytes:
 # ========== lush-dal-protocol conformance suite ==========
 
 
-from lush_dal_protocol.testing import AsyncBaseDALConformanceTests
+from lush_dal_protocol.testing import AsyncFullDALConformanceTests
 
 
-class TestAsyncDALConformance(AsyncBaseDALConformanceTests):
+class TestAsyncDALConformance(AsyncFullDALConformanceTests):
     """继承 lush-dal-protocol 一致性套件, 验证 AsyncBaseDAL 符合协议约定."""
 
     def _post_write_refresh(self, session: Any) -> None:
@@ -4417,6 +4417,10 @@ class TestAsyncDALConformance(AsyncBaseDALConformanceTests):
     @pytest.fixture
     def sample_cu(self):
         return _TestSimpleVO(name="conformance-test")
+
+    @pytest.fixture
+    def make_cu(self):
+        return lambda label: _TestSimpleVO(name=f"conformance-{label}")
 
 
 # ========== V2 DAL 测试 ==========
@@ -4442,7 +4446,7 @@ class _TestVersionDALV2(AsyncBaseDAL[_TestTableWithVersion, _TestVersionDTO, _Te
     _CU = _TestVersionCU
 
 
-class TestAsyncDALV2Conformance(AsyncBaseDALConformanceTests):
+class TestAsyncDALV2Conformance(AsyncFullDALConformanceTests):
     """继承 lush-dal-protocol 一致性套件 (Read+Write+FieldIsolation)."""
 
     def _post_write_refresh(self, session: Any) -> None:

@@ -514,5 +514,4 @@ class TestDynamicSyncDALConformance(DtoSyncFullConformanceTests):
         return dto.name
 
 
-# NOTE: DynamicAsyncDAL conformance 需要 aiosqlite + async session,
-# 待后续补充 async 专用 conformance 测试.
+# NOTE: DynamicAsyncDAL conformance 已迁移至 test_dynamic_dal.py
