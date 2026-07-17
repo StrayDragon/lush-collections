@@ -73,6 +73,13 @@
 - 用 `git push origin <tag>` 逐个推送, 不依赖 `--follow-tags`.
 - 用 `just release-patch` 完成: bump → test → tag → push → watch CI.
 
+### Tag / 发版门禁 (强制)
+
+- **创建 git tag、推送 tag、执行 `just release-*` 等会触发 PyPI 发布的操作, 必须先获得用户明确同意.**
+- Agent **不得**在未获同意时主动 `git tag` / `git push <tag>` / 运行 release recipe.
+- bump commit、文档与代码改动可以先行准备; **发版动作 (tag + push tag) 单独征求确认后再执行.**
+- 理由: tag 会触发 `.github/workflows/publish-pypi.yaml`, 属于不可逆的对外发版.
+
 ## Local Development
 
 - 每包有 `justfile` (lock/sync/test/build/clean/fmt/lint/bump 等).
