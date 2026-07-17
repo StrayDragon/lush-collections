@@ -6,9 +6,6 @@
 from __future__ import annotations
 
 import logging
-import random
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass
 from typing import Any, ClassVar, Final, Generic, TypeVar, cast
 
 import sqlalchemy as sa
@@ -16,6 +13,17 @@ from lush_dal_protocol.dto import BaseCU as _ProtocolBaseCU
 from lush_dal_protocol.dto import BaseDTO as _ProtocolBaseDTO
 from lush_dal_protocol.dto import CUModelT as CUModelT  # noqa: PLC0414
 from lush_dal_protocol.dto import DTOModelT as DTOModelT  # noqa: PLC0414
+from lush_dal_protocol.errors import (
+    OPTIMISTIC_LOCK_ERROR_MSG_TRAIT,
+    PESSIMISTIC_LOCK_ERROR_MSG_TRAIT,
+    DBRetryableError,
+)
+from lush_dal_protocol.utils import (
+    DEFAULT_RETRY_CONFIG,
+    RetryConfig,
+    escape_like,
+    filtered_in_sql_values,
+)
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import event as sa_event
 from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
@@ -30,117 +38,15 @@ T = TypeVar("T")
 V = TypeVar("V")
 BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 
-OPTIMISTIC_LOCK_ERROR_MSG_TRAIT: Final[str] = "乐观锁更新失败"
-PESSIMISTIC_LOCK_ERROR_MSG_TRAIT: Final[str] = "悲观锁获取失败"
-
-
-# ---------------------------------------------------------------------------
-# Pure utility functions
-# ---------------------------------------------------------------------------
-
-
-def filtered_in_sql_values(
-    values: Iterable[V] | None,
-    target_type_as: Callable[[V], T] = lambda x: x,
-) -> list[T]:
-    if not values:
-        return []
-
-    items: list[T] = []
-    seen = set[T]()
-
-    for item in values:
-        if item is None or item == "":
-            continue
-        try:
-            converted_value = target_type_as(item)
-            if converted_value not in seen:
-                seen.add(converted_value)
-                items.append(converted_value)
-        except (ValueError, TypeError):
-            continue
-
-    return items
-
-
-def escape_like(value: str, escape_char: str = "\\") -> tuple[str, str]:
-    """转义用于 SQL LIKE 的特殊字符并返回转义后的值和转义字符."""
-    v = value.replace(escape_char, escape_char + escape_char)
-    v = v.replace("%", escape_char + "%").replace("_", escape_char + "_")
-    return v, escape_char
-
-
-# ---------------------------------------------------------------------------
-# Retryable error & retry config
-# ---------------------------------------------------------------------------
-
-
-class DBRetryableError(Exception):
-    """数据库可重试异常
-
-    表示一个由于并发冲突导致的、可以通过重试解决的数据库操作异常.
-    这类异常不是错误,而是正常的并发控制机制,应该被捕获并重试.
-    """
-
-    def __init__(self, message: str = "数据库操作冲突,需要重试") -> None:
-        super().__init__(message)
-        self.message = message
-
-    @property
-    def is_pessimistic_lock_retry_error(self) -> bool:
-        return PESSIMISTIC_LOCK_ERROR_MSG_TRAIT in self.message
-
-    @property
-    def is_optimistic_lock_retry_error(self) -> bool:
-        return OPTIMISTIC_LOCK_ERROR_MSG_TRAIT in self.message
-
-
-@dataclass
-class RetryConfig:
-    """重试配置"""
-
-    max_attempts: int = 3
-    initial_delay: float = 0.1
-    max_delay: float = 2.0
-    exponential_base: float = 2.0
-    jitter: bool = True
-
-    def __post_init__(self) -> None:
-        if self.max_attempts < 1:
-            raise ValueError(f"max_attempts必须>=1, 当前值: {self.max_attempts}")
-        if self.initial_delay < 0:
-            raise ValueError(f"initial_delay必须>=0, 当前值: {self.initial_delay}")
-        if self.max_delay < self.initial_delay:
-            raise ValueError(f"max_delay({self.max_delay})必须>=initial_delay({self.initial_delay})")
-        if self.exponential_base <= 1:
-            raise ValueError(f"exponential_base必须>1, 当前值: {self.exponential_base}")
-
-    def calculate_delay(self, attempt: int) -> float:
-        if attempt <= 0:
-            return 0.0
-
-        delay = self.initial_delay * (self.exponential_base ** (attempt - 1))
-        delay = min(delay, self.max_delay)
-
-        if self.jitter and delay > 0:
-            jitter_range = delay * 0.2
-            delay = delay + random.uniform(-jitter_range, jitter_range)  # noqa: S311
-            delay = max(0, min(delay, self.max_delay))
-
-        return delay
-
-
-DEFAULT_RETRY_CONFIG = RetryConfig(max_attempts=3, initial_delay=0.1, max_delay=1.0)
+# 隐含约束: SQLATableT 应为 SQLAlchemy DeclarativeBase 子类 (含 Flask-SQLAlchemy db.Model).
+# 不设 bound 是因为 Flask-SQLAlchemy 的 db.Model 运行时继承 DeclarativeBase,
+# 但静态类型系统看不到该链路, bound 会误拦合法下游.
+SQLATableT = TypeVar("SQLATableT")
 
 
 # ---------------------------------------------------------------------------
 # Pydantic CU / DTO models
 # ---------------------------------------------------------------------------
-
-# 隐含约束: SQLATableT 应为 SQLAlchemy DeclarativeBase 子类 (含 Flask-SQLAlchemy db.Model).
-# 不设 bound 是因为 Flask-SQLAlchemy 的 db.Model 运行时继承 DeclarativeBase,
-# 但静态类型系统看不到该链路, bound 会误拦合法下游.
-SQLATableT = TypeVar("SQLATableT")
 
 
 class BaseCU(_ProtocolBaseCU[SQLATableT]):
@@ -159,9 +65,6 @@ class BaseDTO(_ProtocolBaseDTO[CUModelT]):
     """SQLAlchemy 专用 DTO 基类, 继承 ``lush_dal_protocol.dto.BaseDTO``."""
 
     model_config = ConfigDict(from_attributes=True)
-
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -206,6 +109,19 @@ class SoftDeleteTableMixin:
     def is_soft_deleted(self) -> bool:
         """实体是否已被软删除（默认检查 ``is_delete != 0``，子类可覆写）."""
         return bool(getattr(self, self.__soft_delete_column__))
+
+    @classmethod
+    def soft_delete_loader_criteria(cls) -> Any:
+        """返回 ORM loader criteria 用的「未软删除」谓词.
+
+        默认适用于 ``is_delete == 0`` 整型标记列.
+        自定义列类型 (如 ``deleted_at``) 的子类应覆写此方法.
+        """
+        col_name = getattr(cls, "__soft_delete_column__", "is_delete")
+        if not hasattr(cls, col_name):
+            return sa.true()
+        col = getattr(cls, col_name)
+        return col == 0
 
 
 class FieldIsDeleteSoftDeleteTableMixin(SoftDeleteTableMixin):
@@ -358,7 +274,7 @@ def __add_filtering_criteria(execute_state: ORMExecuteState) -> None:  # pyright
         execute_state.statement = execute_state.statement.options(
             with_loader_criteria(
                 SoftDeleteTableMixin,
-                lambda cls: getattr(cls, getattr(cls, "__soft_delete_column__", "is_delete"), sa.null()) == 0,
+                lambda cls: cls.soft_delete_loader_criteria(),
                 include_aliases=True,
             )
         )
@@ -412,7 +328,6 @@ __all__ = (
     "SQLATableT",
     "SQLAlchemyOperationalError",
     "SoftDeleteTableMixin",
-
     "T",
     "V",
     "_ensure_strict_fields",

@@ -6,6 +6,15 @@
 
 ### Breaking Changes
 
+**移除 SQLAlchemy Repository 层**
+
+| 被移除的符号 | 说明 | 替代方案 |
+|---|---|---|
+| `SyncSQLAlchemyRepository` | 与 DAL 语义冲突的第二套 CRUD | 使用 `SyncBaseDAL` + 显式 session |
+| `AsyncSQLAlchemyRepository` | 同上 | 使用 `AsyncBaseDAL` + 显式 session |
+
+分页语句工具 (`build_offset_stmt` / `build_cursor_stmt` / `make_*_result`) 保留.
+
 **移除内部实现细节的公共导出**
 
 以下符号不再从 `lush_sqlalchemyx.base.dal` 导出，属于框架内部实现细节：
@@ -26,7 +35,12 @@ from lush_sqlalchemyx.base.dal._common import __prevent_readonly_write
 
 ### Changes
 
-- `AGENTS.md` 新增"公共 API 边界"章节，明确内部函数不可导出
+- 错误/工具类型从 `lush-dal-protocol` re-export (`DBRetryableError`, `filtered_in_sql_values` 等), 消除重复定义
+- `SoftDeleteTableMixin.soft_delete_loader_criteria()` — 自定义软删除列可覆写 loader 谓词
+- ORM / DynamicAsync conformance 升至 Full 套件
+- 新增 `tests/oracle/` Core SQL 对拍基建 (不依赖 DAL hooks)
+- 依赖下限提升至 `lush-dal-protocol>=0.5.0`
+- `AGENTS.md` 移除 Repository 模块; 补充 oracle 测试约定; 新增"公共 API 边界"章节
 
 ## 0.6.0
 

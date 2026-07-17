@@ -66,9 +66,9 @@ class TestMyDAL(SyncFullDALConformanceTests):
 | Write | `SyncWriteDALConformanceTests` | `AsyncWriteDALConformanceTests` |
 | Base (R+W) | `SyncBaseDALConformanceTests` | `AsyncBaseDALConformanceTests` |
 | Field Isolation | `SyncFieldIsolationDALConformanceTests` | `AsyncFieldIsolationDALConformanceTests` |
-| Lock | `SyncLockDALConformanceTests` | `AsyncLockDALConformanceTests` |
-| AdvancedWrite | `SyncAdvancedWriteDALConformanceTests` | `AsyncAdvancedWriteDALConformanceTests` |
 | **Full** | `SyncFullDALConformanceTests` | `AsyncFullDALConformanceTests` |
+
+> **Full** = Read + Write + FieldIsolation. Lock / AdvancedWrite 专用套件尚未实现.
 
 ### `_post_write_refresh` hook
 

@@ -898,3 +898,38 @@ class TestSessionResolution:
         dal = DynamicAsyncDAL.of(TableRef.of("user_log", SimpleDTO), SimpleDTO, session=async_session)
         await dal.create(SimpleCU(user_id=1, action="test"))
         assert await dal.get_by_id(1) is not None
+
+
+# ================================================================
+# DynamicAsyncDAL Dto* conformance
+# ================================================================
+
+from collections.abc import Callable
+
+from lush_dal_protocol.testing import DtoAsyncFullConformanceTests
+
+
+class TestDynamicAsyncDALConformance(DtoAsyncFullConformanceTests):
+    """验证 DynamicAsyncDAL 满足 DtoAsyncDAL 协议."""
+
+    @pytest.fixture()
+    def dal(self, async_session: AsyncSession) -> DynamicAsyncDAL[SimpleDTO, SimpleCU, int]:  # type: ignore[type-arg]
+        return DynamicAsyncDAL(TableRef.of("user_log", SimpleDTO), SimpleDTO)
+
+    @pytest.fixture()
+    def session(self, async_session: AsyncSession) -> AsyncSession:
+        return async_session
+
+    @pytest.fixture()
+    def sample_cu(self) -> SimpleCU:
+        return SimpleCU(user_id=1, action="conformance")
+
+    @pytest.fixture()
+    def make_cu(self) -> Callable[[str], SimpleCU]:
+        return lambda label: SimpleCU(user_id=1, action=f"conformance-{label}")
+
+    def _get_dto_id(self, dto: SimpleDTO) -> int:
+        return dto.id
+
+    def _get_dto_label(self, dto: SimpleDTO) -> str:
+        return dto.action

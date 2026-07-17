@@ -13,7 +13,6 @@ src/lush_sqlalchemyx/
 │   ├── _sync.py                       # Sync DAL (RawRead/Read/Write/Base), 直接实现 ABC
 │   ├── _dynamic.py                    # DynamicDAL: TableRef + DynamicSyncDAL/AsyncDAL (无 ORM Table class)
 │   ├── _pagination.py                 # 分页工具
-│   ├── _repository.py                 # Repository 高层封装
 │   └── __init__.py                    # 统一导出
 ├── mgrs/mysql/
 │   ├── manager.py / mapper.py         # Async MySQL Manager / Mapper
@@ -52,12 +51,12 @@ src/lush_sqlalchemyx/
 
 ## Conformance 测试
 
-DAL 实现必须通过 `lush-dal-protocol` 的一致性套件 (Read+Write+FieldIsolation):
+DAL 实现必须通过 `lush-dal-protocol` 的一致性套件 (Read+Write+FieldIsolation = Full):
 
 ```python
-from lush_dal_protocol.testing import AsyncBaseDALConformanceTests
+from lush_dal_protocol.testing import AsyncFullDALConformanceTests
 
-class TestAsyncDALConformance(AsyncBaseDALConformanceTests):
+class TestAsyncDALConformance(AsyncFullDALConformanceTests):
     def _post_write_refresh(self, session):
         session.expire_all()
 
@@ -78,7 +77,7 @@ class TestAsyncDALConformance(AsyncBaseDALConformanceTests):
 
 ## 依赖
 
-- 核心: `sqlalchemy>=2.0.21`, `pydantic`, `lush-dal-protocol>=0.1.0`, `lush-stdx`, `lush-pydanticx`
+- 核心: `sqlalchemy>=2.0.21`, `pydantic`, `lush-dal-protocol>=0.5.0`, `lush-stdx`, `lush-pydanticx`
 - 可选:
   - `[asyncio]`: `sqlalchemy[asyncio]>=2.0.43`
   - `[flask]`: `flask-sqlalchemy>=3.1.1`
@@ -89,6 +88,15 @@ class TestAsyncDALConformance(AsyncBaseDALConformanceTests):
 - **sync DAL**: SQLite (`:memory:` 或临时 `.db`), 无需外部依赖.
 - **Flask 集成**: Flask test client + SQLite.
 - 100% branch coverage, `--cov-fail-under=100`.
+
+### BDD / Oracle 对拍
+
+行为变更须先写 feature / oracle 测试, 再实现:
+
+1. `.feature` 或单元测试描述语义
+2. `tests/oracle/` 用原始 SQLAlchemy 实现期望语义
+3. 被测 DAL API 与 oracle 对拍
+4. 实现变绿
 
 ### Coverage Omit
 
