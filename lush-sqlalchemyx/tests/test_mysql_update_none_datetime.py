@@ -259,10 +259,10 @@ class TestOracleAssignNoneEquivalent:
 
 
 class TestUpdateOnlySetNonePolicy:
-    def test_default_ignore_keeps_datetime(self, mysql_sync_session: Session) -> None:
+    def test_ignore_keeps_datetime(self, mysql_sync_session: Session) -> None:
         eid = _seed_sync(mysql_sync_session)
         before = _raw_update_dt_sync(mysql_sync_session, "buggy_update_sync", eid)
-        assert _BuggySyncDAL.update_only_set_by_id(mysql_sync_session, eid, _migration_cu_sync()) is not None
+        assert _BuggySyncDAL.update_only_set_by_id(mysql_sync_session, eid, _migration_cu_sync(), none_policy="ignore") is not None
         mysql_sync_session.flush()
         assert _raw_update_dt_sync(mysql_sync_session, "buggy_update_sync", eid) == before
 
@@ -295,7 +295,7 @@ class TestMysql57ZeroDateReproduction:
     def test_sync_dal_allow_zero_date(self, mysql57_sync_session: Session) -> None:
         _set_sql_mode_sync(mysql57_sync_session, MYSQL_SQL_MODE_NONSTRICT)
         eid = _seed_sync(mysql57_sync_session)
-        _BuggySyncDAL.update_only_set_by_id(mysql57_sync_session, eid, _migration_cu_sync(), none_policy="allow")
+        _BuggySyncDAL.update_only_set_by_id(mysql57_sync_session, eid, _migration_cu_sync())
         mysql57_sync_session.commit()
         assert _cast_update_dt_sync(mysql57_sync_session, "buggy_update_sync", eid).startswith("0000-00-00")
 
@@ -303,7 +303,7 @@ class TestMysql57ZeroDateReproduction:
         _set_sql_mode_sync(mysql57_sync_session, MYSQL_SQL_MODE_NONSTRICT)
         eid = _seed_sync(mysql57_sync_session)
         before = _raw_update_dt_sync(mysql57_sync_session, "buggy_update_sync", eid)
-        _BuggySyncDAL.update_only_set_by_id(mysql57_sync_session, eid, _migration_cu_sync())
+        _BuggySyncDAL.update_only_set_by_id(mysql57_sync_session, eid, _migration_cu_sync(), none_policy="ignore")
         mysql57_sync_session.commit()
         assert _raw_update_dt_sync(mysql57_sync_session, "buggy_update_sync", eid) == before
 
@@ -311,7 +311,7 @@ class TestMysql57ZeroDateReproduction:
     async def test_async_dal_allow_zero_date(self, mysql57_async_session: AsyncSession) -> None:
         await _set_sql_mode_async(mysql57_async_session, MYSQL_SQL_MODE_NONSTRICT)
         eid = await _seed_async(mysql57_async_session)
-        await _BuggyAsyncDAL.update_only_set_by_id(mysql57_async_session, eid, _migration_cu_async(), none_policy="allow")
+        await _BuggyAsyncDAL.update_only_set_by_id(mysql57_async_session, eid, _migration_cu_async())
         await mysql57_async_session.commit()
         assert (await _cast_update_dt_async(mysql57_async_session, "buggy_update_async", eid)).startswith("0000-00-00")
 
@@ -320,7 +320,7 @@ class TestMysql57ZeroDateReproduction:
         await _set_sql_mode_async(mysql57_async_session, MYSQL_SQL_MODE_NONSTRICT)
         eid = await _seed_async(mysql57_async_session)
         before = await _raw_update_dt_async(mysql57_async_session, "buggy_update_async", eid)
-        await _BuggyAsyncDAL.update_only_set_by_id(mysql57_async_session, eid, _migration_cu_async())
+        await _BuggyAsyncDAL.update_only_set_by_id(mysql57_async_session, eid, _migration_cu_async(), none_policy="ignore")
         await mysql57_async_session.commit()
         assert await _raw_update_dt_async(mysql57_async_session, "buggy_update_async", eid) == before
 
@@ -332,14 +332,14 @@ class TestMysql8StrictNoneDatetime:
         _set_sql_mode_sync(mysql8_sync_session, MYSQL_SQL_MODE_STRICT)
         eid = _seed_sync(mysql8_sync_session)
         with pytest.raises(_STRICT_WRITE_ERRORS):
-            _BuggySyncDAL.update_only_set_by_id(mysql8_sync_session, eid, _migration_cu_sync(), none_policy="allow")
+            _BuggySyncDAL.update_only_set_by_id(mysql8_sync_session, eid, _migration_cu_sync())
             mysql8_sync_session.flush()
 
     def test_sync_dal_ignore_preserves(self, mysql8_sync_session: Session) -> None:
         _set_sql_mode_sync(mysql8_sync_session, MYSQL_SQL_MODE_STRICT)
         eid = _seed_sync(mysql8_sync_session)
         before = _raw_update_dt_sync(mysql8_sync_session, "buggy_update_sync", eid)
-        _BuggySyncDAL.update_only_set_by_id(mysql8_sync_session, eid, _migration_cu_sync())
+        _BuggySyncDAL.update_only_set_by_id(mysql8_sync_session, eid, _migration_cu_sync(), none_policy="ignore")
         mysql8_sync_session.commit()
         assert _raw_update_dt_sync(mysql8_sync_session, "buggy_update_sync", eid) == before
 
@@ -348,7 +348,7 @@ class TestMysql8StrictNoneDatetime:
         await _set_sql_mode_async(mysql8_async_session, MYSQL_SQL_MODE_STRICT)
         eid = await _seed_async(mysql8_async_session)
         with pytest.raises(_STRICT_WRITE_ERRORS):
-            await _BuggyAsyncDAL.update_only_set_by_id(mysql8_async_session, eid, _migration_cu_async(), none_policy="allow")
+            await _BuggyAsyncDAL.update_only_set_by_id(mysql8_async_session, eid, _migration_cu_async())
             await mysql8_async_session.flush()
 
     @pytest.mark.asyncio
@@ -356,6 +356,6 @@ class TestMysql8StrictNoneDatetime:
         await _set_sql_mode_async(mysql8_async_session, MYSQL_SQL_MODE_STRICT)
         eid = await _seed_async(mysql8_async_session)
         before = await _raw_update_dt_async(mysql8_async_session, "buggy_update_async", eid)
-        await _BuggyAsyncDAL.update_only_set_by_id(mysql8_async_session, eid, _migration_cu_async())
+        await _BuggyAsyncDAL.update_only_set_by_id(mysql8_async_session, eid, _migration_cu_async(), none_policy="ignore")
         await mysql8_async_session.commit()
         assert await _raw_update_dt_async(mysql8_async_session, "buggy_update_async", eid) == before

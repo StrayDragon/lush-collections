@@ -63,7 +63,11 @@ def test_create_then_delete_consistent() -> None: ...
 # ── advanced-update.feature ──
 
 
-@scenario("dal/advanced-update.feature", "only-set 默认 ignore 显式 None 保留描述")
+@scenario("dal/advanced-update.feature", "only-set 默认 allow 显式 None 将描述置空")
+def test_update_only_set_default_allow_none() -> None: ...
+
+
+@scenario("dal/advanced-update.feature", "only-set 显式 ignore None 保留描述")
 def test_update_only_set_ignore_none() -> None: ...
 
 

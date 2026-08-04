@@ -229,7 +229,7 @@ class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
         cu: CUModelT,
         need_refresh: bool = False,
         *,
-        none_policy: NonePolicy = "ignore",
+        none_policy: NonePolicy = "allow",
     ) -> SQLATableT | None:
         """仅更新 CU 中已设置的字段.
 

@@ -371,11 +371,18 @@ def when_update_value(value: int, bdd_context: dict[str, Any], sync_session: Ses
     bdd_context["op_result"] = dal.update_only_set_by_id(sync_session, bdd_context["current_entity_id"], cu)
 
 
-@when(parsers.parse('only-set 更新名称为 "{name}" 且描述置空 (默认 ignore)'))
-def when_only_set_ignore_none_desc(name: str, bdd_context: dict[str, Any], sync_session: Session) -> None:
+@when(parsers.parse('only-set 更新名称为 "{name}" 且描述置空 (默认 allow)'))
+def when_only_set_default_allow_none_desc(name: str, bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, _, _ = _resolve(bdd_context)
     cu = _make_cu(bdd_context, name=name, description=None)
     bdd_context["op_result"] = dal.update_only_set_by_id(sync_session, bdd_context["current_entity_id"], cu)
+
+
+@when(parsers.parse('only-set 更新名称为 "{name}" 且描述置空 (ignore None 策略)'))
+def when_only_set_ignore_none_desc(name: str, bdd_context: dict[str, Any], sync_session: Session) -> None:
+    dal, _, _, _ = _resolve(bdd_context)
+    cu = _make_cu(bdd_context, name=name, description=None)
+    bdd_context["op_result"] = dal.update_only_set_by_id(sync_session, bdd_context["current_entity_id"], cu, none_policy="ignore")
 
 
 @when(parsers.parse('only-set 更新名称为 "{name}" 且描述置空 (allow None 策略)'))
