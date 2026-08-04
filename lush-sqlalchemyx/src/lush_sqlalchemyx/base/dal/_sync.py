@@ -480,14 +480,14 @@ class SyncWriteDAL(
         cu: CUModelT,
         need_refresh: bool = False,
         *,
-        none_policy: NonePolicy = "ignore",
+        none_policy: NonePolicy = "allow",
     ) -> SyncSQLATableT | None:
         """仅更新 CU 中已设置 (非 unset) 的字段.
 
         ``none_policy`` 控制显式传入的 ``None`` 如何处理, 详见 ``NonePolicy``:
 
-        - ``ignore`` (默认): 跳过 ``None``, 保留库中原值 — 适合迁移全字段 CU
-        - ``allow``: 写入 SQL ``NULL``
+        - ``allow`` (默认): 写入 SQL ``NULL``, 与 0.7.0 及更早版本行为一致
+        - ``ignore``: 跳过 ``None``, 保留库中原值 — 迁移全字段 CU 时推荐显式传入
         - ``forbid``: 遇到 ``None`` 抛 ``ValueError``
         """
         if session.info.get(READONLY_SESSION_FLAG):
@@ -516,7 +516,7 @@ class SyncWriteDAL(
         cu: CUModelT,
         need_refresh: bool = True,
         *,
-        none_policy: NonePolicy = "ignore",
+        none_policy: NonePolicy = "allow",
     ) -> DTOModelT | None:
         entity = cls.update_only_set_by_id(session, entity_id, cu, need_refresh, none_policy=none_policy)
         if entity:

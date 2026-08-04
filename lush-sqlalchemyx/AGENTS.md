@@ -101,7 +101,7 @@ class TestAsyncDALConformance(AsyncFullDALConformanceTests):
 
 ### update_only_set_by_id 与 None
 
-- 默认 `none_policy="ignore"`: 跳过 CU 中显式 `None` (迁移全字段 CU 常见路径).
+- 默认 `none_policy="allow"` 保持与 0.7.0 兼容; 迁移全字段 CU 推荐显式传 `none_policy="ignore"`.
 - `"allow"` / `"forbid"` 与 `update_partial_by_id` 对齐.
 - `setattr` 与点号赋值在 ORM 上等价; 问题在脏字段是否进入 UPDATE, 不在赋值语法.
 

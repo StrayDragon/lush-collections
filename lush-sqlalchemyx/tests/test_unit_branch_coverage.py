@@ -159,24 +159,24 @@ async def test_update_only_set_by_id_ignores_unknown_fields():
 
 
 @pytest.mark.asyncio
-async def test_update_only_set_by_id_default_ignore_none():
+async def test_update_only_set_by_id_default_allow_none():
     entity = _UnitEntity(name="old", value=1)
     session = _FakeAsyncSession(entities_by_id={1: entity})
     cu = _UnitUpdateCU(name=None, value=9)
     result = await _UnitDAL.update_only_set_by_id(session, 1, cu)  # type: ignore[arg-type]
     assert result is entity
-    assert entity.name == "old"
+    assert entity.name is None
     assert entity.value == 9
 
 
 @pytest.mark.asyncio
-async def test_update_only_set_by_id_allow_none():
+async def test_update_only_set_by_id_ignore_none():
     entity = _UnitEntity(name="old", value=1)
     session = _FakeAsyncSession(entities_by_id={1: entity})
     cu = _UnitUpdateCU(name=None, value=3)
-    result = await _UnitDAL.update_only_set_by_id(session, 1, cu, none_policy="allow")  # type: ignore[arg-type]
+    result = await _UnitDAL.update_only_set_by_id(session, 1, cu, none_policy="ignore")  # type: ignore[arg-type]
     assert result is entity
-    assert entity.name is None
+    assert entity.name == "old"
     assert entity.value == 3
 
 

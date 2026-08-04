@@ -314,9 +314,10 @@ NonePolicy = Literal["ignore", "allow", "forbid"]
 注意: Pydantic ``model_dump(exclude_unset=True)`` 仍会包含「已设置」的 ``None``
 (例如迁移时用全字段 CU 校验后缺省列变成 ``None``), 与「未传字段」不同.
 
-- ``ignore``: 跳过值为 ``None`` 的字段, 不写入 UPDATE, 保留库中原值 (推荐默认;
-  避免 MySQL 非严格模式下 ``NOT NULL DATETIME`` 被写成 ``0000-00-00 00:00:00``)
-- ``allow``: 将字段置为 SQL ``NULL`` (调用方明确要清空时可空列时使用)
+- ``ignore``: 跳过值为 ``None`` 的字段, 不写入 UPDATE, 保留库中原值
+  (迁移全字段 CU 时推荐在 ``update_only_set_by_id`` 显式传入)
+- ``allow``: 将字段置为 SQL ``NULL`` (``update_only_set_by_id`` 的默认策略,
+  与 0.7.0 及更早版本行为一致)
 - ``forbid``: 遇到显式 ``None`` 立即抛 ``ValueError``
 
 ``setattr(entity, key, None)`` 与 ``entity.key = None`` 在 SQLAlchemy ORM 上等价,
