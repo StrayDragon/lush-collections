@@ -30,7 +30,7 @@ except ImportError as _exc:  # pragma: no cover
 from sqlalchemy.orm import Session
 
 from lush_sqlalchemyx import setup_dal_hooks
-from lush_sqlalchemyx.base.dal._common import CUModelT, DTOModelT, SQLATableT
+from lush_sqlalchemyx.base.dal._common import CUModelT, DTOModelT, NonePolicy, SQLATableT
 from lush_sqlalchemyx.base.dal._sync import SyncBaseDAL, SyncReadDAL, SyncWriteDAL
 from lush_sqlalchemyx.mgrs.mysql.sync_manager import SyncMySQLManager
 from lush_sqlalchemyx.mgrs.mysql.sync_mapper import SyncMySQLManagersMapper
@@ -223,9 +223,19 @@ class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
         """创建实体并返回 DTO."""
         return self._dal_class.ret_dto_after_create(self.session, cu, need_refresh=need_refresh)
 
-    def update_only_set_by_id(self, entity_id: int, cu: CUModelT, need_refresh: bool = False) -> SQLATableT | None:
-        """仅更新 CU 中已设置的字段."""
-        return self._dal_class.update_only_set_by_id(self.session, entity_id, cu, need_refresh=need_refresh)
+    def update_only_set_by_id(
+        self,
+        entity_id: int,
+        cu: CUModelT,
+        need_refresh: bool = False,
+        *,
+        none_policy: NonePolicy = "ignore",
+    ) -> SQLATableT | None:
+        """仅更新 CU 中已设置的字段.
+
+        ``none_policy`` 语义见 ``lush_sqlalchemyx.base.dal.NonePolicy``.
+        """
+        return self._dal_class.update_only_set_by_id(self.session, entity_id, cu, need_refresh=need_refresh, none_policy=none_policy)
 
     def delete_by_id(self, entity_id: int) -> bool:
         """根据 ID 删除实体."""

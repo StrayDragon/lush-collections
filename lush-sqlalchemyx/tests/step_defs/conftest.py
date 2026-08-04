@@ -67,7 +67,7 @@ class _SimpleCU(BaseCU["_SimpleTable"]):
 
 
 class _SimpleDTO(BaseDTO["_SimpleCU"]):
-    _CU: ClassVar[type["_SimpleCU"]] = _SimpleCU
+    _CU: ClassVar[type[_SimpleCU]] = _SimpleCU
     id: int
     name: str
     model_config = ConfigDict(from_attributes=True)
@@ -102,7 +102,7 @@ class _StdCU(BaseCU["_StdTable"]):
 
 
 class _StdDTO(BaseDTO["_StdCU"]):
-    _CU: ClassVar[type["_StdCU"]] = _StdCU
+    _CU: ClassVar[type[_StdCU]] = _StdCU
     name: str
     value: int
     model_config = ConfigDict(from_attributes=True)
@@ -135,7 +135,7 @@ class _VersionCU(BaseCU["_VersionTable"]):
 
 
 class _VersionDTO(BaseDTO["_VersionCU"]):
-    _CU: ClassVar[type["_VersionCU"]] = _VersionCU
+    _CU: ClassVar[type[_VersionCU]] = _VersionCU
     name: str
     value: int
     version: int
@@ -371,6 +371,31 @@ def when_update_value(value: int, bdd_context: dict[str, Any], sync_session: Ses
     bdd_context["op_result"] = dal.update_only_set_by_id(sync_session, bdd_context["current_entity_id"], cu)
 
 
+@when(parsers.parse('only-set 更新名称为 "{name}" 且描述置空 (默认 ignore)'))
+def when_only_set_ignore_none_desc(name: str, bdd_context: dict[str, Any], sync_session: Session) -> None:
+    dal, _, _, _ = _resolve(bdd_context)
+    cu = _make_cu(bdd_context, name=name, description=None)
+    bdd_context["op_result"] = dal.update_only_set_by_id(sync_session, bdd_context["current_entity_id"], cu)
+
+
+@when(parsers.parse('only-set 更新名称为 "{name}" 且描述置空 (allow None 策略)'))
+def when_only_set_allow_none_desc(name: str, bdd_context: dict[str, Any], sync_session: Session) -> None:
+    dal, _, _, _ = _resolve(bdd_context)
+    cu = _make_cu(bdd_context, name=name, description=None)
+    bdd_context["op_result"] = dal.update_only_set_by_id(sync_session, bdd_context["current_entity_id"], cu, none_policy="allow")
+
+
+@when("only-set 更新描述置空 (forbid None 策略)")
+def when_only_set_forbid_none(bdd_context: dict[str, Any], sync_session: Session) -> None:
+    dal, _, _, _ = _resolve(bdd_context)
+    cu = _make_cu(bdd_context, name="keep", description=None)
+    try:
+        dal.update_only_set_by_id(sync_session, bdd_context["current_entity_id"], cu, none_policy="forbid")
+        bdd_context["_raised"] = None
+    except ValueError as e:
+        bdd_context["_raised"] = e
+
+
 @when(parsers.parse("删除该记录"))
 def when_delete_record(bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, _, _ = _resolve(bdd_context)
@@ -387,6 +412,7 @@ def when_count(bdd_context: dict[str, Any], sync_session: Session) -> None:
 def when_exists(bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, _, _ = _resolve(bdd_context)
     bdd_context["op_result"] = dal.exists(sync_session, bdd_context["current_entity_id"])
+
 
 # ── 更新: full / partial / none_policy ──
 
@@ -405,7 +431,7 @@ def when_update_full_nonexistent(eid: int, bdd_context: dict[str, Any], sync_ses
     bdd_context["op_result"] = dal.update_full_by_id(sync_session, eid, cu)
 
 
-@when(parsers.parse('部分更新名称和值 (ignore None 策略)'))
+@when(parsers.parse("部分更新名称和值 (ignore None 策略)"))
 def when_update_partial_ignore_none(bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, table_cls, _ = _resolve(bdd_context)
     # 用 table column 直接构造 update data, 绕过 CU 校验
@@ -421,9 +447,7 @@ def when_update_partial_ignore_none(bdd_context: dict[str, Any], sync_session: S
 def when_update_partial_allow_none_desc(name: str, bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, _, _ = _resolve(bdd_context)
     cu = _make_cu(bdd_context, name=name, description=None)
-    bdd_context["op_result"] = dal.update_partial_by_id(
-        sync_session, bdd_context["current_entity_id"], cu, none_policy="allow"
-    )
+    bdd_context["op_result"] = dal.update_partial_by_id(sync_session, bdd_context["current_entity_id"], cu, none_policy="allow")
 
 
 @when(parsers.parse("部分更新描述置空 (forbid None 策略)"))
@@ -450,14 +474,12 @@ def when_update_partial_override_allow(bdd_context: dict[str, Any], sync_session
     )
 
 
-@when(parsers.parse("部分更新名称为 \"{name}\" 并尝试额外更新 description (strict 模式)"))
+@when(parsers.parse('部分更新名称为 "{name}" 并尝试额外更新 description (strict 模式)'))
 def when_update_partial_strict_extra(name: str, bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, table_cls, _ = _resolve(bdd_context)
     cu = _make_cu(bdd_context, name=name, description="should-fail")
     try:
-        dal.update_partial_by_id(
-            sync_session, bdd_context["current_entity_id"], cu, fields={table_cls.name}, strict=True
-        )
+        dal.update_partial_by_id(sync_session, bdd_context["current_entity_id"], cu, fields={table_cls.name}, strict=True)
         bdd_context["_raised"] = None
     except ValueError as e:
         bdd_context["_raised"] = e
@@ -504,7 +526,7 @@ def when_batch_get_field_empty(bdd_context: dict[str, Any], sync_session: Sessio
     bdd_context["op_result"] = dal.batch_get_field__entity(sync_session, field_name="name", field_values=[])
 
 
-@when(parsers.parse("批量按 ID 更新值为 \"{value:d}\""))
+@when(parsers.parse('批量按 ID 更新值为 "{value:d}"'))
 def when_batch_update_by_ids(value: int, bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, table_cls, _ = _resolve(bdd_context)
     bdd_context["_batch_affected"] = dal.batch_update_by_ids(
@@ -515,9 +537,7 @@ def when_batch_update_by_ids(value: int, bdd_context: dict[str, Any], sync_sessi
 @when(parsers.parse("批量按 ID 更新空列表"))
 def when_batch_update_empty(bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, table_cls, _ = _resolve(bdd_context)
-    bdd_context["_batch_affected"] = dal.batch_update_by_ids(
-        sync_session, entity_ids=[], update_data={table_cls.value: 99}
-    )
+    bdd_context["_batch_affected"] = dal.batch_update_by_ids(sync_session, entity_ids=[], update_data={table_cls.value: 99})
 
 
 @when(parsers.parse('批量按当前实体 ID 条件更新名称为 "{name}"'))
@@ -542,9 +562,7 @@ def when_batch_update_conditions_value(value: int, bdd_context: dict[str, Any], 
 def when_batch_update_invalid_key(bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, table_cls, _ = _resolve(bdd_context)
     try:
-        dal.batch_update_by_conditions(
-            sync_session, whereclause=[table_cls.id == bdd_context["current_entity_id"]], update_data={123: 77}
-        )
+        dal.batch_update_by_conditions(sync_session, whereclause=[table_cls.id == bdd_context["current_entity_id"]], update_data={123: 77})
         bdd_context["_raised"] = None
     except ValueError as e:
         bdd_context["_raised"] = e
@@ -683,15 +701,13 @@ def when_optlock_wrong_version(bdd_context: dict[str, Any], sync_session: Sessio
     dal, _, _, _ = _resolve(bdd_context)
     cu = _make_cu(bdd_context, name="conflict")
     try:
-        dal.update_only_set_with_optimistic_lock(
-            sync_session, bdd_context["current_entity_id"], cu, expected_version=999
-        )
+        dal.update_only_set_with_optimistic_lock(sync_session, bdd_context["current_entity_id"], cu, expected_version=999)
         bdd_context["_raised"] = None
     except DBRetryableError as e:
         bdd_context["_raised"] = e
 
 
-@when(parsers.parse("乐观锁更新不存在的记录 ID \"{eid:d}\""))
+@when(parsers.parse('乐观锁更新不存在的记录 ID "{eid:d}"'))
 def when_optlock_nonexistent(eid: int, bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, _, _ = _resolve(bdd_context)
     cu = _make_cu(bdd_context, name="nope")
@@ -725,9 +741,7 @@ def when_optlock_no_version_field(bdd_context: dict[str, Any], sync_session: Ses
     simple_dal = _SimpleDAL
     cu = _SimpleCU(name="no-version-update")
     try:
-        simple_dal.update_only_set_with_optimistic_lock(
-            sync_session, bdd_context["current_entity_id"], cu, expected_version=0
-        )
+        simple_dal.update_only_set_with_optimistic_lock(sync_session, bdd_context["current_entity_id"], cu, expected_version=0)
         bdd_context["_raised"] = None
     except AttributeError as e:
         bdd_context["_raised"] = e
@@ -758,9 +772,7 @@ def when_batch_get_for_update_empty(bdd_context: dict[str, Any], sync_session: S
 @when(parsers.parse("按条件加悲观锁查询单条记录"))
 def when_get_one_for_update(bdd_context: dict[str, Any], sync_session: Session) -> None:
     dal, _, table_cls, _ = _resolve(bdd_context)
-    bdd_context["op_result"] = dal.get_one_for_update(
-        sync_session, where_clauses=[table_cls.id == bdd_context["current_entity_id"]]
-    )
+    bdd_context["op_result"] = dal.get_one_for_update(sync_session, where_clauses=[table_cls.id == bdd_context["current_entity_id"]])
 
 
 # ── SQL 执行 / 事务 / 重试 ──
@@ -833,6 +845,33 @@ def _get_result(ctx: dict[str, Any]) -> Any:
     return ctx["op_result"]
 
 
+def _parse_expected_scalar(expected: str) -> int | float | str:
+    """将 BDD 期望字符串尽量解析为 int/float, 失败则保留原字符串."""
+    try:
+        return int(expected)
+    except ValueError:
+        pass
+    try:
+        return float(expected)
+    except ValueError:
+        return expected
+
+
+def _assert_loose_equals(actual: Any, expected: str, *, detail: str | None = None) -> None:
+    """比较实际值与期望字符串 (支持数字字面量松散匹配)."""
+    parsed = _parse_expected_scalar(expected)
+    if isinstance(parsed, str):
+        if detail:
+            assert str(actual) == expected, detail
+        else:
+            assert str(actual) == expected
+        return
+    if detail:
+        assert actual == parsed, detail
+    else:
+        assert actual == parsed
+
+
 # ── 实体/DTO 断言 (轻量, 对象层面) ──
 
 
@@ -858,14 +897,7 @@ def then_entity_field_equals(bdd_context: dict[str, Any], field: str, expected_v
     r = _get_result(bdd_context)
     assert r is not None, f"实体 None, 无法验证 {field}"
     assert hasattr(r, field), f"无 {field!r} 字段"
-    actual = getattr(r, field)
-    for cast_fn in (int, float):
-        try:
-            assert actual == cast_fn(expected_value)
-            return
-        except ValueError:
-            pass
-    assert str(actual) == expected_value
+    _assert_loose_equals(getattr(r, field), expected_value)
 
 
 @then("返回的结果为 True")
@@ -949,13 +981,7 @@ def then_db_col_equals(bdd_context: dict[str, Any], sync_session: Session, col: 
     table = _table(bdd_context)
     eid = bdd_context["current_entity_id"]
     actual = _db_col(sync_session, table, eid, col)
-    for cast_fn in (int, float):
-        try:
-            assert actual == cast_fn(expected), f"DB: {col}={actual!r}, 期望 {expected!r}"
-            return
-        except ValueError:
-            pass
-    assert str(actual) == expected, f"DB: {col}={actual!r}, 期望 {expected!r}"
+    _assert_loose_equals(actual, expected, detail=f"DB: {col}={actual!r}, 期望 {expected!r}")
 
 
 @then(parsers.parse("数据库表中记录总数为 {count:d}"))
@@ -1021,7 +1047,7 @@ def then_count_at_least(bdd_context: dict[str, Any], min_count: int) -> None:
     assert r >= min_count
 
 
-@then(parsers.parse("返回的 DTO 名称应为 \"{expected_name}\""))
+@then(parsers.parse('返回的 DTO 名称应为 "{expected_name}"'))
 def then_dto_name_is(bdd_context: dict[str, Any], expected_name: str) -> None:
     r = _get_result(bdd_context)
     assert r is not None

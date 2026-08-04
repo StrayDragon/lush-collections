@@ -26,11 +26,13 @@ from ._common import (
     CUModelT,
     DBRetryableError,
     DTOModelT,
+    NonePolicy,
     ReadOnlyMixin,
     RetryConfig,
     SoftDeleteTableMixin,
     SQLAlchemyOperationalError,
     T,
+    _apply_none_policy,
     _ensure_strict_fields,
     filtered_in_sql_values,
 )
@@ -477,7 +479,17 @@ class SyncWriteDAL(
         entity_id: int,
         cu: CUModelT,
         need_refresh: bool = False,
+        *,
+        none_policy: NonePolicy = "ignore",
     ) -> SyncSQLATableT | None:
+        """仅更新 CU 中已设置 (非 unset) 的字段.
+
+        ``none_policy`` 控制显式传入的 ``None`` 如何处理, 详见 ``NonePolicy``:
+
+        - ``ignore`` (默认): 跳过 ``None``, 保留库中原值 — 适合迁移全字段 CU
+        - ``allow``: 写入 SQL ``NULL``
+        - ``forbid``: 遇到 ``None`` 抛 ``ValueError``
+        """
         if session.info.get(READONLY_SESSION_FLAG):
             raise TypeError("当前会话被标记为只读, 不允许执行写入操作")
         entity = session.get(cls._Table, entity_id)
@@ -486,6 +498,8 @@ class SyncWriteDAL(
 
         update_data = cu.model_dump(exclude_unset=True, exclude={"id"})
         for key, value in update_data.items():
+            if not _apply_none_policy(key, value, none_policy=none_policy):
+                continue
             if hasattr(entity, key):
                 setattr(entity, key, value)
 
@@ -501,8 +515,10 @@ class SyncWriteDAL(
         entity_id: int,
         cu: CUModelT,
         need_refresh: bool = True,
+        *,
+        none_policy: NonePolicy = "ignore",
     ) -> DTOModelT | None:
-        entity = cls.update_only_set_by_id(session, entity_id, cu, need_refresh)
+        entity = cls.update_only_set_by_id(session, entity_id, cu, need_refresh, none_policy=none_policy)
         if entity:
             return cls._DTO.model_validate(entity)
         return None
@@ -591,12 +607,9 @@ class SyncWriteDAL(
         for key, value in list(update_data.items()):
             if allowed_names is not None and key not in allowed_names:
                 continue
-            if value is None:
-                field_policy = overrides_by_name.get(key, none_policy)
-                if field_policy == "ignore":
-                    continue
-                if field_policy == "forbid":
-                    raise ValueError(f"字段不允许置空: {key}")
+            field_policy = overrides_by_name.get(key, none_policy)
+            if not _apply_none_policy(key, value, none_policy=field_policy):
+                continue
             if hasattr(entity, key):
                 setattr(entity, key, value)
         session.flush()

@@ -285,6 +285,28 @@ class TestSyncCRUD:
         result = _SyncTestDAL.update_only_set_by_id(sync_session, 999999, cu)
         assert result is None
 
+    def test_update_only_set_default_ignore_none(self, sync_session: Session):
+        """全字段 CU 显式 None 默认 ignore, 保留原 description."""
+        entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="only-ignore", description="keep-me", value=1))
+        cu = _SyncTestCU(name="only-ignore", description=None, value=2)
+        updated = _SyncTestDAL.update_only_set_by_id(sync_session, entity.id, cu)
+        assert updated is not None
+        assert updated.value == 2
+        assert updated.description == "keep-me"
+
+    def test_update_only_set_allow_none(self, sync_session: Session):
+        entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="only-allow", description="wipe-me"))
+        cu = _SyncTestCU(name="only-allow", description=None)
+        updated = _SyncTestDAL.update_only_set_by_id(sync_session, entity.id, cu, none_policy="allow")
+        assert updated is not None
+        assert updated.description is None
+
+    def test_update_only_set_forbid_none(self, sync_session: Session):
+        entity = _SyncTestDAL.create(sync_session, _SyncTestCU(name="only-forbid", description="hello"))
+        cu = _SyncTestCU(name="only-forbid", description=None)
+        with pytest.raises(ValueError, match="不允许置空"):
+            _SyncTestDAL.update_only_set_by_id(sync_session, entity.id, cu, none_policy="forbid")
+
     def test_ret_dto_after_update(self, sync_session: Session):
         cu = _SyncTestCU(name="before-dto-update")
         entity = _SyncTestDAL.create(sync_session, cu)

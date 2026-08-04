@@ -87,6 +87,7 @@ class TestAsyncDALConformance(AsyncFullDALConformanceTests):
 - **async DAL**: Docker MySQL (`LUSH_TEST_MYSQL_IMAGE`), 自动创建/销毁随机库名.
 - **sync DAL**: SQLite (`:memory:` 或临时 `.db`), 无需外部依赖.
 - **Flask 集成**: Flask test client + SQLite.
+- **MySQL matrix**: `mysql:5.7` + `mysql:8.0.40-debian` (`just test-mysql-matrix` / CI workflow), 覆盖非严格 zero-date 与严格模式.
 - 100% branch coverage, `--cov-fail-under=100`.
 
 ### BDD / Oracle 对拍
@@ -97,6 +98,12 @@ class TestAsyncDALConformance(AsyncFullDALConformanceTests):
 2. `tests/oracle/` 用原始 SQLAlchemy 实现期望语义
 3. 被测 DAL API 与 oracle 对拍
 4. 实现变绿
+
+### update_only_set_by_id 与 None
+
+- 默认 `none_policy="ignore"`: 跳过 CU 中显式 `None` (迁移全字段 CU 常见路径).
+- `"allow"` / `"forbid"` 与 `update_partial_by_id` 对齐.
+- `setattr` 与点号赋值在 ORM 上等价; 问题在脏字段是否进入 UPDATE, 不在赋值语法.
 
 ### Coverage Omit
 
