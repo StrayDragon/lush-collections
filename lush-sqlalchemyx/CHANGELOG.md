@@ -4,19 +4,12 @@
 
 ## Unreleased
 
-### Breaking Changes
-
-**`update_only_set_by_id` 默认跳过显式 `None`**
-
-| 变更 | 说明 | 迁移建议 |
-|---|---|---|
-| 新增 `none_policy` (默认 `"ignore"`) | 迁移/全字段 CU 经 Pydantic 校验后常带显式 `None`; 旧行为会把 `None` 写进 UPDATE, 在 MySQL 非严格模式下可能把 `NOT NULL DATETIME` 变成 `0000-00-00 00:00:00` | 需要显式置空时传 `none_policy="allow"`; 想拒绝置空用 `"forbid"`; 或改用 `update_partial_by_id` |
-
-`setattr` 与 `entity.field = None` 在 ORM 上等价, 根因是脏字段进入 UPDATE 而非赋值语法.
+## 0.7.1
 
 ### Changes
 
-- `update_only_set_by_id` / `ret_dto_after_update_by_id` (async + sync) 与 Flask adapter 支持 `none_policy`
+- `update_only_set_by_id` / `ret_dto_after_update_by_id` (async + sync) 与 Flask adapter 新增 `none_policy` 参数
+- 默认 `none_policy="allow"`, 保持与 0.7.0 行为一致; 迁移全字段 CU 推荐显式传 `none_policy="ignore"`
 - 新增 MySQL 5.7 / 8 matrix 集成测试 (sync + async) 与非严格 `sql_mode` 复现基建
 - 导出 `NonePolicy` 类型别名
 
