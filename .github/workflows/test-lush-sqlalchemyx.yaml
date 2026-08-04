@@ -22,11 +22,12 @@ jobs:
       run:
         working-directory: lush-sqlalchemyx
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.10"
           enable-cache: true
+          cache-suffix: sqlalchemyx-unit
       - name: Sync
         run: uv sync -p 3.10 --frozen --default-index https://pypi.org/simple
       - name: Test (coverage gate)
@@ -58,11 +59,12 @@ jobs:
       LUSH_TEST_MYSQL8_IMAGE: mysql:8.0.40-debian
       LUSH_TEST_MYSQL_IMAGE: ${{ matrix.image }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.10"
           enable-cache: true
+          cache-suffix: sqlalchemyx-mysql-${{ matrix.mysql_label }}
       - name: Sync
         run: uv sync -p 3.10 --frozen --default-index https://pypi.org/simple
       - name: Pull MySQL image

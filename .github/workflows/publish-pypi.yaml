@@ -27,13 +27,14 @@ jobs:
       LUSH_TEST_MYSQL_IMAGE: mysql:8.0.40-debian
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.10"
           enable-cache: true
+          cache-suffix: publish-${{ github.ref_name }}
 
       - name: Resolve package
         id: resolve
