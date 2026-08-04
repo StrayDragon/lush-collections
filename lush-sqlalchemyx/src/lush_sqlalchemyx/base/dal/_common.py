@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, ClassVar, Final, Generic, TypeVar, cast
+from typing import Any, ClassVar, Final, Generic, Literal, TypeVar, cast
 
 import sqlalchemy as sa
 from lush_dal_protocol.dto import BaseCU as _ProtocolBaseCU
@@ -307,6 +307,48 @@ def _ensure_strict_fields(
         raise ValueError(f"出现未允许更新的字段: {not_allowed}")
 
 
+NonePolicy = Literal["ignore", "allow", "forbid"]
+"""更新 API 中对 **显式** ``None`` 字段的处理策略.
+
+用于 ``update_only_set_by_id`` / ``update_partial_by_id`` 等写入路径.
+注意: Pydantic ``model_dump(exclude_unset=True)`` 仍会包含「已设置」的 ``None``
+(例如迁移时用全字段 CU 校验后缺省列变成 ``None``), 与「未传字段」不同.
+
+- ``ignore``: 跳过值为 ``None`` 的字段, 不写入 UPDATE, 保留库中原值 (推荐默认;
+  避免 MySQL 非严格模式下 ``NOT NULL DATETIME`` 被写成 ``0000-00-00 00:00:00``)
+- ``allow``: 将字段置为 SQL ``NULL`` (调用方明确要清空时可空列时使用)
+- ``forbid``: 遇到显式 ``None`` 立即抛 ``ValueError``
+
+``setattr(entity, key, None)`` 与 ``entity.key = None`` 在 SQLAlchemy ORM 上等价,
+都会把属性标 dirty 并在 flush 时发出 ``SET col = NULL``; 库侧防护点在「是否把
+该键加入 dirty set」, 而非赋值语法.
+"""
+
+
+def _apply_none_policy(
+    key: str,
+    value: Any,
+    *,
+    none_policy: NonePolicy,
+) -> bool:
+    """根据 ``none_policy`` 决定是否将字段写入更新.
+
+    Returns:
+        ``True`` 表示应 ``setattr`` 该字段; ``False`` 表示跳过 (``ignore``).
+
+    Raises:
+        ValueError: ``none_policy="forbid"`` 且 ``value is None``.
+    """
+    if value is not None:
+        return True
+    if none_policy == "ignore":
+        return False
+    if none_policy == "forbid":
+        raise ValueError(f"字段不允许置空: {key}")
+    # allow
+    return True
+
+
 # Re-export OperationalError so downstream modules don't need a separate import.
 SQLAlchemyOperationalError = SQLAlchemyOperationalError
 
@@ -323,6 +365,7 @@ __all__ = (
     "DBRetryableError",
     "DTOModelT",
     "FieldMixin",
+    "NonePolicy",
     "ReadOnlyMixin",
     "RetryConfig",
     "SQLATableT",
@@ -330,6 +373,7 @@ __all__ = (
     "SoftDeleteTableMixin",
     "T",
     "V",
+    "_apply_none_policy",
     "_ensure_strict_fields",
     "FieldIsDeleteSoftDeleteTableMixin",
     "escape_like",

@@ -159,6 +159,37 @@ async def test_update_only_set_by_id_ignores_unknown_fields():
 
 
 @pytest.mark.asyncio
+async def test_update_only_set_by_id_default_ignore_none():
+    entity = _UnitEntity(name="old", value=1)
+    session = _FakeAsyncSession(entities_by_id={1: entity})
+    cu = _UnitUpdateCU(name=None, value=9)
+    result = await _UnitDAL.update_only_set_by_id(session, 1, cu)  # type: ignore[arg-type]
+    assert result is entity
+    assert entity.name == "old"
+    assert entity.value == 9
+
+
+@pytest.mark.asyncio
+async def test_update_only_set_by_id_allow_none():
+    entity = _UnitEntity(name="old", value=1)
+    session = _FakeAsyncSession(entities_by_id={1: entity})
+    cu = _UnitUpdateCU(name=None, value=3)
+    result = await _UnitDAL.update_only_set_by_id(session, 1, cu, none_policy="allow")  # type: ignore[arg-type]
+    assert result is entity
+    assert entity.name is None
+    assert entity.value == 3
+
+
+@pytest.mark.asyncio
+async def test_update_only_set_by_id_forbid_none():
+    entity = _UnitEntity(name="old", value=1)
+    session = _FakeAsyncSession(entities_by_id={1: entity})
+    cu = _UnitUpdateCU(name=None)
+    with pytest.raises(ValueError, match="不允许置空"):
+        await _UnitDAL.update_only_set_by_id(session, 1, cu, none_policy="forbid")  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
 async def test_update_full_by_id_returns_none_when_missing():
     session = _FakeAsyncSession()
     cu = _UnitCU(name="x", value=1)
@@ -252,6 +283,34 @@ class _VersionedDAL(AsyncBaseDAL[_VersionedNoUpdateDatetime, _VersionedDTO, _Ver
     _CU = _VersionedCU
 
 
+class _VersionedWithUpdateDatetime(_Base):
+    __tablename__ = "unit_testing_versioned_with_update_datetime"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(20), nullable=False, default="")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    update_datetime: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class _VersionedWithDtCU(BaseCU[_VersionedWithUpdateDatetime]):
+    _Table: ClassVar[type[_VersionedWithUpdateDatetime]] = _VersionedWithUpdateDatetime
+    name: str | None = None
+
+
+class _VersionedWithDtDTO(BaseDTO[_VersionedWithDtCU]):
+    _CU: ClassVar[type[_VersionedWithDtCU]] = _VersionedWithDtCU
+    id: int
+    name: str
+    version: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class _VersionedWithDtDAL(AsyncBaseDAL[_VersionedWithUpdateDatetime, _VersionedWithDtDTO, _VersionedWithDtCU]):
+    _Table = _VersionedWithUpdateDatetime
+    _DTO = _VersionedWithDtDTO
+    _CU = _VersionedWithDtCU
+
+
 @pytest.mark.asyncio
 async def test_update_only_set_with_optimistic_lock_table_without_update_datetime_branch():
     entity = _VersionedNoUpdateDatetime(id=1, name="old", version=0)
@@ -265,6 +324,21 @@ async def test_update_only_set_with_optimistic_lock_table_without_update_datetim
     )
 
     # Ensure the UPDATE statement was built/executed
+    assert session.executed
+
+
+@pytest.mark.asyncio
+async def test_update_only_set_with_optimistic_lock_sets_update_datetime():
+    """覆盖乐观锁路径中 hasattr(update_datetime) 为 True 的分支."""
+    entity = _VersionedWithUpdateDatetime(id=1, name="old", version=0, update_datetime=None)
+    session = _FakeAsyncSession(entities_by_id={1: entity})
+
+    _ = await _VersionedWithDtDAL.update_only_set_with_optimistic_lock(
+        session,  # type: ignore[arg-type]
+        1,
+        _VersionedWithDtCU(name="new"),
+        expected_version=0,
+    )
     assert session.executed
 
 

@@ -49,7 +49,8 @@
 ### 外部依赖
 
 - 需要外部服务 (Redis/MySQL) 的测试须: Docker auto-up/down, 幂等, 随机命名空间, 优先本地镜像.
-- CI 固定镜像: `LUSH_TEST_REDIS_IMAGE=redis:7.4-alpine`, `LUSH_TEST_MYSQL_IMAGE=mysql:8.0.40-debian`.
+- CI 固定镜像: `LUSH_TEST_REDIS_IMAGE=redis:7.4-alpine`, `LUSH_TEST_MYSQL_IMAGE=mysql:8.0.40-debian`,
+  matrix 另含 `mysql:5.7` (勿用浮动 `mysql:8`, 当前指向 8.4 且已移除 `mysql_native_password`).
 
 ### Mock 策略
 

@@ -8,6 +8,29 @@
     假设 数据库连接已就绪
     假设 使用 "标准CRUD" 作为当前 DAL
 
+  # ── update_only_set_by_id (none_policy) ──
+
+  场景: only-set 默认 ignore 显式 None 保留描述
+    假设 已存在一条名称为 "only-ignore-init" 的记录
+    并且 将该记录的描述设置为 "keep"
+    当 only-set 更新名称为 "only-ignore-init" 且描述置空 (默认 ignore)
+    那么 返回的实体不为空
+    并且 数据库表中 ID 为当前实体 ID 的记录的 "name" 应为 "only-ignore-init"
+    并且 数据库表中 ID 为当前实体 ID 的记录的 "description" 应为 "keep"
+
+  场景: only-set allow None 将描述置空
+    假设 已存在一条名称为 "only-allow-init" 的记录
+    并且 将该记录的描述设置为 "wipe"
+    当 only-set 更新名称为 "only-allow-init" 且描述置空 (allow None 策略)
+    那么 返回的实体不为空
+    并且 数据库表中 ID 为当前实体 ID 的记录的 "description" 应为 "None"
+
+  场景: only-set forbid None 抛出异常
+    假设 已存在一条名称为 "only-forbid-init" 的记录
+    并且 将该记录的描述设置为 "hello"
+    当 only-set 更新描述置空 (forbid None 策略)
+    那么 抛出了 ValueError
+
   # ── update_full_by_id ──
 
   场景: 全量更新已存在的记录

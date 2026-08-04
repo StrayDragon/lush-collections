@@ -1,2 +1,16 @@
-# 测试产生的 SQLite 数据库文件
+# 测试产物
 *.db
+.tmp/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.benchmarks/
+
+# 构建 / 虚拟环境 (包目录内偶发)
+dist/
+build/
+*.egg-info/
+.venv/

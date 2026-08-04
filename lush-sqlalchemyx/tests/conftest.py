@@ -2,9 +2,9 @@
 
 Goals:
 - Automatically provision external dependencies (e.g. MySQL) via Docker.
-- Prefer using existing local Docker images to avoid pulling (fast path).
-- Idempotent: cleanup containers and drop random test databases on teardown.
-- Safety: validate that test connections target isolated Docker instances only.
+- Prefer local images; optional ``LUSH_TEST_MYSQL_PULL=1`` to pull.
+- Idempotent cleanup; refuse non-localhost / non-test DB names.
+- Matrix: MySQL 5.7 / 8 endpoints + SESSION sql_mode helpers.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import time
 import uuid
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from dataclasses import dataclass
 
 import pytest
@@ -24,27 +24,13 @@ _TEST_DB_NAME_PATTERN = re.compile(r"^lush_test_[a-f0-9]+$")
 _TEST_CONTAINER_NAME_PATTERN = re.compile(r"^lush-sqlalchemyx-mysql-pytest-[a-f0-9]+$")
 _SAFE_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
+MYSQL57_IMAGE_DEFAULT = "mysql:5.7"
+MYSQL8_IMAGE_DEFAULT = "mysql:8.0.40-debian"
 
-def _validate_test_endpoint(endpoint: _MySQLEndpoint) -> None:
-    """校验测试 endpoint 确实指向隔离的测试环境, 防止误操作生产库.
-
-    Raises:
-        RuntimeError: 当检测到可能连接生产环境时.
-    """
-    if endpoint.host not in _SAFE_HOSTS:
-        raise RuntimeError(
-            f"SAFETY: test endpoint host '{endpoint.host}' is not localhost. Refusing to run tests against a remote database."
-        )
-
-    if not _TEST_DB_NAME_PATTERN.match(endpoint.database):
-        raise RuntimeError(
-            f"SAFETY: database name '{endpoint.database}' does not match test pattern 'lush_test_<hex>'. Refusing to run tests against a potentially non-test database."
-        )
-
-    if endpoint.container_name and not _TEST_CONTAINER_NAME_PATTERN.match(endpoint.container_name):
-        raise RuntimeError(
-            f"SAFETY: container name '{endpoint.container_name}' does not match test pattern. Refusing to run tests against an unknown container."
-        )
+MYSQL_SQL_MODE_NONSTRICT = "NO_ENGINE_SUBSTITUTION"
+MYSQL_SQL_MODE_STRICT = (
+    "ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,11 +41,26 @@ class _MySQLEndpoint:
     password: str
     database: str
     container_name: str | None = None
+    image: str | None = None
 
     @property
     def sqlalchemy_url(self) -> str:
-        # NOTE: driver is a dev dependency used only in tests.
         return f"mysql+aiomysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+
+    @property
+    def sync_sqlalchemy_url(self) -> str:
+        return f"mysql+pymysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+
+
+def _validate_test_endpoint(endpoint: _MySQLEndpoint) -> None:
+    if endpoint.host not in _SAFE_HOSTS:
+        raise RuntimeError(
+            f"SAFETY: test endpoint host '{endpoint.host}' is not localhost. Refusing to run tests against a remote database."
+        )
+    if not _TEST_DB_NAME_PATTERN.match(endpoint.database):
+        raise RuntimeError(f"SAFETY: database name '{endpoint.database}' does not match test pattern 'lush_test_<hex>'.")
+    if endpoint.container_name and not _TEST_CONTAINER_NAME_PATTERN.match(endpoint.container_name):
+        raise RuntimeError(f"SAFETY: container name '{endpoint.container_name}' does not match test pattern.")
 
 
 def _docker_available() -> bool:
@@ -67,17 +68,18 @@ def _docker_available() -> bool:
     if docker is None:
         return False
     try:
-        proc = subprocess.run(  # noqa: S603
-            [docker, "ps"],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            text=True,
+        return (
+            subprocess.run(  # noqa: S603
+                [docker, "ps"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).returncode
+            == 0
         )
     except OSError:
         return False
-    else:
-        return proc.returncode == 0
 
 
 def _docker_image_exists(image: str) -> bool:
@@ -85,32 +87,38 @@ def _docker_image_exists(image: str) -> bool:
     if docker is None:
         return False
     try:
-        proc = subprocess.run(  # noqa: S603
-            [docker, "image", "inspect", image],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            text=True,
+        return (
+            subprocess.run(  # noqa: S603
+                [docker, "image", "inspect", image],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).returncode
+            == 0
         )
     except OSError:
         return False
-    else:
-        return proc.returncode == 0
+
+
+def _docker_pull_if_needed(image: str) -> None:
+    if _docker_image_exists(image):
+        return
+    if os.getenv("LUSH_TEST_MYSQL_PULL", "").strip().lower() not in {"1", "true", "yes"}:
+        return
+    docker = shutil.which("docker")
+    if docker is None:
+        return
+    subprocess.run([docker, "pull", image], check=True, text=True)  # noqa: S603
 
 
 def _choose_mysql_image() -> str:
-    env_image = os.getenv("LUSH_TEST_MYSQL_IMAGE")
-    if env_image:
+    if env_image := os.getenv("LUSH_TEST_MYSQL_IMAGE"):
         return env_image
-
-    # Prefer local images to avoid pulling (fast path)
     candidates = [
-        "mysql:5.7",
+        MYSQL57_IMAGE_DEFAULT,
         "mysql:5.7.42-debian",
-        # MySQL 8.4 removed mysql_native_password plugin by default, and requires
-        # caching_sha2_password support on the client side. Prefer 5.7 for
-        # deterministic tests unless user overrides `LUSH_TEST_MYSQL_IMAGE`.
-        "mysql:8.0.40-debian",
+        MYSQL8_IMAGE_DEFAULT,
         "mysql:8.0",
         "mysql:8",
         "mysql:8.4",
@@ -118,9 +126,15 @@ def _choose_mysql_image() -> str:
     for image in candidates:
         if _docker_image_exists(image):
             return image
+    return MYSQL8_IMAGE_DEFAULT
 
-    # Fallback: docker will pull if missing
-    return "mysql:8"
+
+def _mysql57_image() -> str:
+    return os.getenv("LUSH_TEST_MYSQL57_IMAGE", MYSQL57_IMAGE_DEFAULT)
+
+
+def _mysql8_image() -> str:
+    return os.getenv("LUSH_TEST_MYSQL8_IMAGE", MYSQL8_IMAGE_DEFAULT)
 
 
 def _docker_rm_if_exists(container_name: str) -> None:
@@ -136,45 +150,61 @@ def _docker_rm_if_exists(container_name: str) -> None:
     )
 
 
-def _docker_start_mysql(container_name: str, *, image: str, root_password: str, database: str) -> int:
+def _mysql_server_command_args(image: str) -> list[str]:
+    """MySQL 8.0 可用 native password; 8.4+ / 浮动 ``mysql:8`` 不可再传该参数."""
+    tag = image.split(":", maxsplit=1)[-1]
+    if tag.startswith("8.0") or "8.0." in tag:
+        return ["--default-authentication-plugin=mysql_native_password"]
+    return []
+
+
+def _docker_start_mysql(
+    container_name: str,
+    *,
+    image: str,
+    root_password: str,
+    database: str,
+    server_args: Sequence[str] | None = None,
+) -> int:
     docker = shutil.which("docker")
     if docker is None:
         raise RuntimeError("Docker is unavailable")
     _docker_rm_if_exists(container_name)
-    subprocess.run(  # noqa: S603
-        [
-            docker,
-            "run",
-            "--rm",
-            "-d",
-            "--name",
-            container_name,
-            "-e",
-            "MYSQL_ROOT_HOST=%",
-            "-e",
-            f"MYSQL_ROOT_PASSWORD={root_password}",
-            "-e",
-            f"MYSQL_DATABASE={database}",
-            "-p",
-            "0:3306",
-            image,
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        text=True,
+    cmd = [
+        docker,
+        "run",
+        "--rm",
+        "-d",
+        "--name",
+        container_name,
+        "-e",
+        "MYSQL_ROOT_HOST=%",
+        "-e",
+        f"MYSQL_ROOT_PASSWORD={root_password}",
+        "-e",
+        f"MYSQL_DATABASE={database}",
+        "-p",
+        "0:3306",
+        image,
+        *(server_args if server_args is not None else _mysql_server_command_args(image)),
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)  # noqa: S603
+    port_line = (
+        subprocess.check_output(  # noqa: S603
+            [docker, "port", container_name, "3306/tcp"], text=True
+        )
+        .strip()
+        .splitlines()[0]
     )
-
-    port_line = subprocess.check_output([docker, "port", container_name, "3306/tcp"], text=True).strip().splitlines()[0]  # noqa: S603
     return int(port_line.rsplit(":", maxsplit=1)[-1])
 
 
-def _wait_for_mysql_ready(container_name: str, *, root_password: str, timeout_s: float = 45.0) -> None:
+def _wait_for_mysql_ready(container_name: str, *, root_password: str, timeout_s: float = 90.0) -> None:
     docker = shutil.which("docker")
     if docker is None:
         raise RuntimeError("Docker is unavailable")
     deadline = time.time() + timeout_s
-    while True:
+    while time.time() < deadline:
         proc = subprocess.run(  # noqa: S603
             [
                 docker,
@@ -196,10 +226,18 @@ def _wait_for_mysql_ready(container_name: str, *, root_password: str, timeout_s:
         )
         if proc.returncode == 0:
             return
-
-        if time.time() >= deadline:
-            raise RuntimeError("MySQL still not ready (timeout)")
         time.sleep(0.5)
+
+    logs = ""
+    try:
+        logs = subprocess.check_output(  # noqa: S603
+            [docker, "logs", "--tail", "40", container_name],
+            text=True,
+            stderr=subprocess.STDOUT,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        logs = f"<failed to read logs: {exc}>"
+    raise RuntimeError(f"MySQL still not ready (timeout)\n--- docker logs ---\n{logs}")
 
 
 def _docker_drop_database(container_name: str, *, root_password: str, database: str) -> None:
@@ -224,73 +262,60 @@ def _docker_drop_database(container_name: str, *, root_password: str, database: 
     )
 
 
-def _start_mysql_endpoint(image: str) -> Generator[_MySQLEndpoint, None, None]:
-    """启动指定版本的 MySQL 容器并 yield endpoint, 结束后清理."""
-    container_name = f"lush-sqlalchemyx-mysql-pytest-{uuid.uuid4().hex[:10]}"
-    root_password = uuid.uuid4().hex
+def _start_mysql_endpoint(
+    image: str,
+    *,
+    container_name: str | None = None,
+    root_password: str | None = None,
+) -> Generator[_MySQLEndpoint, None, None]:
+    """启动指定镜像的 MySQL 容器并 yield endpoint, 结束后清理."""
+    _docker_pull_if_needed(image)
+    if not _docker_image_exists(image):
+        pytest.skip(f"MySQL image not available: {image} (set LUSH_TEST_MYSQL_PULL=1 to pull)")
+
+    name = container_name or f"lush-sqlalchemyx-mysql-pytest-{uuid.uuid4().hex[:10]}"
+    password = root_password or uuid.uuid4().hex
     database = f"lush_test_{uuid.uuid4().hex[:12]}"
 
-    port = _docker_start_mysql(container_name, image=image, root_password=root_password, database=database)
+    port = _docker_start_mysql(name, image=image, root_password=password, database=database)
     try:
-        _wait_for_mysql_ready(container_name, root_password=root_password, timeout_s=45.0)
+        _wait_for_mysql_ready(name, root_password=password, timeout_s=90.0)
         ep = _MySQLEndpoint(
             host="127.0.0.1",
             port=port,
             user="root",
-            password=root_password,
+            password=password,
             database=database,
-            container_name=container_name,
+            container_name=name,
+            image=image,
         )
         _validate_test_endpoint(ep)
         yield ep
     finally:
-        _docker_drop_database(container_name, root_password=root_password, database=database)
-        _docker_rm_if_exists(container_name)
+        _docker_drop_database(name, root_password=password, database=database)
+        _docker_rm_if_exists(name)
 
 
 @pytest.fixture(scope="session")
 def mysql_endpoint() -> Generator[_MySQLEndpoint, None, None]:
     if not _docker_available():
         raise RuntimeError("Docker is unavailable. Enable Docker to run MySQL-backed tests.")
-
-    image = os.getenv("LUSH_TEST_MYSQL_IMAGE") or _choose_mysql_image()
-    container_name = os.getenv("LUSH_TEST_MYSQL_CONTAINER", f"lush-sqlalchemyx-mysql-pytest-{uuid.uuid4().hex[:10]}")
-    root_password = os.getenv("LUSH_TEST_MYSQL_ROOT_PASSWORD", uuid.uuid4().hex)
-    database = f"lush_test_{uuid.uuid4().hex[:12]}"
-
-    port = _docker_start_mysql(container_name, image=image, root_password=root_password, database=database)
-    try:
-        _wait_for_mysql_ready(container_name, root_password=root_password, timeout_s=45.0)
-        ep = _MySQLEndpoint(
-            host="127.0.0.1",
-            port=port,
-            user="root",
-            password=root_password,
-            database=database,
-            container_name=container_name,
-        )
-        _validate_test_endpoint(ep)
-        yield ep
-    finally:
-        _docker_drop_database(container_name, root_password=root_password, database=database)
-        _docker_rm_if_exists(container_name)
+    yield from _start_mysql_endpoint(
+        os.getenv("LUSH_TEST_MYSQL_IMAGE") or _choose_mysql_image(),
+        container_name=os.getenv("LUSH_TEST_MYSQL_CONTAINER"),
+        root_password=os.getenv("LUSH_TEST_MYSQL_ROOT_PASSWORD"),
+    )
 
 
 @pytest.fixture(scope="session")
 def mysql57_endpoint() -> Generator[_MySQLEndpoint, None, None]:
-    """MySQL 5.7 专用 endpoint — 用于多版本 matrix 测试."""
     if not _docker_available():
         pytest.skip("Docker unavailable")
-    if not _docker_image_exists("mysql:5.7"):
-        pytest.skip("mysql:5.7 image not available locally")
-    yield from _start_mysql_endpoint("mysql:5.7")
+    yield from _start_mysql_endpoint(_mysql57_image())
 
 
 @pytest.fixture(scope="session")
 def mysql8_endpoint() -> Generator[_MySQLEndpoint, None, None]:
-    """MySQL 8 专用 endpoint — 用于多版本 matrix 测试."""
     if not _docker_available():
         pytest.skip("Docker unavailable")
-    if not _docker_image_exists("mysql:8"):
-        pytest.skip("mysql:8 image not available locally")
-    yield from _start_mysql_endpoint("mysql:8")
+    yield from _start_mysql_endpoint(_mysql8_image())

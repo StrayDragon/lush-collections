@@ -24,12 +24,20 @@ sync:
 test:
   @uv run -p {{python}} --default-index {{default_index}} pytest
 
-# 分别使用 MySQL 5.7 和 8 运行 DAL 测试 (matrix 测试, 跳过覆盖率检查).
+# 分别使用 MySQL 5.7 和 8 运行 datetime None / zero-date 集成测试 (matrix, 跳过覆盖率).
+# 需要本机 Docker; CI 可设 LUSH_TEST_MYSQL_PULL=1 自动拉镜像.
 test-mysql-matrix:
-  @echo "=== MySQL 5.7 ==="
-  LUSH_TEST_MYSQL_IMAGE=mysql:5.7 uv run -p {{python}} --default-index {{default_index}} pytest tests/test_base_dal.py tests/test_sync_base_dal.py --no-cov -v --tb=short
-  @echo "=== MySQL 8 ==="
-  LUSH_TEST_MYSQL_IMAGE=mysql:8 uv run -p {{python}} --default-index {{default_index}} pytest tests/test_base_dal.py tests/test_sync_base_dal.py --no-cov -v --tb=short
+  @echo "=== MySQL 5.7 (zero-date / none_policy) ==="
+  LUSH_TEST_MYSQL_PULL=1 uv run -p {{python}} --default-index {{default_index}} \
+    pytest tests/test_mysql_update_none_datetime.py::TestMysql57ZeroDateReproduction -v --tb=short --no-cov
+  @echo "=== MySQL 8 (strict / none_policy) ==="
+  LUSH_TEST_MYSQL_PULL=1 uv run -p {{python}} --default-index {{default_index}} \
+    pytest tests/test_mysql_update_none_datetime.py::TestMysql8StrictNoneDatetime -v --tb=short --no-cov
+  @echo "=== Shared mysql_endpoint smoke ==="
+  LUSH_TEST_MYSQL_PULL=1 LUSH_TEST_MYSQL_IMAGE=mysql:8.0.40-debian uv run -p {{python}} --default-index {{default_index}} \
+    pytest tests/test_mysql_update_none_datetime.py::TestUpdateOnlySetNonePolicy \
+           tests/test_mysql_update_none_datetime.py::TestOracleAssignNoneEquivalent \
+           tests/test_mysql_container.py -v --tb=short --no-cov
 
 # 运行性能基准测试.
 bench:
