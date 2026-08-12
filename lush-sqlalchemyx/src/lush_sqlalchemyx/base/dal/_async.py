@@ -39,6 +39,7 @@ from ._common import (
     _ensure_strict_fields,
     filtered_in_sql_values,
     resolve_pk_column,
+    validate_orm_dal_pk_config,
 )
 
 if TYPE_CHECKING:
@@ -154,6 +155,10 @@ class AsyncRawReadDAL:
     """原始只读数据访问层."""
 
     _pk_attr: ClassVar[str] = "id"
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        validate_orm_dal_pk_config(cls)
 
     @classmethod
     def _pk_column(cls) -> InstrumentedAttribute[Any]:

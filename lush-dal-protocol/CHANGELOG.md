@@ -6,10 +6,9 @@
 
 ### Changes
 
-- 新增 `pk_field_cu_config(pk_field, *, keep_on_create=False)`; `EXTEND_TABLE_CU_CONFIG` 改为其 `keep_on_create=True` 别名 (显式含 `update_exclude`)
-- `BaseCU` 新增 `cu_config` / `BaseCUConfigDict` / `EXTEND_TABLE_CU_CONFIG` (对标 Pydantic `ConfigDict` k=v 写法)
-- `to_orm_model` 与 InMemory create/update dump 分别尊重 `to_orm_exclude` / `update_exclude` (MRO 浅合并, 类创建期缓存)
-- InMemory `_insert`: dump 含客户端 `id` 时采用该主键; 重复 id 抛 `ValueError`; 推进 `_next_id`
+- `BaseCU` 新增 `cu_config` / `BaseCUConfigDict` (对标 Pydantic `ConfigDict`); `to_orm_model` 与 InMemory create/update dump 分别尊重 `to_orm_exclude` / `update_exclude` (MRO 浅合并, 类创建期缓存)
+- 新增 `pk_field_cu_config(pk_field, *, keep_on_create=False)`; `EXTEND_TABLE_CU_CONFIG` 为其 `keep_on_create=True` 别名 (create 保留 PK, update 仍排除)
+- InMemory `_insert`: dump 含非空客户端主键时采用该值; 重复主键抛 `ValueError`; 推进 `_next_id` 到 `max+1` (便于共享 PK / 显式 PK 对拍)
 
 ## 0.5.0
 

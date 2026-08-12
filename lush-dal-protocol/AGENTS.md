@@ -37,12 +37,12 @@ class ReportJobCU(BaseCU[ReportJobTable]):
     report_name: str
 ```
 
-- `to_orm_exclude` / `update_exclude`: `frozenset[str]`, 默认均为 `frozenset({"id"})`.
+- `to_orm_exclude` / `update_exclude`: `frozenset[str]`, 默认均为 `frozenset({"id"})` — **自定义主键字段名时须改** `cu_config`, 否则 dump 仍按 `"id"` 排除.
 - `pk_field_cu_config(pk, *, keep_on_create=False)`: 按主键字段名生成配置; `EXTEND_TABLE_CU_CONFIG` 为其 `keep_on_create=True` 别名 (同时显式带 `update_exclude={pk}`).
 - MRO 浅合并 (子类已设键覆盖, 未设继承上游), 在 `__init_subclass__` 缓存为 `_resolved_cu_config`.
 - `cu_config` 仅在类体声明; 类创建后再改不保证生效.
 - 1:1 水平扩展表 (共享主键): 用 `EXTEND_TABLE_CU_CONFIG`, **扩展表必须独立 DAL**, 同事务先主表后扩展表.
-- InMemory 参考实现: create dump 含非空 `id` 时采用客户端主键; 冲突抛 `ValueError`; `_next_id` 推进到 `max+1`.
+- InMemory 参考实现: create dump 含非空主键字段时采用客户端值; 冲突抛 `ValueError`; `_next_id` 推进到 `max+1`.
 
 ## 一致性测试套件
 

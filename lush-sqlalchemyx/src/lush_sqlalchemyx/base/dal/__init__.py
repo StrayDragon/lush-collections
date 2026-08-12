@@ -58,6 +58,7 @@ from ._common import (
     resolve_pk_column,
     setup_dal_hooks,
     unregister_soft_delete_hooks,
+    validate_orm_dal_pk_config,
 )
 
 # --- dynamic (no ORM table class) ---
@@ -122,6 +123,7 @@ __all__ = (
     "resolve_pk_column",
     "setup_dal_hooks",
     "unregister_soft_delete_hooks",
+    "validate_orm_dal_pk_config",
     # dynamic
     "DynamicAsyncDAL",
     "DynamicSyncDAL",

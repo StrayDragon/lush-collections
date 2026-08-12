@@ -327,6 +327,97 @@ def resolve_pk_column(table: type[Any], pk_attr: str = "id") -> InstrumentedAttr
     return cast("InstrumentedAttribute[Any]", col)
 
 
+def _table_pk_attr_names(table: type[Any]) -> frozenset[str] | None:
+    """返回 mapper 主键对应的 Python 属性名; 不可 introspect 时返回 ``None``."""
+    try:
+        mapper = sa.inspect(table)
+    except (sa.exc.NoInspectionAvailable, TypeError):
+        return None
+    if mapper is None:
+        return None
+    try:
+        pk_cols = mapper.primary_key
+    except (AttributeError, TypeError):
+        return None
+    if not pk_cols:
+        return frozenset()
+    names: set[str] = set()
+    for col in pk_cols:
+        name = _pk_attr_name_from_mapper_column(mapper, col)
+        if name is not None:
+            names.add(name)
+    return frozenset(names)
+
+
+def _pk_attr_name_from_mapper_column(mapper: Any, col: Any) -> str | None:
+    """从 mapper 列解析 Python 属性名."""
+    try:
+        return str(mapper.get_property_by_column(col).key)
+    except (AttributeError, KeyError, ValueError):
+        key = getattr(col, "key", None) or getattr(col, "name", None)
+        return str(key) if key is not None else None
+
+
+def validate_orm_dal_pk_config(dal_cls: type[Any]) -> None:
+    """校验 ORM DAL 的 ``_pk_attr`` 与 Table / CU 配置一致.
+
+    在具体 DAL 子类创建时调用. 无 ``_Table`` 的中间基类、以及不可
+    ``sa.inspect`` 的测试 double / 非映射类直接跳过.
+
+    - ``_Table`` 上必须存在 ``_pk_attr`` 对应 ORM 列
+    - 若表已声明主键, ``_pk_attr`` 必须属于 mapper 主键属性
+    - 若绑定 ``_CU``, 其 ``update_exclude`` 必须包含 ``_pk_attr``
+      (避免默认仍按 ``\"id\"`` 排除而自定义主键漏配)
+
+    Raises:
+        TypeError: 配置不一致.
+    """
+    table = getattr(dal_cls, "_Table", None)
+    if not isinstance(table, type):
+        return
+    if getattr(table, "__abstract__", False) and getattr(table, "__tablename__", None) is None:
+        return
+
+    # 非 SQLAlchemy mapped class (单元测试 double 等) 不强制.
+    pk_names = _table_pk_attr_names(table)
+    if pk_names is None:
+        return
+
+    pk_attr = getattr(dal_cls, "_pk_attr", "id")
+    if not isinstance(pk_attr, str) or not pk_attr:
+        raise TypeError(f"{dal_cls.__name__}: _pk_attr 必须为非空 str, 当前为 {pk_attr!r}")
+
+    try:
+        resolve_pk_column(table, pk_attr)
+    except AttributeError as e:
+        raise TypeError(str(e)) from e
+
+    if pk_names and pk_attr not in pk_names:
+        raise TypeError(
+            f"{dal_cls.__name__}: _pk_attr={pk_attr!r} 不在表 {table.__name__} 的主键属性 {sorted(pk_names)} 中; "
+            f"请将 _pk_attr 改为表主键属性名"
+        )
+
+    cu = getattr(dal_cls, "_CU", None)
+    if not isinstance(cu, type):
+        return
+    resolve = getattr(cu, "resolve_cu_config", None)
+    if not callable(resolve):
+        return
+    cfg = resolve()
+    if not isinstance(cfg, dict):
+        return
+    update_exclude = cfg.get("update_exclude")
+    if update_exclude is None:
+        return
+    if pk_attr not in update_exclude:
+        raise TypeError(
+            f"{dal_cls.__name__}: _pk_attr={pk_attr!r} 但 {cu.__name__}.cu_config "
+            f"update_exclude={set(update_exclude)!r} 未包含该主键; "
+            f"请使用 pk_field_cu_config({pk_attr!r}) 与 DAL._pk_attr 成对配置"
+        )
+
+
 NonePolicy = Literal["ignore", "allow", "forbid"]
 """更新 API 中对 **显式** ``None`` 字段的处理策略.
 
@@ -407,4 +498,5 @@ __all__ = (
     "resolve_pk_column",
     "setup_dal_hooks",
     "unregister_soft_delete_hooks",
+    "validate_orm_dal_pk_config",
 )

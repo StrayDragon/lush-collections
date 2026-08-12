@@ -48,14 +48,31 @@ ORM 路径用 `EXTEND_TABLE_CU_CONFIG` / `pk_field_cu_config` (见 `lush-dal-pro
 
 - `Async/SyncRawReadDAL` (Read/Write 共用) 提供 `_pk_attr: ClassVar[str] = "id"` 与 `_pk_column()`.
 - get / exists / batch / lock / optimistic lock / `_iter_records` / 分页一律经 `_pk_attr` (默认 `"id"`).
-- 自定义主键名时: DAL 设 `_pk_attr="user_id"`, CU 用 `pk_field_cu_config("user_id")` 对齐 dump.
+- 自定义主键名须 **DAL + CU 成对配置** (默认 `cu_config` 仍按字段名 `"id"` 排除):
+
+```python
+class UserCU(BaseCU[UserTable]):
+    _Table = UserTable
+    cu_config = pk_field_cu_config("user_id")  # 或 keep_on_create=True 共享/显式 PK
+    user_id: int
+    name: str
+
+class UserDAL(AsyncBaseDAL[UserTable, UserDTO, UserCU]):
+    _Table = UserTable
+    _DTO = UserDTO
+    _CU = UserCU
+    _pk_attr = "user_id"
+```
+
+- 具体 DAL 子类创建时对 **可 ``sa.inspect`` 的 mapped 表** 调用 `validate_orm_dal_pk_config`: `_pk_attr` 须为 mapper 主键属性, 且 `_CU.update_exclude` 含该名; 不一致抛 `TypeError` (非映射测试 double 跳过).
 - 分页 `build_*_stmt` / `make_cursor_result` 接受 `pk_attr`; cursor 仍默认按 `int` 解码 — 非 int PK 须自备 `order_by` / 编解码.
 - Flask `FlaskSessionDALAdapter` 的 `entity_id` 类型放宽为 `Any`.
 
 ### 审计列
 
 - `batch_update_by_conditions` / `batch_update_by_ids` / `update_only_set_with_optimistic_lock` **不再**自动写 `update_datetime` / `update_operator_id`.
-- 已移除 `updater_id` 参数; 时间戳与操作人经 CU / `update_data` 显式传入.
+- 已移除 `updater_id`; 需要审计时把字段放进 `update_data` / CU (见 CHANGELOG Unreleased 迁移示例).
+- 单行 `update_only_set_by_id` 等本就不注入审计列.
 
 ### 单实现层
 

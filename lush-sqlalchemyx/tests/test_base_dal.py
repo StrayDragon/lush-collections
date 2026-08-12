@@ -4153,7 +4153,7 @@ class TestOptimisticLockEdgeCases:
         assert result.version == version
 
     async def test_optimistic_lock_missing_id_field_raises(self) -> None:
-        """测试缺少 id 字段时抛出异常"""
+        """默认 ``_pk_attr='id'`` 与表主键 ``pk`` 不一致时, 子类创建即失败."""
 
         class _NoIdVersionTable(BasicAsyncBaseTable):
             __tablename__ = "unit_testing_no_id_version_table"
@@ -4172,22 +4172,12 @@ class TestOptimisticLockEdgeCases:
 
             model_config = ConfigDict(from_attributes=True)
 
-        class _NoIdDAL(AsyncBaseDAL[_NoIdVersionTable, _NoIdDTO, _NoIdCU]):  # pyright: ignore[reportInvalidTypeArguments]
-            _Table = _NoIdVersionTable
-            _DTO = _NoIdDTO
-            _CU = _NoIdCU
+        with pytest.raises(TypeError, match="不包含主键字段|'id'"):
 
-        class _SessionStub:
-            def __init__(self) -> None:
-                self.info: dict[str, bool] = {}
-
-        with pytest.raises(AttributeError, match="不包含主键字段"):
-            await _NoIdDAL.update_only_set_with_optimistic_lock(
-                _SessionStub(),
-                1,
-                _NoIdCU(name="test"),
-                expected_version=0,
-            )
+            class _NoIdDAL(AsyncBaseDAL[_NoIdVersionTable, _NoIdDTO, _NoIdCU]):  # pyright: ignore[reportInvalidTypeArguments]
+                _Table = _NoIdVersionTable
+                _DTO = _NoIdDTO
+                _CU = _NoIdCU
 
 
 class TestReadOnlyAsyncBaseDAL:
