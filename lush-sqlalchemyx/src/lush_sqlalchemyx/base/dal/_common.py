@@ -9,7 +9,9 @@ import logging
 from typing import Any, ClassVar, Final, Generic, Literal, TypeVar, cast
 
 import sqlalchemy as sa
+from lush_dal_protocol.dto import EXTEND_TABLE_CU_CONFIG as EXTEND_TABLE_CU_CONFIG  # noqa: PLC0414
 from lush_dal_protocol.dto import BaseCU as _ProtocolBaseCU
+from lush_dal_protocol.dto import BaseCUConfigDict as BaseCUConfigDict  # noqa: PLC0414
 from lush_dal_protocol.dto import BaseDTO as _ProtocolBaseDTO
 from lush_dal_protocol.dto import CUModelT as CUModelT  # noqa: PLC0414
 from lush_dal_protocol.dto import DTOModelT as DTOModelT  # noqa: PLC0414
@@ -355,11 +357,13 @@ SQLAlchemyOperationalError = SQLAlchemyOperationalError
 
 __all__ = (
     "DEFAULT_RETRY_CONFIG",
+    "EXTEND_TABLE_CU_CONFIG",
     "OPTIMISTIC_LOCK_ERROR_MSG_TRAIT",
     "PESSIMISTIC_LOCK_ERROR_MSG_TRAIT",
     "READONLY_SESSION_FLAG",
     "_LOGGER",
     "BaseCU",
+    "BaseCUConfigDict",
     "BaseDTO",
     "BaseModelT",
     "CUModelT",

@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+### Changes
+
+- 依赖 `lush-dal-protocol` `BaseCU.cu_config`: WriteDAL update 路径改读 `update_exclude`; 导出 `BaseCUConfigDict` / `EXTEND_TABLE_CU_CONFIG`
+- `DynamicTableConfig.exclude_pk_on_create` (默认 `True`); update 经 `cu_row_data(..., for_create=False)` 始终排除 PK
+- 支持 1:1 水平扩展表 (共享主键) ORM / Dynamic 双路径
+
 ## 0.7.1
 
 ### Changes
@@ -74,13 +80,16 @@ from lush_sqlalchemyx.base.dal._common import __prevent_readonly_write
 # 旧方式 (已删除)
 from lush_sqlalchemyx.base.dal import StdAsyncBaseTable, StdBaseCU
 
+
 class MyTable(StdAsyncBaseTable):
     __tablename__ = "my_table"
     name: Mapped[str] = mapped_column(sa.String(50))
     # create_operator_id, update_operator_id, is_delete 自动来自 StdAsyncBaseTable
 
+
 # 新方式
 from lush_sqlalchemyx.base.dal import BasicAsyncBaseTable, BaseCU
+
 
 class MyTable(BasicAsyncBaseTable):
     __tablename__ = "my_table"
@@ -118,6 +127,7 @@ ALTER TABLE <your_table> ALTER COLUMN is_delete TYPE SMALLINT;
 
 ```python
 from lush_sqlalchemyx import setup_dal_hooks
+
 setup_dal_hooks()
 ```
 

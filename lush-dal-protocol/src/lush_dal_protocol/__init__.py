@@ -25,13 +25,23 @@ from .abc import (
     DtoSyncWriteDAL,
 )
 from .abc._types import NO_ENTITY, NO_SESSION, NoEntity, NoSession, PrimaryKeyT
-from .dto import BaseCU, BaseDTO, CUModelT, DTOModelT, StdBaseCU, StdBaseDTO
+from .dto import (
+    EXTEND_TABLE_CU_CONFIG,
+    BaseCU,
+    BaseCUConfigDict,
+    BaseDTO,
+    CUModelT,
+    DTOModelT,
+    StdBaseCU,
+    StdBaseDTO,
+)
 from .errors import DBRetryableError
 from .params import CursorPagination, CursorResult, OffsetPagination, PageResult
 from .utils import DEFAULT_RETRY_CONFIG, RetryConfig, escape_like, filtered_in_sql_values
 
 __all__ = [
     "DEFAULT_RETRY_CONFIG",
+    "EXTEND_TABLE_CU_CONFIG",
     "NO_ENTITY",
     "NO_SESSION",
     "AbstractAsyncBaseDAL",
@@ -47,6 +57,7 @@ __all__ = [
     "AbstractSyncSessionlessWriteDAL",
     "AbstractSyncWriteDAL",
     "BaseCU",
+    "BaseCUConfigDict",
     "BaseDTO",
     "CUModelT",
     "CursorPagination",

@@ -15,12 +15,32 @@
 | `abc/read.py` | AbstractAsync/SyncReadDAL — 读操作 ABC (8 个 abstractmethod) |
 | `abc/write.py` | AbstractAsync/SyncWriteDAL — 写操作 ABC (5 个 abstractmethod) |
 | `abc/composed.py` | AbstractAsync/SyncBaseDAL — Read + Write 组合 |
-| `dto.py` | `BaseCU` / `BaseDTO` — ORM 无关 Pydantic 基类; `StdBaseCU` / `StdBaseDTO` (deprecated) |
+| `dto.py` | `BaseCU` / `BaseDTO` — ORM 无关 Pydantic 基类; `BaseCUConfigDict` / `EXTEND_TABLE_CU_CONFIG`; `StdBaseCU` / `StdBaseDTO` (deprecated) |
 | `errors.py` | `DBRetryableError` — 数据库并发可重试错误 |
 | `utils/retry.py` | `RetryConfig` / `DEFAULT_RETRY_CONFIG` — 指数退避重试配置 |
 | `utils/sql.py` | `filtered_in_sql_values` / `escape_like` — 通用工具函数 |
 | `testing/conformance.py` | 分层一致性测试 mixin, 下游继承运行 |
 | `testing/reference.py` | 内存参考实现 (InMemorySyncDAL/AsyncDAL), 验证套件正确性 |
+
+## BaseCU `cu_config`
+
+与 Pydantic `model_config = ConfigDict(...)` 同构:
+
+```python
+from lush_dal_protocol import BaseCU, BaseCUConfigDict, EXTEND_TABLE_CU_CONFIG
+
+
+class ReportJobCU(BaseCU[ReportJobTable]):
+    _Table = ReportJobTable
+    cu_config = EXTEND_TABLE_CU_CONFIG  # 或 BaseCUConfigDict(to_orm_exclude=frozenset())
+    id: int
+    report_name: str
+```
+
+- `to_orm_exclude` / `update_exclude`: `frozenset[str]`, 默认均为 `frozenset({"id"})`.
+- MRO 浅合并 (子类已设键覆盖, 未设继承上游), 在 `__init_subclass__` 缓存为 `_resolved_cu_config`.
+- `cu_config` 仅在类体声明; 类创建后再改不保证生效.
+- 1:1 水平扩展表 (共享主键): 用 `EXTEND_TABLE_CU_CONFIG`, **扩展表必须独立 DAL**, 同事务先主表后扩展表.
 
 ## 一致性测试套件
 
@@ -29,15 +49,22 @@
 ```python
 from lush_dal_protocol.testing import SyncFullDALConformanceTests
 
+
 class TestMyDAL(SyncFullDALConformanceTests):
     @pytest.fixture
-    def dal_class(self): return MyDAL
+    def dal_class(self):
+        return MyDAL
+
     @pytest.fixture
     def session(self): ...
     @pytest.fixture
-    def sample_cu(self): return MyCU(name="test")
+    def sample_cu(self):
+        return MyCU(name="test")
+
     @pytest.fixture
-    def make_cu(self): return lambda label: MyCU(name=f"test-{label}")
+    def make_cu(self):
+        return lambda label: MyCU(name=f"test-{label}")
+
     @pytest.fixture
     def where_clause_factory(self): ...
 ```
@@ -79,7 +106,7 @@ class TestMyDAL(SyncFullDALConformanceTests):
 
 ```python
 def _post_write_refresh(self, session):
-    session.expire_all()   # SQLAlchemy 示例
+    session.expire_all()  # SQLAlchemy 示例
 ```
 
 > **重要**: 在调用 `_post_write_refresh` 之前, 必须先将后续需要的实体属性

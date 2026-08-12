@@ -131,8 +131,14 @@ def _row_to_dto(row: dict[str, Any]) -> InMemoryDTO:
     return InMemoryDTO(id=row["id"], name=row.get("name", ""))
 
 
-def _cu_to_data(cu: InMemoryCU) -> dict[str, Any]:
-    return cu.model_dump(exclude_unset=True, exclude={"id"})
+def _cu_to_create_data(cu: InMemoryCU) -> dict[str, Any]:
+    exclude = type(cu).resolve_cu_config()["to_orm_exclude"]
+    return cu.model_dump(exclude_unset=True, exclude=exclude)
+
+
+def _cu_to_update_data(cu: InMemoryCU) -> dict[str, Any]:
+    exclude = type(cu).resolve_cu_config()["update_exclude"]
+    return cu.model_dump(exclude_unset=True, exclude=exclude)
 
 
 def _must_get(session: InMemorySession, eid: int) -> dict[str, Any]:
@@ -207,7 +213,7 @@ class InMemorySyncDAL(
 
     @classmethod
     def create(cls, session: InMemorySession, cu: InMemoryCU, need_refresh: bool = True) -> InMemoryEntity:
-        data = _cu_to_data(cu)
+        data = _cu_to_create_data(cu)
         data.setdefault("version", 1)
         eid = session._insert(data)
         return _row_to_entity(_must_get(session, eid))
@@ -225,7 +231,7 @@ class InMemorySyncDAL(
         cu: InMemoryCU,
         need_refresh: bool = False,
     ) -> InMemoryEntity | None:
-        if not session._update(entity_id, _cu_to_data(cu)):
+        if not session._update(entity_id, _cu_to_update_data(cu)):
             return None
         return _row_to_entity(_must_get(session, entity_id))
 

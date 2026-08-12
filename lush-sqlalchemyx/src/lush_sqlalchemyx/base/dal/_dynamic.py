@@ -109,12 +109,15 @@ class DynamicTableConfig:
         soft_delete_value: 软删除时写入的值.
         soft_undelete_value: 恢复时写入的值.
         is_readonly: 只读保护, 拒绝一切写入操作.
+        exclude_pk_on_create: create dump 是否排除主键字段; ``False`` 用于共享主键 /
+            显式 PK insert (与 ORM ``EXTEND_TABLE_CU_CONFIG`` 场景对应).
     """
 
     soft_delete_column: str | None = None
     soft_delete_value: Any = 1
     soft_undelete_value: Any = 0
     is_readonly: bool = False
+    exclude_pk_on_create: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -347,9 +350,19 @@ class TableRef(Generic[PrimaryKeyT]):
             return ipk[0]
         return getattr(result, "lastrowid", None)  # type: ignore[return-value]
 
-    def cu_row_data(self, cu: BaseModel) -> dict[str, Any]:
-        """CU 模型 → ``{db_column: value}`` dict (排除 PK 字段)."""
-        return self.map_to_row_data(cu.model_dump(exclude_unset=True, exclude={self.pk_field_name}))
+    def cu_row_data(self, cu: BaseModel, *, for_create: bool = True) -> dict[str, Any]:
+        """CU 模型 → ``{db_column: value}`` dict.
+
+        Args:
+            cu: CU 模型实例.
+            for_create: ``True`` 时按 ``exclude_pk_on_create`` 决定是否排除主键;
+                ``False`` (update) 时始终排除主键, 避免误改 PK.
+        """
+        if for_create:
+            dump_exclude: frozenset[str] = frozenset({self.pk_field_name}) if self.config.exclude_pk_on_create else frozenset()
+        else:
+            dump_exclude = frozenset({self.pk_field_name})
+        return self.map_to_row_data(cu.model_dump(exclude_unset=True, exclude=dump_exclude))
 
 
 # ---------------------------------------------------------------------------
@@ -551,7 +564,7 @@ class DynamicSyncDAL(
         """
         s = self._resolve_session(session)
         self._ref.guard_readonly("更新")
-        row_data = self._ref.cu_row_data(cu)
+        row_data = self._ref.cu_row_data(cu, for_create=False)
         if not row_data:
             return 0
         stmt = self._ref.sa_table.update().where(self._ref.pk() == entity_id).values(**row_data)
@@ -790,7 +803,7 @@ class DynamicAsyncDAL(
         """按主键更新记录."""
         s = self._resolve_session(session)
         self._ref.guard_readonly("更新")
-        row_data = self._ref.cu_row_data(cu)
+        row_data = self._ref.cu_row_data(cu, for_create=False)
         if not row_data:
             return 0
         stmt = self._ref.sa_table.update().where(self._ref.pk() == entity_id).values(**row_data)

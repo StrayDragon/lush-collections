@@ -496,7 +496,8 @@ class SyncWriteDAL(
         if not entity:
             return None
 
-        update_data = cu.model_dump(exclude_unset=True, exclude={"id"})
+        update_exclude = type(cu).resolve_cu_config()["update_exclude"]
+        update_data = cu.model_dump(exclude_unset=True, exclude=update_exclude)
         for key, value in update_data.items():
             if not _apply_none_policy(key, value, none_policy=none_policy):
                 continue
@@ -547,9 +548,10 @@ class SyncWriteDAL(
         entity = session.get(cls._Table, entity_id)
         if not entity:
             return None
-        update_data: dict[str, Any] = cu.model_dump(exclude={"id"})
+        update_exclude = type(cu).resolve_cu_config()["update_exclude"]
+        update_data: dict[str, Any] = cu.model_dump(exclude=update_exclude)
         if strict_missing:
-            declared_fields = set(cu.__class__.model_fields.keys()) - {"id"}
+            declared_fields = set(cu.__class__.model_fields.keys()) - set(update_exclude)
             missing_declared = [k for k in declared_fields if k not in update_data]
             if missing_declared:
                 raise ValueError(f"缺少必须字段: {missing_declared}")
@@ -579,7 +581,8 @@ class SyncWriteDAL(
         entity = session.get(cls._Table, entity_id)
         if not entity:
             return None
-        update_data: dict[str, Any] = cu.model_dump(exclude_unset=True, exclude={"id"})
+        update_exclude = type(cu).resolve_cu_config()["update_exclude"]
+        update_data: dict[str, Any] = cu.model_dump(exclude_unset=True, exclude=update_exclude)
         allowed_names: set[str] | None = None
         if fields is not None:
             allowed_names = set()
@@ -717,7 +720,7 @@ class SyncWriteDAL(
             raise AttributeError(f"表 {cls._Table.__name__} 不包含 {version_field} 字段,无法使用乐观锁")
         if not hasattr(cls._Table, "id"):  # pragma: no cover
             raise AttributeError(f"表 {cls._Table.__name__} 不包含 id 字段,无法使用乐观锁")
-        exclude_fields = {"id", version_field}
+        exclude_fields = type(cu).resolve_cu_config()["update_exclude"] | {version_field}
         update_data = cu.model_dump(exclude_unset=True, exclude=exclude_fields)
         if not update_data:
             return session.get(cls._Table, entity_id)

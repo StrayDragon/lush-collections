@@ -37,6 +37,12 @@ src/lush_sqlalchemyx/
 - 软删除: SELECT 自动注入 `WHERE sd_col=0`, DELETE 转为 `UPDATE SET sd_col=1`.
 - 只读: 写入操作前检查 `config.is_readonly`, 拒绝则抛 `TypeError`.
 - 主键获取: `sa.table()` 不知道 PK 约束, 用 `result.lastrowid` 作为 fallback.
+- 共享主键 / 显式 PK insert: `DynamicTableConfig(exclude_pk_on_create=False)` (update 仍始终排除 PK).
+
+### 1:1 水平扩展表 (共享主键)
+
+ORM 路径用 `EXTEND_TABLE_CU_CONFIG` (见 `lush-dal-protocol` `cu_config`); Dynamic 路径用 `exclude_pk_on_create=False`.
+扩展表必须独立 DAL; 同事务: 主表 `ret_dto_after_create` → 扩展表 `ret_dto_after_create(cu_with_id)`.
 
 ### 单实现层
 
@@ -56,18 +62,26 @@ DAL 实现必须通过 `lush-dal-protocol` 的一致性套件 (Read+Write+FieldI
 ```python
 from lush_dal_protocol.testing import AsyncFullDALConformanceTests
 
+
 class TestAsyncDALConformance(AsyncFullDALConformanceTests):
     def _post_write_refresh(self, session):
         session.expire_all()
 
     @pytest.fixture
-    def dal_class(self): return MyDAL
+    def dal_class(self):
+        return MyDAL
+
     @pytest.fixture
-    async def session(self, async_session): return async_session
+    async def session(self, async_session):
+        return async_session
+
     @pytest.fixture
-    def sample_cu(self): return MyCU(name="test")
+    def sample_cu(self):
+        return MyCU(name="test")
+
     @pytest.fixture
-    def make_cu(self): return lambda label: MyCU(name=f"test-{label}")
+    def make_cu(self):
+        return lambda label: MyCU(name=f"test-{label}")
 ```
 
 ## Flask-SQLAlchemy 集成 (两条路径)

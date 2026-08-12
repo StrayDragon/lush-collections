@@ -33,10 +33,12 @@ from ._async import (
 )
 from ._common import (
     DEFAULT_RETRY_CONFIG,
+    EXTEND_TABLE_CU_CONFIG,
     OPTIMISTIC_LOCK_ERROR_MSG_TRAIT,
     PESSIMISTIC_LOCK_ERROR_MSG_TRAIT,
     READONLY_SESSION_FLAG,
     BaseCU,
+    BaseCUConfigDict,
     BaseDTO,
     CUModelT,
     DBRetryableError,
@@ -93,10 +95,12 @@ from ._sync import (
 __all__ = (
     # common
     "DEFAULT_RETRY_CONFIG",
+    "EXTEND_TABLE_CU_CONFIG",
     "OPTIMISTIC_LOCK_ERROR_MSG_TRAIT",
     "PESSIMISTIC_LOCK_ERROR_MSG_TRAIT",
     "READONLY_SESSION_FLAG",
     "BaseCU",
+    "BaseCUConfigDict",
     "BaseDTO",
     "CUModelT",
     "DBRetryableError",

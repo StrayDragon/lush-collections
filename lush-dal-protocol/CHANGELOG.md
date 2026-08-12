@@ -2,6 +2,13 @@
 
 本文件记录 `lush-dal-protocol` 的破坏性变更和重要变更，帮助从低版本升级。
 
+## Unreleased
+
+### Changes
+
+- `BaseCU` 新增 `cu_config` / `BaseCUConfigDict` / `EXTEND_TABLE_CU_CONFIG` (对标 Pydantic `ConfigDict` k=v 写法)
+- `to_orm_model` 与 InMemory create/update dump 分别尊重 `to_orm_exclude` / `update_exclude` (MRO 浅合并, 类创建期缓存)
+
 ## 0.5.0
 
 ### Breaking Changes
