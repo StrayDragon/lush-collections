@@ -223,6 +223,21 @@ def test_optimistic_lock_no_version() -> None: ...
 def test_optimistic_lock_nonexistent() -> None: ...
 
 
+# ── pk-and-audit.feature ──
+
+
+@scenario("dal/pk-and-audit.feature", "批量更新名称时不隐式写 update_datetime")
+def test_batch_update_no_implicit_audit() -> None: ...
+
+
+@scenario("dal/pk-and-audit.feature", "乐观锁更新名称时不隐式写 update_datetime")
+def test_optimistic_lock_no_implicit_audit() -> None: ...
+
+
+@scenario("dal/pk-and-audit.feature", "自定义主键 user_id 可按主键查询与更新")
+def test_custom_pk_attr_crud() -> None: ...
+
+
 # ── for-update-sql.feature ──
 
 

@@ -213,7 +213,7 @@ async def test_update_full_by_id_ignores_unknown_fields():
     entity = _UnitEntity(name="old", value=1)
     session = _FakeAsyncSession(entities_by_id={1: entity})
 
-    # update_full_by_id uses model_dump(exclude={"id"}), so even default None fields are included
+    # update_full_by_id uses model_dump(exclude=update_exclude from cu_config), so even default None fields are included
     cu = _UnitUpdateCU(name="new", unknown_field="ignored")
     result = await _UnitDAL.update_full_by_id(session, 1, cu, strict_missing=False)  # type: ignore[arg-type]
     assert result is entity
@@ -312,7 +312,7 @@ class _VersionedWithDtDAL(AsyncBaseDAL[_VersionedWithUpdateDatetime, _VersionedW
 
 
 @pytest.mark.asyncio
-async def test_update_only_set_with_optimistic_lock_table_without_update_datetime_branch():
+async def test_update_only_set_with_optimistic_lock_table_without_audit_columns():
     entity = _VersionedNoUpdateDatetime(id=1, name="old", version=0)
     session = _FakeAsyncSession(entities_by_id={1: entity})
 
@@ -328,8 +328,8 @@ async def test_update_only_set_with_optimistic_lock_table_without_update_datetim
 
 
 @pytest.mark.asyncio
-async def test_update_only_set_with_optimistic_lock_sets_update_datetime():
-    """覆盖乐观锁路径中 hasattr(update_datetime) 为 True 的分支."""
+async def test_update_only_set_with_optimistic_lock_does_not_implicit_set_update_datetime():
+    """表上有 update_datetime 列时乐观锁 UPDATE SQL 不含该列."""
     entity = _VersionedWithUpdateDatetime(id=1, name="old", version=0, update_datetime=None)
     session = _FakeAsyncSession(entities_by_id={1: entity})
 
@@ -340,6 +340,10 @@ async def test_update_only_set_with_optimistic_lock_sets_update_datetime():
         expected_version=0,
     )
     assert session.executed
+    assert entity.update_datetime is None
+    from tests.oracle.pk_and_audit import oracle_update_sets_column
+
+    assert not oracle_update_sets_column(session.executed[0], "update_datetime")
 
 
 class _MsgData(BaseModel):

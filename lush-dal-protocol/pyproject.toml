@@ -86,6 +86,7 @@ ignore = [
     "TD002", "TD003",
     "D",
     "EM",
+    "CPY001",  # 本仓库不强制文件头 copyright notice
 ]
 
 [tool.ruff.lint.per-file-ignores]

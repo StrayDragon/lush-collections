@@ -1,5 +1,4 @@
 from ._pool_config import MySQLPoolConfig
-
 from .manager import (
     AsyncMySQLManager,
     SessionT,

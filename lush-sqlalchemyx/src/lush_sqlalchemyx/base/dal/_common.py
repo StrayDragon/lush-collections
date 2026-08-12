@@ -15,6 +15,7 @@ from lush_dal_protocol.dto import BaseCUConfigDict as BaseCUConfigDict  # noqa: 
 from lush_dal_protocol.dto import BaseDTO as _ProtocolBaseDTO
 from lush_dal_protocol.dto import CUModelT as CUModelT  # noqa: PLC0414
 from lush_dal_protocol.dto import DTOModelT as DTOModelT  # noqa: PLC0414
+from lush_dal_protocol.dto import pk_field_cu_config as pk_field_cu_config  # noqa: PLC0414
 from lush_dal_protocol.errors import (
     OPTIMISTIC_LOCK_ERROR_MSG_TRAIT,
     PESSIMISTIC_LOCK_ERROR_MSG_TRAIT,
@@ -29,7 +30,7 @@ from lush_dal_protocol.utils import (
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import event as sa_event
 from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
-from sqlalchemy.orm import Mapped, ORMExecuteState, mapped_column, with_loader_criteria
+from sqlalchemy.orm import InstrumentedAttribute, Mapped, ORMExecuteState, mapped_column, with_loader_criteria
 from sqlalchemy.orm import Session as SyncSession
 
 READONLY_SESSION_FLAG: Final[str] = "__lush_sqlalchemyx__readonly_session__"
@@ -309,6 +310,23 @@ def _ensure_strict_fields(
         raise ValueError(f"出现未允许更新的字段: {not_allowed}")
 
 
+def resolve_pk_column(table: type[Any], pk_attr: str = "id") -> InstrumentedAttribute[Any]:
+    """解析表上的主键 ``InstrumentedAttribute``.
+
+    Args:
+        table: ORM 表类.
+        pk_attr: 主键 Python 属性名, 默认 ``"id"``.
+
+    Raises:
+        AttributeError: 表上不存在该属性, 或不是 ORM 列.
+    """
+    col = getattr(table, pk_attr, None)
+    if not isinstance(col, InstrumentedAttribute):
+        table_name = getattr(table, "__name__", str(table))
+        raise AttributeError(f"表 {table_name} 不包含主键字段 {pk_attr!r}, 无法用于按主键操作")
+    return cast("InstrumentedAttribute[Any]", col)
+
+
 NonePolicy = Literal["ignore", "allow", "forbid"]
 """更新 API 中对 **显式** ``None`` 字段的处理策略.
 
@@ -384,7 +402,9 @@ __all__ = (
     "escape_like",
     "filtered_in_sql_values",
     "is_soft_delete_hooks_registered",
+    "pk_field_cu_config",
     "register_soft_delete_hooks",
+    "resolve_pk_column",
     "setup_dal_hooks",
     "unregister_soft_delete_hooks",
 )

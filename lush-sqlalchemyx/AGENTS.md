@@ -41,8 +41,21 @@ src/lush_sqlalchemyx/
 
 ### 1:1 水平扩展表 (共享主键)
 
-ORM 路径用 `EXTEND_TABLE_CU_CONFIG` (见 `lush-dal-protocol` `cu_config`); Dynamic 路径用 `exclude_pk_on_create=False`.
+ORM 路径用 `EXTEND_TABLE_CU_CONFIG` / `pk_field_cu_config` (见 `lush-dal-protocol` `cu_config`); Dynamic 路径用 `exclude_pk_on_create=False`.
 扩展表必须独立 DAL; 同事务: 主表 `ret_dto_after_create` → 扩展表 `ret_dto_after_create(cu_with_id)`.
+
+### ORM 主键 `_pk_attr`
+
+- `Async/SyncRawReadDAL` (Read/Write 共用) 提供 `_pk_attr: ClassVar[str] = "id"` 与 `_pk_column()`.
+- get / exists / batch / lock / optimistic lock / `_iter_records` / 分页一律经 `_pk_attr` (默认 `"id"`).
+- 自定义主键名时: DAL 设 `_pk_attr="user_id"`, CU 用 `pk_field_cu_config("user_id")` 对齐 dump.
+- 分页 `build_*_stmt` / `make_cursor_result` 接受 `pk_attr`; cursor 仍默认按 `int` 解码 — 非 int PK 须自备 `order_by` / 编解码.
+- Flask `FlaskSessionDALAdapter` 的 `entity_id` 类型放宽为 `Any`.
+
+### 审计列
+
+- `batch_update_by_conditions` / `batch_update_by_ids` / `update_only_set_with_optimistic_lock` **不再**自动写 `update_datetime` / `update_operator_id`.
+- 已移除 `updater_id` 参数; 时间戳与操作人经 CU / `update_data` 显式传入.
 
 ### 单实现层
 

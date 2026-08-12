@@ -38,6 +38,7 @@ from ._common import (
     _apply_none_policy,
     _ensure_strict_fields,
     filtered_in_sql_values,
+    resolve_pk_column,
 )
 
 if TYPE_CHECKING:
@@ -152,6 +153,13 @@ ReadOnlyDTOModelT = TypeVar("ReadOnlyDTOModelT", bound=BaseModel)
 class AsyncRawReadDAL:
     """原始只读数据访问层."""
 
+    _pk_attr: ClassVar[str] = "id"
+
+    @classmethod
+    def _pk_column(cls) -> InstrumentedAttribute[Any]:
+        """返回本 DAL 绑定表的主键列."""
+        return resolve_pk_column(cls._Table, cls._pk_attr)  # pyright: ignore[reportAttributeAccessIssue]
+
     @classmethod
     async def execute_readonly_sql(
         cls,
@@ -181,11 +189,12 @@ class AsyncRawReadDAL:
         where_clauses: list[ColumnExpressionArgument[bool]] | None = None,
         with_deleted: bool = False,
         batch_size: int = 500,
+        pk_attr: str = "id",
     ) -> AsyncGenerator[AsyncSQLATableT, None]:
-        if not hasattr(table_class, "id") or not isinstance(getattr(table_class, "id", None), InstrumentedAttribute):
-            raise ValueError(f"表 {table_class.__name__} 必须有 id 字段才能使用迭代方法")
-
-        id_attr = cast("InstrumentedAttribute[Any]", getattr(table_class, "id"))  # noqa: B009
+        try:
+            id_attr = resolve_pk_column(table_class, pk_attr)
+        except AttributeError as e:
+            raise ValueError(f"表 {table_class.__name__} 必须有主键字段 {pk_attr!r} 才能使用迭代方法") from e
 
         last_id: Any = None
 
@@ -231,7 +240,7 @@ class AsyncReadDAL(
     async def get_by_id(
         cls,
         session: AsyncSession,
-        entity_id: int,
+        entity_id: Any,
     ) -> AsyncSQLATableT | None:
         entity = await session.get(cls._Table, entity_id)
         if entity is not None and isinstance(entity, SoftDeleteTableMixin) and entity.is_soft_deleted:
@@ -261,13 +270,12 @@ class AsyncReadDAL(
     async def batch_get_id__entity(
         cls,
         session: AsyncSession,
-        entity_ids: Iterable[int],
-    ) -> dict[int, AsyncSQLATableT]:
+        entity_ids: Iterable[Any],
+    ) -> dict[Any, AsyncSQLATableT]:
         return await cls.batch_get_field__entity(
             session,
-            field_name="id",
+            field_name=cls._pk_attr,
             field_values=entity_ids,
-            field_value_type_as=int,
         )
 
     @classmethod
@@ -293,11 +301,11 @@ class AsyncReadDAL(
     async def batch_get_id__dto(
         cls,
         session: AsyncSession,
-        entity_ids: Iterable[int],
-    ) -> dict[int, DTOModelT]:
+        entity_ids: Iterable[Any],
+    ) -> dict[Any, DTOModelT]:
         return await cls.batch_get_field__dto(
             session,
-            field_name="id",
+            field_name=cls._pk_attr,
             field_values=entity_ids,
         )
 
@@ -305,7 +313,7 @@ class AsyncReadDAL(
     async def ret_dto_after_get_by_id(
         cls,
         session: AsyncSession,
-        entity_id: int,
+        entity_id: Any,
         need_refresh: bool = True,
     ) -> DTOModelT | None:
         entity = await session.get(cls._Table, entity_id)
@@ -331,7 +339,7 @@ class AsyncReadDAL(
         return result.scalar() or 0
 
     @classmethod
-    async def exists(cls, session: AsyncSession, entity_id: int) -> bool:
+    async def exists(cls, session: AsyncSession, entity_id: Any) -> bool:
         entity = await session.get(cls._Table, entity_id)
         if entity is None:
             return False
@@ -341,17 +349,13 @@ class AsyncReadDAL(
     async def get_by_id_for_update(
         cls,
         session: AsyncSession,
-        entity_id: int,
+        entity_id: Any,
         *,
         lock_wait_timeout: int | None = None,
     ) -> AsyncSQLATableT | None:
         try:
             async with async_temp_set_lock_wait_timeout(session, lock_wait_timeout):
-                stmt = (
-                    sa.select(cls._Table)
-                    .where(cls._Table.id == entity_id)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnknownArgumentType]
-                    .with_for_update()
-                )
+                stmt = sa.select(cls._Table).where(cls._pk_column() == entity_id).with_for_update()
                 result = await session.execute(stmt)
                 return result.scalar_one_or_none()
         except SQLAlchemyOperationalError as e:
@@ -364,21 +368,17 @@ class AsyncReadDAL(
     async def batch_get_for_update(
         cls,
         session: AsyncSession,
-        entity_ids: Iterable[int],
+        entity_ids: Iterable[Any],
         *,
         lock_wait_timeout: int | None = None,
     ) -> list[AsyncSQLATableT]:
-        filtered_ids = filtered_in_sql_values(entity_ids, int)
+        filtered_ids = filtered_in_sql_values(entity_ids)
         if not filtered_ids:
             return []
 
         try:
             async with async_temp_set_lock_wait_timeout(session, lock_wait_timeout):
-                stmt = (
-                    sa.select(cls._Table)
-                    .where(cls._Table.id.in_(filtered_ids))  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnknownArgumentType]
-                    .with_for_update()
-                )
+                stmt = sa.select(cls._Table).where(cls._pk_column().in_(filtered_ids)).with_for_update()
                 result = await session.execute(stmt)
                 return list(result.scalars().all())
         except SQLAlchemyOperationalError as e:
@@ -425,6 +425,7 @@ class AsyncReadDAL(
             where_clauses=where_clauses,
             with_deleted=with_deleted,
             batch_size=batch_size,
+            pk_attr=cls._pk_attr,
         ):
             yield cls._DTO.model_validate(entity)
 
@@ -488,7 +489,7 @@ class AsyncWriteDAL(
     async def update_only_set_by_id(
         cls,
         session: AsyncSession,
-        entity_id: int,
+        entity_id: Any,
         cu: CUModelT,
         need_refresh: bool = False,
         *,
@@ -525,7 +526,7 @@ class AsyncWriteDAL(
     async def ret_dto_after_update_by_id(
         cls,
         session: AsyncSession,
-        entity_id: int,
+        entity_id: Any,
         cu: CUModelT,
         need_refresh: bool = True,
         *,
@@ -549,7 +550,7 @@ class AsyncWriteDAL(
     async def update_full_by_id(
         cls,
         session: AsyncSession,
-        entity_id: int,
+        entity_id: Any,
         cu: CUModelT,
         *,
         need_refresh: bool = False,
@@ -584,7 +585,7 @@ class AsyncWriteDAL(
     async def update_partial_by_id(
         cls,
         session: AsyncSession,
-        entity_id: int,
+        entity_id: Any,
         cu: CUModelT,
         *,
         need_refresh: bool = False,
@@ -650,7 +651,7 @@ class AsyncWriteDAL(
     async def delete_by_id(
         cls,
         session: AsyncSession,
-        entity_id: int,
+        entity_id: Any,
     ) -> bool:
         if session.info.get(READONLY_SESSION_FLAG):
             raise TypeError("当前会话被标记为只读, 不允许执行写入操作")
@@ -677,6 +678,7 @@ class AsyncWriteDAL(
             where_clauses=where_clauses,
             with_deleted=with_deleted,
             batch_size=batch_size,
+            pk_attr=cls._pk_attr,
         ):
             yield entity
 
@@ -687,7 +689,6 @@ class AsyncWriteDAL(
         *,
         whereclause: list[ColumnExpressionArgument[bool]],
         update_data: dict[InstrumentedAttribute[Any], Any] | dict[sa.Column[Any], Any],
-        updater_id: int | None = None,
     ) -> int:
         if session.info.get(READONLY_SESSION_FLAG):
             raise TypeError("当前会话被标记为只读, 不允许执行写入操作")
@@ -704,12 +705,6 @@ class AsyncWriteDAL(
             else:
                 raise ValueError(f"不支持的更新条件类型: {type(key)}")
 
-        if hasattr(cls._Table, "update_datetime"):
-            final_update_data["update_datetime"] = sa.sql.func.now()
-
-        if hasattr(cls._Table, "update_operator_id") and updater_id is not None:
-            final_update_data["update_operator_id"] = updater_id
-
         stmt = sa.update(cls._Table).where(*whereclause).values(**final_update_data)
 
         result = await session.execute(stmt)
@@ -722,26 +717,23 @@ class AsyncWriteDAL(
         cls,
         session: AsyncSession,
         *,
-        entity_ids: set[int] | list[int],
+        entity_ids: set[Any] | list[Any],
         update_data: dict[InstrumentedAttribute[Any], Any] | dict[sa.Column[Any], Any],
-        updater_id: int | None = None,
     ) -> int:
-        filtered_ids = filtered_in_sql_values(entity_ids, int)
+        filtered_ids = filtered_in_sql_values(entity_ids)
         if not filtered_ids:
             return 0
-        _id_column = cls._Table.id  # pyright: ignore[reportAttributeAccessIssue,reportUnknownVariableType, reportUnknownMemberType]
         return await cls.batch_update_by_conditions(
             session,
-            whereclause=[_id_column.in_(filtered_ids)],  # pyright: ignore[reportUnknownMemberType]
+            whereclause=[cls._pk_column().in_(filtered_ids)],
             update_data=update_data,
-            updater_id=updater_id,
         )
 
     @classmethod
     async def update_only_set_with_optimistic_lock(
         cls,
         session: AsyncSession,
-        entity_id: int,
+        entity_id: Any,
         cu: CUModelT,
         *,
         expected_version: int,
@@ -754,8 +746,7 @@ class AsyncWriteDAL(
         if not hasattr(cls._Table, version_field):
             raise AttributeError(f"表 {cls._Table.__name__} 不包含 {version_field} 字段,无法使用乐观锁")
 
-        if not hasattr(cls._Table, "id"):
-            raise AttributeError(f"表 {cls._Table.__name__} 不包含 id 字段,无法使用乐观锁")
+        pk_col = cls._pk_column()
 
         exclude_fields = type(cu).resolve_cu_config()["update_exclude"] | {version_field}
         update_data = cu.model_dump(exclude_unset=True, exclude=exclude_fields)
@@ -765,18 +756,10 @@ class AsyncWriteDAL(
 
         set_values: dict[str, Any] = {key: value for key, value in update_data.items() if hasattr(cls._Table, key)}
 
-        if hasattr(cls._Table, "update_datetime"):
-            set_values["update_datetime"] = sa.sql.func.now()
-
         version_field_value = getattr(cls._Table, version_field)
         set_values[version_field] = version_field_value + 1
 
-        stmt = (
-            sa.update(cls._Table)
-            .where(cls._Table.id == entity_id)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnknownArgumentType]
-            .where(version_field_value == expected_version)
-            .values(**set_values)
-        )
+        stmt = sa.update(cls._Table).where(pk_col == entity_id).where(version_field_value == expected_version).values(**set_values)
 
         result = await session.execute(stmt)
         await session.flush()

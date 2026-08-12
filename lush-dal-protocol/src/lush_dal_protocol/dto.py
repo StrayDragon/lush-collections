@@ -32,10 +32,24 @@ class BaseCUConfigDict(TypedDict, total=False):
     update_exclude: frozenset[str]
 
 
-# 1:1 水平扩展表 (共享主键) 推荐配置: create 保留 id, update 仍继承排除 id.
-EXTEND_TABLE_CU_CONFIG: Final[BaseCUConfigDict] = BaseCUConfigDict(
-    to_orm_exclude=frozenset(),
-)
+# 1:1 水平扩展表 (共享主键) 推荐配置: create 保留 id, update 仍排除 id.
+
+
+def pk_field_cu_config(pk_field: str = "id", *, keep_on_create: bool = False) -> BaseCUConfigDict:
+    """按主键字段名生成 ``cu_config``.
+
+    Args:
+        pk_field: 主键 Python 字段名.
+        keep_on_create: ``True`` 时 create/to_orm 保留主键 (共享 PK / 客户端指定 PK).
+
+    Returns:
+        可直接赋给 ``BaseCU.cu_config`` 的配置字典.
+    """
+    to_orm = frozenset() if keep_on_create else frozenset({pk_field})
+    return BaseCUConfigDict(to_orm_exclude=to_orm, update_exclude=frozenset({pk_field}))
+
+
+EXTEND_TABLE_CU_CONFIG: Final[BaseCUConfigDict] = pk_field_cu_config("id", keep_on_create=True)
 
 
 class BaseCU(BaseModel, Generic[OrmModelT]):

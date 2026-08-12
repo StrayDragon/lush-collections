@@ -187,8 +187,8 @@ class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
             raise RuntimeError("FlaskSessionDALAdapter not bound to db. Call FlaskSessionDALAdapter.bind_db(db) during app init.")
         return self._db.session  # pyright: ignore[reportReturnType]
 
-    def get_by_id(self, entity_id: int) -> SQLATableT | None:
-        """根据主键 ID 获取实体."""
+    def get_by_id(self, entity_id: Any) -> SQLATableT | None:
+        """根据主键获取实体."""
         return self._dal_class.get_by_id(self.session, entity_id)
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[DTOModelT]:
@@ -199,19 +199,19 @@ class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
         """统计实体总数."""
         return self._dal_class.count(self.session)
 
-    def exists(self, entity_id: int) -> bool:
+    def exists(self, entity_id: Any) -> bool:
         """判断实体是否存在."""
         return self._dal_class.exists(self.session, entity_id)
 
-    def ret_dto_after_get_by_id(self, entity_id: int, need_refresh: bool = True) -> DTOModelT | None:
+    def ret_dto_after_get_by_id(self, entity_id: Any, need_refresh: bool = True) -> DTOModelT | None:
         """获取实体并转为 DTO."""
         return self._dal_class.ret_dto_after_get_by_id(self.session, entity_id, need_refresh=need_refresh)
 
-    def batch_get_id__entity(self, entity_ids: Iterable[int]) -> dict[int, SQLATableT]:
+    def batch_get_id__entity(self, entity_ids: Iterable[Any]) -> dict[Any, SQLATableT]:
         """批量获取 {id: entity} 字典."""
         return self._dal_class.batch_get_id__entity(self.session, entity_ids)
 
-    def batch_get_id__dto(self, entity_ids: Iterable[int]) -> dict[int, DTOModelT]:
+    def batch_get_id__dto(self, entity_ids: Iterable[Any]) -> dict[Any, DTOModelT]:
         """批量获取 {id: DTO} 字典."""
         return self._dal_class.batch_get_id__dto(self.session, entity_ids)
 
@@ -225,7 +225,7 @@ class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
 
     def update_only_set_by_id(
         self,
-        entity_id: int,
+        entity_id: Any,
         cu: CUModelT,
         need_refresh: bool = False,
         *,
@@ -237,8 +237,8 @@ class FlaskSessionDALAdapter(Generic[SQLATableT, DTOModelT, CUModelT]):
         """
         return self._dal_class.update_only_set_by_id(self.session, entity_id, cu, need_refresh=need_refresh, none_policy=none_policy)
 
-    def delete_by_id(self, entity_id: int) -> bool:
-        """根据 ID 删除实体."""
+    def delete_by_id(self, entity_id: Any) -> bool:
+        """根据主键删除实体."""
         return self._dal_class.delete_by_id(self.session, entity_id)
 
     def iter_record_dtos(self, *, batch_size: int = 500) -> Iterator[DTOModelT]:

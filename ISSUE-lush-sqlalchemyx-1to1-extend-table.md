@@ -57,14 +57,21 @@ update 路径始终排除 PK (`cu_row_data(..., for_create=False)`).
 - [x] 文档明确: 扩展表必须独立 DAL
 - [x] 测试覆盖 shared-PK CU + extend DAL create / update; Dynamic 显式 PK
 
+## 已落地 (P0.5 follow-up)
+
+- [x] ORM `_pk_attr` / `_pk_column` + `pk_field_cu_config`
+- [x] InMemory 客户端 PK insert
+- [x] 移除 batch/乐观锁对 `update_datetime` / `update_operator_id` 的自动写入
+
 ## 非目标 / 后置
 
 - 不强制 SQLAlchemy `relationship()` / 级联插入
 - 不替代 Dynamic DAL
 - 不要求框架感知具体 `job_type` 业务语义
+- 复合主键 / UUID 分页 cursor 全链路 — 按需另开
 - P1 `PairedCreateMixin` / P2 JOIN 组装 helper — 按需另开
 
 ## 关联
 
-- `lush-dal-protocol.dto`: `BaseCUConfigDict`, `EXTEND_TABLE_CU_CONFIG`, `BaseCU.resolve_cu_config`
+- `lush-dal-protocol.dto`: `BaseCUConfigDict`, `pk_field_cu_config`, `EXTEND_TABLE_CU_CONFIG`, `BaseCU.resolve_cu_config`
 - `lush-pydanticx`: `DataJson`, `json_to_bytes_serializer`

@@ -611,7 +611,6 @@ class TestSyncBatch:
             sync_session,
             entity_ids=[e1.id, e2.id],
             update_data={_SyncTestTable.value: 99},
-            updater_id=1,
         )
         assert affected == 2
 
@@ -698,7 +697,7 @@ class TestSyncIterators:
 
         SyncSqlATableBase.metadata.create_all(sync_session.get_bind(), checkfirst=True)
 
-        with pytest.raises(ValueError, match="必须有 id 字段"):
+        with pytest.raises(ValueError, match="必须有主键字段"):
             list(_SyncTestDAL._iter_records(sync_session, _NoIdTable))
 
 
@@ -1353,8 +1352,8 @@ class TestSyncRefreshBranches:
         assert updated.name == "skip-field-updated"
         assert updated.value == 1
 
-    def test_optimistic_lock_no_update_datetime(self, sync_session: Session):
-        """Cover the branch where update_datetime is absent on the table."""
+    def test_optimistic_lock_without_audit_columns(self, sync_session: Session):
+        """表无审计列时乐观锁仍可更新业务字段."""
 
         class _NoDateTable(SyncSqlATableBase):
             __tablename__ = "sync_test_no_date"
@@ -1393,8 +1392,8 @@ class TestSyncRefreshBranches:
         )
         assert updated is not None
 
-    def test_batch_update_no_update_datetime(self, sync_session: Session):
-        """Cover the branch where update_datetime is absent in batch update."""
+    def test_batch_update_without_audit_columns(self, sync_session: Session):
+        """表无审计列时 batch_update 仍可更新业务字段."""
 
         class _NoDTTable(SyncSqlATableBase):
             __tablename__ = "sync_test_nodt"

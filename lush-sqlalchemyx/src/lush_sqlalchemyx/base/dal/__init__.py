@@ -53,7 +53,9 @@ from ._common import (
     escape_like,
     filtered_in_sql_values,
     is_soft_delete_hooks_registered,
+    pk_field_cu_config,
     register_soft_delete_hooks,
+    resolve_pk_column,
     setup_dal_hooks,
     unregister_soft_delete_hooks,
 )
@@ -115,7 +117,9 @@ __all__ = (
     "escape_like",
     "filtered_in_sql_values",
     "is_soft_delete_hooks_registered",
+    "pk_field_cu_config",
     "register_soft_delete_hooks",
+    "resolve_pk_column",
     "setup_dal_hooks",
     "unregister_soft_delete_hooks",
     # dynamic

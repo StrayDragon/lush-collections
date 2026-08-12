@@ -4,8 +4,17 @@
 
 ## Unreleased
 
+### Breaking Changes
+
+- `batch_update_by_conditions` / `batch_update_by_ids` / `update_only_set_with_optimistic_lock` 不再自动写入 `update_datetime` / `update_operator_id`
+- 移除上述批量更新 API 的 `updater_id` 参数 — 改由 CU / `update_data` 显式传入审计字段
+
 ### Changes
 
+- ORM DAL 新增 `_pk_attr` / `_pk_column()`; WHERE/get/batch/lock/iter/分页统一走可配置主键属性名 (默认 `"id"`)
+- 分页工具 `build_offset_stmt` / `build_cursor_stmt` / `make_cursor_result` 增加 `pk_attr` 参数
+- Flask adapter `entity_id` 类型放宽为 `Any`
+- 导出 `pk_field_cu_config` / `resolve_pk_column`
 - 依赖 `lush-dal-protocol` `BaseCU.cu_config`: WriteDAL update 路径改读 `update_exclude`; 导出 `BaseCUConfigDict` / `EXTEND_TABLE_CU_CONFIG`
 - `DynamicTableConfig.exclude_pk_on_create` (默认 `True`); update 经 `cu_row_data(..., for_create=False)` 始终排除 PK
 - 支持 1:1 水平扩展表 (共享主键) ORM / Dynamic 双路径

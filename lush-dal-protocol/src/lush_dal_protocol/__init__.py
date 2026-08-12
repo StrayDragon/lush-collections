@@ -34,6 +34,7 @@ from .dto import (
     DTOModelT,
     StdBaseCU,
     StdBaseDTO,
+    pk_field_cu_config,
 )
 from .errors import DBRetryableError
 from .params import CursorPagination, CursorResult, OffsetPagination, PageResult
@@ -80,4 +81,5 @@ __all__ = [
     "StdBaseDTO",
     "escape_like",
     "filtered_in_sql_values",
+    "pk_field_cu_config",
 ]

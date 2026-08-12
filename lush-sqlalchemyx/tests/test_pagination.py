@@ -70,6 +70,19 @@ class TestBuildOffsetStmt:
         compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
         assert "DESC" in compiled
 
+    def test_custom_pk_attr(self) -> None:
+        class _UserPkTable(BasicAsyncBaseTable):
+            __tablename__ = "pag_user_pk"
+            user_id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
+            name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+
+        stmt = build_offset_stmt(_UserPkTable, None, pk_attr="user_id")
+        compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+        assert "user_id" in compiled.lower()
+        cursor_stmt = build_cursor_stmt(_UserPkTable, None, pk_attr="user_id")
+        cursor_compiled = str(cursor_stmt.compile(compile_kwargs={"literal_binds": True}))
+        assert "user_id" in cursor_compiled.lower()
+
 
 class TestBuildCursorStmt:
     def test_no_cursor(self) -> None:
@@ -126,3 +139,14 @@ class TestMakeCursorResult:
         result = make_cursor_result(items, 5)
         assert result.has_next is False
         assert result.next_cursor is None
+
+    def test_custom_pk_attr_cursor(self) -> None:
+        class _User(BaseModel):
+            user_id: int
+            name: str = ""
+
+        items = [_User(user_id=i, name=f"n{i}") for i in range(6)]
+        result = make_cursor_result(items, 5, pk_attr="user_id")
+        assert result.has_next is True
+        assert result.next_cursor is not None
+        assert decode_cursor(result.next_cursor) == "4"

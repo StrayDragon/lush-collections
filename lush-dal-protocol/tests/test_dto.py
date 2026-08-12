@@ -13,6 +13,7 @@ from lush_dal_protocol.dto import (
     BaseDTO,
     StdBaseCU,
     StdBaseDTO,
+    pk_field_cu_config,
 )
 
 
@@ -158,8 +159,19 @@ class TestBaseCU:
         assert cfg["update_exclude"] == frozenset({"id", "b"})
 
     def test_extend_constant_is_kwargs_typeddict(self):
-        assert BaseCUConfigDict(to_orm_exclude=frozenset()) == EXTEND_TABLE_CU_CONFIG
-        assert "update_exclude" not in EXTEND_TABLE_CU_CONFIG
+        assert pk_field_cu_config("id", keep_on_create=True) == EXTEND_TABLE_CU_CONFIG
+        assert EXTEND_TABLE_CU_CONFIG["to_orm_exclude"] == frozenset()
+        assert EXTEND_TABLE_CU_CONFIG["update_exclude"] == frozenset({"id"})
+
+    def test_pk_field_cu_config_defaults(self):
+        cfg = pk_field_cu_config()
+        assert cfg["to_orm_exclude"] == frozenset({"id"})
+        assert cfg["update_exclude"] == frozenset({"id"})
+
+    def test_pk_field_cu_config_custom_pk(self):
+        cfg = pk_field_cu_config("user_id", keep_on_create=True)
+        assert cfg["to_orm_exclude"] == frozenset()
+        assert cfg["update_exclude"] == frozenset({"user_id"})
 
     def test_sqlalchemyx_style_basecu_inherits_protocol_config(self):
         """子类不声明 cu_config 时仍继承默认 exclude id."""

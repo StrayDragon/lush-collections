@@ -44,6 +44,7 @@ from lush_sqlalchemyx.base.dal import (
     DBRetryableError,
     SyncBaseDAL,
     SyncSqlATableBase,
+    pk_field_cu_config,
     setup_dal_hooks,
 )
 from lush_sqlalchemyx.mgrs.mysql.sync_manager import SyncMySQLManager
@@ -148,7 +149,34 @@ class _VersionDAL(SyncBaseDAL["_VersionTable", "_VersionDTO", "_VersionCU"]):
     _CU = _VersionCU
 
 
-_ALL_TABLES = [_SimpleTable.__table__, _StdTable.__table__, _VersionTable.__table__]
+class _CustomPkTable(BasicSyncBaseTable):
+    __tablename__ = "bdd_custom_pk_table"
+    user_id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+
+
+class _CustomPkCU(BaseCU["_CustomPkTable"]):
+    _Table: ClassVar[type[_CustomPkTable]] = _CustomPkTable
+    cu_config = pk_field_cu_config("user_id")
+    user_id: int | None = None
+    name: str
+
+
+class _CustomPkDTO(BaseDTO["_CustomPkCU"]):
+    _CU: ClassVar[type[_CustomPkCU]] = _CustomPkCU
+    user_id: int
+    name: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class _CustomPkDAL(SyncBaseDAL["_CustomPkTable", "_CustomPkDTO", "_CustomPkCU"]):
+    _Table = _CustomPkTable
+    _DTO = _CustomPkDTO
+    _CU = _CustomPkCU
+    _pk_attr = "user_id"
+
+
+_ALL_TABLES = [_SimpleTable.__table__, _StdTable.__table__, _VersionTable.__table__, _CustomPkTable.__table__]
 
 # ════════════════════════════════════════════════════════════════
 # DAL 注册表
@@ -158,6 +186,7 @@ _DAL_META = {
     "简单CRUD": (_SimpleDAL, _SimpleCU, _SimpleTable, False),
     "标准CRUD": (_StdDAL, _StdCU, _StdTable, True),
     "乐观锁": (_VersionDAL, _VersionCU, _VersionTable, True),
+    "自定义主键": (_CustomPkDAL, _CustomPkCU, _CustomPkTable, False),
 }
 
 
@@ -170,6 +199,15 @@ def _resolve(ctx: dict[str, Any]) -> tuple[type[Any], type[BaseCU[Any]], type[An
 
 def _table(ctx: dict[str, Any]) -> type[Any]:
     return _resolve(ctx)[2]
+
+
+def _dal_pk_attr(ctx: dict[str, Any]) -> str:
+    dal_cls = _resolve(ctx)[0]
+    return getattr(dal_cls, "_pk_attr", "id")
+
+
+def _entity_pk(ctx: dict[str, Any], entity: Any) -> Any:
+    return getattr(entity, _dal_pk_attr(ctx))
 
 
 # ════════════════════════════════════════════════════════════════
@@ -233,14 +271,14 @@ def _db_count_where(session: Session, table: type[Any], where: str, params: dict
     return _raw_scalar(session, f"SELECT COUNT(*) FROM {tname} WHERE {where}", params)
 
 
-def _db_exists(session: Session, table: type[Any], entity_id: int) -> bool:
+def _db_exists(session: Session, table: type[Any], entity_id: int, *, pk_attr: str = "id") -> bool:
     tname = table.__tablename__
-    return _raw_scalar(session, f"SELECT 1 FROM {tname} WHERE id = :id", {"id": entity_id}) is not None
+    return _raw_scalar(session, f"SELECT 1 FROM {tname} WHERE {pk_attr} = :id", {"id": entity_id}) is not None
 
 
-def _db_col(session: Session, table: type[Any], entity_id: int, col: str) -> Any:
+def _db_col(session: Session, table: type[Any], entity_id: int, col: str, *, pk_attr: str = "id") -> Any:
     tname = table.__tablename__
-    return _raw_scalar(session, f"SELECT {col} FROM {tname} WHERE id = :id", {"id": entity_id})
+    return _raw_scalar(session, f"SELECT {col} FROM {tname} WHERE {pk_attr} = :id", {"id": entity_id})
 
 
 # ════════════════════════════════════════════════════════════════
@@ -279,19 +317,19 @@ def _create_record(ctx: dict[str, Any], session: Session, **cu_kw: Any) -> Any:
 @given(parsers.parse('已存在一条名称为 "{name}" 且值为 "{value:d}" 的记录'))
 def given_existing_record_with_value(name: str, value: int, bdd_context: dict[str, Any], sync_session: Session) -> None:
     entity = _create_record(bdd_context, sync_session, name=name, value=value)
-    bdd_context["current_entity_id"] = entity.id
+    bdd_context["current_entity_id"] = _entity_pk(bdd_context, entity)
 
 
 @given(parsers.parse('已存在一条名称为 "{name}" 且描述为 "{desc}" 的记录'))
 def given_existing_record_with_desc(name: str, desc: str, bdd_context: dict[str, Any], sync_session: Session) -> None:
     entity = _create_record(bdd_context, sync_session, name=name, description=desc)
-    bdd_context["current_entity_id"] = entity.id
+    bdd_context["current_entity_id"] = _entity_pk(bdd_context, entity)
 
 
 @given(parsers.parse('已存在一条名称为 "{name}" 的记录'))
 def given_existing_record(name: str, bdd_context: dict[str, Any], sync_session: Session) -> None:
     entity = _create_record(bdd_context, sync_session, name=name)
-    bdd_context["current_entity_id"] = entity.id
+    bdd_context["current_entity_id"] = _entity_pk(bdd_context, entity)
 
 
 @given(parsers.parse('将该记录的值设置为 "{value:d}"'))
@@ -347,7 +385,7 @@ def when_get_by_id_nonexistent(record_id: int, bdd_context: dict[str, Any], sync
 def when_create_record(name: str, bdd_context: dict[str, Any], sync_session: Session) -> None:
     entity = _create_record(bdd_context, sync_session, name=name)
     bdd_context["op_result"] = entity
-    bdd_context["current_entity_id"] = entity.id
+    bdd_context["current_entity_id"] = _entity_pk(bdd_context, entity)
 
 
 @when(parsers.parse('创建一条名称为 "{name}" 的记录并返回 DTO'))
@@ -973,21 +1011,21 @@ def then_db_has_record(bdd_context: dict[str, Any], sync_session: Session, name:
 @then(parsers.parse('数据库表中不存在 ID 为 "{eid:d}" 的记录'))
 def then_db_no_record_by_id(bdd_context: dict[str, Any], sync_session: Session, eid: int) -> None:
     table = _table(bdd_context)
-    assert not _db_exists(sync_session, table, eid), f"数据库中存在 id={eid} 的记录"
+    assert not _db_exists(sync_session, table, eid, pk_attr=_dal_pk_attr(bdd_context)), f"数据库中存在 id={eid} 的记录"
 
 
 @then("数据库表中该记录已不存在")
 def then_db_record_gone(bdd_context: dict[str, Any], sync_session: Session) -> None:
     table = _table(bdd_context)
     eid = bdd_context["current_entity_id"]
-    assert not _db_exists(sync_session, table, eid), f"id={eid} 仍存在"
+    assert not _db_exists(sync_session, table, eid, pk_attr=_dal_pk_attr(bdd_context)), f"id={eid} 仍存在"
 
 
 @then(parsers.parse('数据库表中 ID 为当前实体 ID 的记录的 "{col}" 应为 "{expected}"'))
 def then_db_col_equals(bdd_context: dict[str, Any], sync_session: Session, col: str, expected: str) -> None:
     table = _table(bdd_context)
     eid = bdd_context["current_entity_id"]
-    actual = _db_col(sync_session, table, eid, col)
+    actual = _db_col(sync_session, table, eid, col, pk_attr=_dal_pk_attr(bdd_context))
     _assert_loose_equals(actual, expected, detail=f"DB: {col}={actual!r}, 期望 {expected!r}")
 
 
@@ -1009,7 +1047,7 @@ def then_db_count_at_least(bdd_context: dict[str, Any], sync_session: Session, m
 def then_db_is_delete_one(bdd_context: dict[str, Any], sync_session: Session) -> None:
     table = _table(bdd_context)
     eid = bdd_context["current_entity_id"]
-    val = _db_col(sync_session, table, eid, "is_delete")
+    val = _db_col(sync_session, table, eid, "is_delete", pk_attr=_dal_pk_attr(bdd_context))
     assert val == 1, f"期望 is_delete=1, 实际={val}"
 
 
@@ -1017,7 +1055,7 @@ def then_db_is_delete_one(bdd_context: dict[str, Any], sync_session: Session) ->
 def then_db_version_is(bdd_context: dict[str, Any], sync_session: Session, ver: int) -> None:
     table = _table(bdd_context)
     eid = bdd_context["current_entity_id"]
-    val = _db_col(sync_session, table, eid, "version")
+    val = _db_col(sync_session, table, eid, "version", pk_attr=_dal_pk_attr(bdd_context))
     assert val == ver, f"期望 version={ver}, 实际={val}"
 
 
@@ -1044,7 +1082,7 @@ def then_iter_contains_deleted(bdd_context: dict[str, Any]) -> None:
 @then("删除后查询结果为空")
 def then_after_delete_not_found(bdd_context: dict[str, Any], sync_session: Session) -> None:
     table = _table(bdd_context)
-    assert not _db_exists(sync_session, table, bdd_context["current_entity_id"])
+    assert not _db_exists(sync_session, table, bdd_context["current_entity_id"], pk_attr=_dal_pk_attr(bdd_context))
 
 
 @then(parsers.parse("返回的记录总数至少为 {min_count:d}"))

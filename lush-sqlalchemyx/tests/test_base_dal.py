@@ -1836,8 +1836,7 @@ class TestBatchUpdateFeatures:
     """测试批量更新功能,特别是 onupdate 字段的处理"""
 
     async def test_batch_update_by_ids_with_update_datetime(self, async_session: AsyncSession):
-        """测试批量更新时自动设置 update_datetime 字段"""
-        # 创建测试数据
+        """批量更新不再隐式写审计列; 显式传入才更新."""
         items = []
         for i in range(3):
             cu = _TestCU(
@@ -1850,35 +1849,24 @@ class TestBatchUpdateFeatures:
 
         await async_session.commit()
 
-        # 记录初始的 update_datetime(应该为 None 或创建时间)
-        initial_update_times = [item.update_datetime for item in items]
-
-        # 使用批量更新
         item_ids = [item.id for item in items]
         affected_rows = await _TestDAL.batch_update_by_ids(
             session=async_session,
             entity_ids=item_ids,
-            update_data={_TestTable.name: "Updated Name"},
-            updater_id=999,
+            update_data={
+                _TestTable.name: "Updated Name",
+                _TestTable.update_operator_id: 999,
+            },
         )
 
         assert affected_rows == 3
 
-        # 验证更新结果
         for item_id in item_ids:
             updated_item = await async_session.get(_TestTable, item_id)
             assert updated_item is not None
-            # 刷新对象以确保获取最新数据,避免惰性加载问题
             await async_session.refresh(updated_item)
             assert updated_item.name == "Updated Name"
             assert updated_item.update_operator_id == 999
-            # update_datetime 应该被更新
-            assert updated_item.update_datetime is not None
-            # 如果初始时间存在,则新时间应该不同(通常是更新的)
-            initial_time = initial_update_times[item_ids.index(item_id)]
-            if initial_time is not None:
-                # 注意:在快速执行的测试中,时间可能相同,这里主要验证字段被设置
-                assert isinstance(updated_item.update_datetime, type(initial_time))
 
     async def test_batch_update_by_ids_without_update_fields(self, async_session: AsyncSession):
         """测试在没有 update_datetime 字段的表上批量更新"""
@@ -1897,7 +1885,6 @@ class TestBatchUpdateFeatures:
             session=async_session,
             entity_ids=item_ids,
             update_data={_TestTable.name: "Updated Simple Name"},
-            updater_id=999,  # 这个参数会被忽略,因为表没有 update_operator_id 字段
         )
 
         assert affected_rows == 2
@@ -1914,7 +1901,6 @@ class TestBatchUpdateFeatures:
             session=async_session,
             entity_ids=[],
             update_data={_TestTable.name: "Should Not Update"},
-            updater_id=999,
         )
 
         assert affected_rows == 0
@@ -1925,14 +1911,12 @@ class TestBatchUpdateFeatures:
             session=async_session,
             entity_ids=[99999, 99998],  # 不存在的ID
             update_data={_TestTable.name: "Should Not Update"},
-            updater_id=999,
         )
 
         assert affected_rows == 0
 
     async def test_onupdate_behavior_orm_vs_raw_sql(self, async_session: AsyncSession):
-        """对比 ORM 更新和原生 SQL 更新在 onupdate 字段处理上的差异"""
-        # 创建测试数据
+        """ORM update 可经 CU 写审计列; Core batch 仅写 update_data 显式字段."""
         cu = _TestCU(
             name="Original Name",
             status=_TestStatus.ACTIVE,
@@ -1940,7 +1924,6 @@ class TestBatchUpdateFeatures:
         )
         item = await _TestDAL.create(async_session, cu)
 
-        # 方式1: 使用 ORM 更新(会触发 onupdate)
         orm_cu = _TestCU(name="ORM Updated Name", update_operator_id=888)
         orm_updated_item = await _TestDAL.update_only_set_by_id(
             session=async_session,
@@ -1949,32 +1932,24 @@ class TestBatchUpdateFeatures:
             need_refresh=True,
         )
 
-        # 验证 ORM 更新结果
         assert orm_updated_item
         assert orm_updated_item.name == "ORM Updated Name"
         assert orm_updated_item.update_operator_id == 888
-        orm_update_time = orm_updated_item.update_datetime
 
-        # 方式2: 使用批量更新(手动处理 update_datetime)
         _ = await _TestDAL.batch_update_by_ids(
             session=async_session,
             entity_ids=[item.id],
-            update_data={_TestTable.name: "Batch Updated Name"},
-            updater_id=777,
+            update_data={
+                _TestTable.name: "Batch Updated Name",
+                _TestTable.update_operator_id: 777,
+            },
         )
 
-        # 验证批量更新结果
         batch_updated_item = await async_session.get(_TestTable, item.id)
         assert batch_updated_item is not None
-        # 刷新对象以确保获取最新数据
         await async_session.refresh(batch_updated_item)
         assert batch_updated_item.name == "Batch Updated Name"
         assert batch_updated_item.update_operator_id == 777
-        batch_update_time = batch_updated_item.update_datetime
-
-        # 两种方式都应该正确设置 update_datetime
-        assert orm_update_time is not None
-        assert batch_update_time is not None
 
     async def test_batch_update_by_ids_with_column_objects(self, async_session: AsyncSession):
         """测试使用类型安全的列对象进行批量更新"""
@@ -1995,7 +1970,6 @@ class TestBatchUpdateFeatures:
                 _TestTable.status: _TestStatus.INACTIVE.value,
                 _TestTable.value: 100,
             },
-            updater_id=555,
         )
 
         assert affected_rows == 1
@@ -2007,11 +1981,9 @@ class TestBatchUpdateFeatures:
         assert updated_item.name == "Type Safe Updated Name"
         assert updated_item.status == _TestStatus.INACTIVE.value
         assert updated_item.value == 100
-        assert updated_item.update_operator_id == 555
-        assert updated_item.update_datetime is not None
 
     async def test_batch_update_by_conditions_with_update_datetime(self, async_session: AsyncSession):
-        """测试按条件批量更新时自动设置 update_datetime 字段"""
+        """按条件批量更新仅写 update_data 中的字段"""
         # 创建具有唯一标识的测试数据,避免与其他测试冲突
         unique_prefix = "ConditionTestUnique"
 
@@ -2041,7 +2013,6 @@ class TestBatchUpdateFeatures:
             session=async_session,
             whereclause=[_TestTable.name.like(f"{unique_prefix}%"), _TestTable.status == _TestStatus.ACTIVE.value],
             update_data={_TestTable.name: "Condition Updated Name"},
-            updater_id=999,
         )
 
         # 应该只更新符合两个条件的记录(2条ACTIVE状态的记录)
@@ -2056,8 +2027,6 @@ class TestBatchUpdateFeatures:
             # ACTIVE状态的记录应该被更新
             if original_statuses[i] == _TestStatus.ACTIVE.value:
                 assert updated_item.name == "Condition Updated Name"
-                assert updated_item.update_operator_id == 999
-                assert updated_item.update_datetime is not None
             else:
                 # INACTIVE状态的记录应该保持不变
                 assert updated_item.name == item.name
@@ -2096,7 +2065,6 @@ class TestBatchUpdateFeatures:
             session=async_session,
             whereclause=[_TestTable.name.like(f"{unique_prefix}%"), _TestTable.status == _TestStatus.ACTIVE.value, _TestTable.value < 10],
             update_data={_TestTable.name: "Multi Condition Updated"},
-            updater_id=888,
         )
 
         # 应该只更新符合所有条件的记录(只有第一条记录符合)
@@ -2112,7 +2080,6 @@ class TestBatchUpdateFeatures:
             # 只有第一条记录符合所有条件
             if i == 0 and value_val == 0 and status_val == _TestStatus.ACTIVE.value:
                 assert updated_item.name == "Multi Condition Updated"
-                assert updated_item.update_operator_id == 888
             else:
                 assert updated_item.name == item.name
 
@@ -2128,7 +2095,6 @@ class TestBatchUpdateFeatures:
             session=async_session,
             whereclause=[],
             update_data={_TestTable.name: "Should Update All"},
-            updater_id=777,
         )
 
         # 由于空条件会更新所有记录,我们需要验证我们的特定记录是否被更新
@@ -2136,7 +2102,6 @@ class TestBatchUpdateFeatures:
         assert updated_item is not None
         await async_session.refresh(updated_item)
         assert updated_item.name == "Should Update All"
-        assert updated_item.update_operator_id == 777
 
     async def test_batch_update_by_conditions_no_matching_records(self, async_session: AsyncSession):
         """测试没有匹配记录的条件批量更新"""
@@ -2153,7 +2118,6 @@ class TestBatchUpdateFeatures:
                 _TestTable.status == 999,  # 不存在的状态值
             ],
             update_data={"name": "Should Not Update"},  # pyright: ignore[reportArgumentType]
-            updater_id=666,
         )
 
         # 应该没有记录被更新
@@ -2189,7 +2153,6 @@ class TestBatchUpdateFeatures:
                 _TestTable.status: _TestStatus.INACTIVE.value,
                 _TestTable.value: 100,
             },
-            updater_id=555,
         )
 
         assert affected_rows == 1
@@ -2201,8 +2164,6 @@ class TestBatchUpdateFeatures:
         assert updated_item.name == "Column Object Updated"
         assert updated_item.status == _TestStatus.INACTIVE.value
         assert updated_item.value == 100
-        assert updated_item.update_operator_id == 555
-        assert updated_item.update_datetime is not None
 
     async def test_batch_update_by_conditions_flush_only(self, async_session: AsyncSession):
         """测试条件批量更新仅执行flush不提交事务"""
@@ -2216,7 +2177,6 @@ class TestBatchUpdateFeatures:
             session=async_session,
             whereclause=[_TestTable.name == unique_name, _TestTable.status == _TestStatus.ACTIVE.value],
             update_data={_TestTable.name: "Not Committed Yet"},
-            updater_id=444,
         )
 
         assert affected_rows == 1
@@ -2229,7 +2189,6 @@ class TestBatchUpdateFeatures:
         assert updated_item is not None
         await async_session.refresh(updated_item)
         assert updated_item.name == "Not Committed Yet"
-        assert updated_item.update_operator_id == 444
 
     async def test_batch_update_by_conditions_vs_orm_update(self, async_session: AsyncSession):
         """对比条件批量更新和 ORM 更新在字段处理上的差异"""
@@ -2273,7 +2232,6 @@ class TestBatchUpdateFeatures:
             session=async_session,
             whereclause=[_TestTable.name == f"{unique_prefix} Batch", _TestTable.id == item2.id],
             update_data={_TestTable.name: f"{unique_prefix} Batch"},
-            updater_id=777,
         )
 
         # 验证条件批量更新结果
@@ -2281,12 +2239,10 @@ class TestBatchUpdateFeatures:
         assert batch_updated_item is not None
         await async_session.refresh(batch_updated_item)
         assert batch_updated_item.name == f"{unique_prefix} Batch"
-        assert batch_updated_item.update_operator_id == 777
-        batch_update_time = batch_updated_item.update_datetime
+        # batch 不再隐式写 update_operator_id / update_datetime
+        assert batch_updated_item.update_operator_id is None
 
-        # 两种方式都应该正确设置字段
         assert orm_update_time is not None
-        assert batch_update_time is not None
 
     async def test_batch_update_by_conditions_with_sa_column_keys(self, async_session: AsyncSession):
         """覆盖 update_data 使用 sa.Column 键路径(约第405行)"""
@@ -2300,7 +2256,6 @@ class TestBatchUpdateFeatures:
             update_data={
                 _TestTable.__table__.c.name: "ColumnKey已更新",  # pyright: ignore[reportArgumentType]
             },
-            updater_id=321,
         )
 
         assert affected == 1
@@ -2308,7 +2263,6 @@ class TestBatchUpdateFeatures:
         assert updated is not None
         await async_session.refresh(updated)
         assert updated.name == "ColumnKey已更新"
-        assert updated.update_operator_id == 321
 
     async def test_batch_update_by_conditions_invalid_update_key(self, async_session: AsyncSession):
         """覆盖非法 update_data 键抛出 ValueError(约第411行)"""
@@ -2322,7 +2276,6 @@ class TestBatchUpdateFeatures:
                 update_data={
                     123: "invalid"
                 },  # 非 sa.Column/InstrumentedAttribute/str # pyright: ignore[reportUnusedCallResult,reportArgumentType]
-                updater_id=1,
             )
 
     @pytest.mark.asyncio
@@ -2340,7 +2293,6 @@ class TestBatchUpdateFeatures:
                     session=ro_session,
                     whereclause=[_TestTable.id == item_id],
                     update_data={_TestTable.name: "RO被阻止"},
-                    updater_id=999,
                 )
 
 
@@ -3989,7 +3941,7 @@ class TestIterRecordsEdgeCases:
 
         # 模拟调用 _iter_records 时的检查
         # 检查逻辑: if not hasattr(table_class, "id") or not isinstance(...)
-        with pytest.raises(ValueError, match="必须有 id 字段"):
+        with pytest.raises(ValueError, match="必须有主键字段"):
             import asyncio
             from typing import cast
 
@@ -4229,7 +4181,7 @@ class TestOptimisticLockEdgeCases:
             def __init__(self) -> None:
                 self.info: dict[str, bool] = {}
 
-        with pytest.raises(AttributeError, match="不包含 id 字段"):
+        with pytest.raises(AttributeError, match="不包含主键字段"):
             await _NoIdDAL.update_only_set_with_optimistic_lock(
                 _SessionStub(),
                 1,

@@ -89,6 +89,14 @@ class InMemorySession:
         """No-op: 内存数据始终是最新的, 无需过期刷新."""
 
     def _insert(self, data: dict[str, Any]) -> int:
+        raw_id = data.get("id")
+        if raw_id is not None:
+            eid = int(raw_id)
+            if eid in self._store:
+                raise ValueError(f"duplicate id: {eid}")
+            self._store[eid] = {**data, "id": eid}
+            self._next_id = max(self._next_id, eid + 1)
+            return eid
         eid = self._next_id
         self._next_id += 1
         self._store[eid] = {**data, "id": eid}

@@ -151,6 +151,8 @@ ignore = [
     "PLW0127", # 自赋值重导出 (intentional re-export)
     "RUF022",  # __all__ 排序 (intentional grouping)
     "RUF002",  # 中文 docstring 中使用全角标点
+    # === 新增 (ruff v0.16+) ===
+    "CPY001",  # 本仓库不强制文件头 copyright notice
 ]
 
 [tool.ruff.lint.per-file-ignores]
