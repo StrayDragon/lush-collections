@@ -121,6 +121,7 @@ ignore = [
     # === 其他 ===
     "D",  # 文档字符串相关规则
     "EM", # 错误消息相关规则
+    "CPY001",  # 本仓库不强制文件头 copyright notice (ruff v0.16+ 默认启用)
 ]
 
 [tool.ruff.lint.per-file-ignores]
