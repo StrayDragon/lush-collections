@@ -17,8 +17,8 @@ import pytest
 from pytest_bdd import given, parsers, then, when
 
 from lush_redisx import (
-    AsyncRedisPrefixedOp,
     AsyncRedisManager,
+    AsyncRedisPrefixedOp,
     DebounceResult,
     RedisCacheAll,
     RedisSkipNone,
@@ -40,6 +40,7 @@ def _run(coro: Any) -> Any:
 # bdd_context fixture
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def bdd_context() -> dict[str, Any]:
     """BDD 步骤间共享状态."""
@@ -50,7 +51,8 @@ def bdd_context() -> dict[str, Any]:
 # Raw Redis helpers for Then verification (bypass prefix)
 # ---------------------------------------------------------------------------
 
-def _raw_redis(redis_mgr: AsyncRedisManager) -> "redis.asyncio.Redis":  # noqa: F821
+
+def _raw_redis(redis_mgr: AsyncRedisManager) -> redis.asyncio.Redis:  # noqa: F821
     """获取底层 Redis 连接 (绕过 prefix)."""
     return redis_mgr.origin_redis_conn  # type: ignore[return-value]
 
@@ -86,6 +88,7 @@ _JSON_SAMPLES: dict[str, Any] = {
 # Given steps
 # ---------------------------------------------------------------------------
 
+
 @given(parsers.parse('已使用 prefixed 操作 "{key_prefix}"'))
 def given_prefixed_op(key_prefix: str, bdd_context: dict[str, Any], redis_mgr: AsyncRedisManager) -> None:
     op = AsyncRedisPrefixedOp(redis_mgr.origin_redis_conn, key_prefix)  # type: ignore[arg-type]
@@ -111,6 +114,7 @@ def given_key_not_exists(raw_key: str, redis_mgr: AsyncRedisManager) -> None:
 # ---------------------------------------------------------------------------
 # When steps: KV 操作
 # ---------------------------------------------------------------------------
+
 
 @when(parsers.parse('设置键 "{name}" 值为 "{value}"'))
 def when_set(name: str, value: str, bdd_context: dict[str, Any]) -> None:
@@ -185,6 +189,7 @@ def when_sleep(seconds: float) -> None:
 # When steps: 缓存操作
 # ---------------------------------------------------------------------------
 
+
 @when(parsers.parse('调用 cache_get_or_set 键 "{name}" 使用生产者返回 "{value}" 且 TTL 为 {ttl:d} 秒'))
 def when_cache_get_or_set(name: str, value: str, ttl: int, bdd_context: dict[str, Any]) -> None:
     ctx = bdd_context
@@ -232,7 +237,6 @@ def when_cache_skip_none(name: str, bdd_context: dict[str, Any]) -> None:
     async def producer() -> None:
         ctx["producer_calls"] += 1
         await asyncio.sleep(0)
-        return None
 
     ctx["last_result"] = _run(
         ctx["op"].cache_get_or_set(name, producer, ttl=300, serializer=SerializationMode.JSON, null_value_strategy=RedisSkipNone())
@@ -247,7 +251,6 @@ def when_cache_all(name: str, bdd_context: dict[str, Any]) -> None:
     async def producer() -> None:
         ctx["producer_calls"] += 1
         await asyncio.sleep(0)
-        return None
 
     ctx["last_result"] = _run(
         ctx["op"].cache_get_or_set(name, producer, ttl=300, serializer=SerializationMode.JSON, null_value_strategy=RedisCacheAll())
@@ -262,7 +265,6 @@ def when_cache_ttl_none(name: str, bdd_context: dict[str, Any]) -> None:
     async def producer() -> None:
         ctx["producer_calls"] += 1
         await asyncio.sleep(0)
-        return None
 
     ctx["last_result"] = _run(
         ctx["op"].cache_get_or_set(name, producer, ttl=300, serializer=SerializationMode.JSON, null_value_strategy=RedisTTLNone(1))
@@ -272,6 +274,7 @@ def when_cache_ttl_none(name: str, bdd_context: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # When steps: 节流/防抖
 # ---------------------------------------------------------------------------
+
 
 @when(parsers.parse('节流检查键 "{name}" 窗口 "{window:d}" 秒'))
 def when_throttle(name: str, window: int, bdd_context: dict[str, Any]) -> None:
@@ -291,6 +294,7 @@ def when_debounce_remaining(name: str, bdd_context: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # When steps: 分布式锁
 # ---------------------------------------------------------------------------
+
 
 @when(parsers.parse('尝试获取分布式锁 "{name}" 超时 "{timeout:d}" 秒'))
 def when_lock_acquire(name: str, timeout: int, bdd_context: dict[str, Any]) -> None:
@@ -318,6 +322,7 @@ def when_lock_reacquire(name: str, name2: str, timeout: int, bdd_context: dict[s
 # ---------------------------------------------------------------------------
 # When steps: 批量操作 & 数据结构
 # ---------------------------------------------------------------------------
+
 
 @when(parsers.parse('批量获取键 "{k1}" 和 "{k2}"'))
 def when_mget(k1: str, k2: str, bdd_context: dict[str, Any]) -> None:
@@ -358,12 +363,11 @@ def when_smembers(name: str, bdd_context: dict[str, Any]) -> None:
 # Then steps: 通用断言
 # ---------------------------------------------------------------------------
 
-@then(parsers.parse('返回值为 JSON 且值等于 {json_name}'))
+
+@then(parsers.parse("返回值为 JSON 且值等于 {json_name}"))
 def then_value_is_json_named(json_name: str, bdd_context: dict[str, Any]) -> None:
     expected = _JSON_SAMPLES[json_name]
-    assert bdd_context["last_result"] == expected, (
-        f"期望 {expected!r}, 实际 {bdd_context['last_result']!r}"
-    )
+    assert bdd_context["last_result"] == expected, f"期望 {expected!r}, 实际 {bdd_context['last_result']!r}"
 
 
 @then("返回结果应为 True")
@@ -416,14 +420,13 @@ def then_json_equals(json_str: str, bdd_context: dict[str, Any]) -> None:
 def then_type_is(type_name: str, bdd_context: dict[str, Any]) -> None:
     type_map = {"int": int, "str": str, "dict": dict, "list": list, "set": set, "float": float, "bool": bool}
     expected_type = type_map.get(type_name, str)
-    assert isinstance(bdd_context["last_result"], expected_type), (
-        f"期望类型 {expected_type}, 实际 {type(bdd_context['last_result'])}"
-    )
+    assert isinstance(bdd_context["last_result"], expected_type), f"期望类型 {expected_type}, 实际 {type(bdd_context['last_result'])}"
 
 
 # ---------------------------------------------------------------------------
 # Then steps: Redis 状态验证 (裸 Redis 操作)
 # ---------------------------------------------------------------------------
+
 
 @then(parsers.parse('原始键 "{raw_key}" 应存在'))
 def then_raw_key_exists(raw_key: str, redis_mgr: AsyncRedisManager) -> None:
@@ -464,6 +467,7 @@ def then_producer_calls(expected: int, bdd_context: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
 
 def _coerce(expected: str, actual: Any) -> Any:
     if actual is None:

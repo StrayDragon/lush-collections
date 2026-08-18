@@ -273,9 +273,7 @@ class SentryConfig:
             _logger.info("Sentry 未启用或 DSN 未配置")
             return False
 
-        all_denylist: set[str] = (
-            set(SENTRY_DEFAULT_DENYLIST) | set(DEFAULT_EXTENDED_DENYLIST) | set(self.additional_denylist)
-        )
+        all_denylist: set[str] = set(SENTRY_DEFAULT_DENYLIST) | set(DEFAULT_EXTENDED_DENYLIST) | set(self.additional_denylist)
 
         base_before_send = create_additional_filter(all_denylist)
         final_before_send = chain_before_send(base_before_send, self.extra_before_send)

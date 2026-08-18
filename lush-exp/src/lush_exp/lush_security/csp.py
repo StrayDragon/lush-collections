@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import secrets
-from typing import Any
+from typing import ClassVar
 
 from fastapi import Response
 
@@ -28,7 +28,7 @@ class CSPManager:
             >>> csp.set_security_headers(response)
     """
 
-    _DEFAULT_POLICY: list[str] = [
+    _DEFAULT_POLICY: ClassVar[list[str]] = [
         "default-src 'self'",
         "script-src 'self' 'nonce-{nonce}'",
         "style-src 'self' 'nonce-{nonce}'",
@@ -40,7 +40,7 @@ class CSPManager:
         "upgrade-insecure-requests",
     ]
 
-    _BASE_HEADERS: dict[str, str] = {
+    _BASE_HEADERS: ClassVar[dict[str, str]] = {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
         "X-XSS-Protection": "1; mode=block",
@@ -76,10 +76,7 @@ class CSPManager:
         policy = list(self._DEFAULT_POLICY)
         # strict=False 时将 script-src 替换为包含 'unsafe-inline' 的版本
         if not self._strict:
-            policy = [
-                "script-src 'self' 'nonce-{nonce}' 'unsafe-inline'" if line.startswith("script-src") else line
-                for line in policy
-            ]
+            policy = ["script-src 'self' 'nonce-{nonce}' 'unsafe-inline'" if line.startswith("script-src") else line for line in policy]
         policy.extend(self._extra_directives)
         return [line.format(nonce=nonce) for line in policy]
 
