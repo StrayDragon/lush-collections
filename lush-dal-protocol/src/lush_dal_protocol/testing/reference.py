@@ -141,12 +141,12 @@ def _row_to_dto(row: dict[str, Any]) -> InMemoryDTO:
 
 def _cu_to_create_data(cu: InMemoryCU) -> dict[str, Any]:
     exclude = type(cu).resolve_cu_config()["to_orm_exclude"]
-    return cu.model_dump(exclude_unset=True, exclude=exclude)
+    return cu.model_dump(exclude_unset=True, exclude=set(exclude))
 
 
 def _cu_to_update_data(cu: InMemoryCU) -> dict[str, Any]:
     exclude = type(cu).resolve_cu_config()["update_exclude"]
-    return cu.model_dump(exclude_unset=True, exclude=exclude)
+    return cu.model_dump(exclude_unset=True, exclude=set(exclude))
 
 
 def _must_get(session: InMemorySession, eid: int) -> dict[str, Any]:

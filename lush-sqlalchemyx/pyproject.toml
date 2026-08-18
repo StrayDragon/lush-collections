@@ -263,6 +263,8 @@ reportImplicitOverride = false
 
 [[tool.basedpyright.executionEnvironments]]
 root = "tests"
+# tests 以包形式被导入 (from tests.conftest / tests.oracle.*), 需将项目根加入搜索路径.
+extraPaths = ["."]
 reportUnusedCallResult = false
 reportUnknownArgumentType = false
 reportUnknownVariableType = false

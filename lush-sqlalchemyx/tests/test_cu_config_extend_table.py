@@ -183,7 +183,9 @@ class TestOrmExtendTableOraclePair:
         )
         assert full is not None
         assert full.id == main.id
-        assert oracle_select_row_by_id(orm_session, _ExtendJobTable, main.id)["report_name"] == "full"
+        full_row = oracle_select_row_by_id(orm_session, _ExtendJobTable, main.id)
+        assert full_row is not None
+        assert full_row["report_name"] == "full"
 
         partial = _ExtendJobDAL.update_partial_by_id(
             orm_session,
@@ -192,7 +194,9 @@ class TestOrmExtendTableOraclePair:
         )
         assert partial is not None
         assert partial.id == main.id
-        assert oracle_select_row_by_id(orm_session, _ExtendJobTable, main.id)["report_name"] == "partial"
+        partial_row = oracle_select_row_by_id(orm_session, _ExtendJobTable, main.id)
+        assert partial_row is not None
+        assert partial_row["report_name"] == "partial"
 
     def test_default_cu_config_drops_id_on_create(self, orm_session: Session) -> None:
         """未设置 EXTEND_TABLE_CU_CONFIG 时, to_orm_model / dump 丢掉 id."""
@@ -202,7 +206,7 @@ class TestOrmExtendTableOraclePair:
         assert entity.report_name == "no-extend-cfg"
         dumped = _DefaultIdCU(id=123, report_name="x").model_dump(
             exclude_unset=True,
-            exclude=_DefaultIdCU.resolve_cu_config()["to_orm_exclude"],
+            exclude=set(_DefaultIdCU.resolve_cu_config()["to_orm_exclude"]),
         )
         assert "id" not in dumped
         assert dumped["report_name"] == "x"

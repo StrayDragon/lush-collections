@@ -9,6 +9,7 @@ import logging
 from typing import Any, ClassVar, Final, Generic, Literal, TypeVar, cast
 
 import sqlalchemy as sa
+import sqlalchemy.exc as sa_exc
 from lush_dal_protocol.dto import EXTEND_TABLE_CU_CONFIG as EXTEND_TABLE_CU_CONFIG  # noqa: PLC0414
 from lush_dal_protocol.dto import BaseCU as _ProtocolBaseCU
 from lush_dal_protocol.dto import BaseCUConfigDict as BaseCUConfigDict  # noqa: PLC0414
@@ -331,7 +332,7 @@ def _table_pk_attr_names(table: type[Any]) -> frozenset[str] | None:
     """返回 mapper 主键对应的 Python 属性名; 不可 introspect 时返回 ``None``."""
     try:
         mapper = sa.inspect(table)
-    except (sa.exc.NoInspectionAvailable, TypeError):
+    except (sa_exc.NoInspectionAvailable, TypeError):
         return None
     if mapper is None:
         return None

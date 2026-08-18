@@ -515,7 +515,7 @@ class AsyncWriteDAL(
             return None
 
         update_exclude = type(cu).resolve_cu_config()["update_exclude"]
-        update_data = cu.model_dump(exclude_unset=True, exclude=update_exclude)
+        update_data = cu.model_dump(exclude_unset=True, exclude=set(update_exclude))
         for key, value in update_data.items():
             if not _apply_none_policy(key, value, none_policy=none_policy):
                 continue
@@ -569,7 +569,7 @@ class AsyncWriteDAL(
             return None
 
         update_exclude = type(cu).resolve_cu_config()["update_exclude"]
-        update_data: dict[str, Any] = cu.model_dump(exclude=update_exclude)
+        update_data: dict[str, Any] = cu.model_dump(exclude=set(update_exclude))
 
         if strict_missing:
             declared_fields = set(cu.__class__.model_fields.keys()) - set(update_exclude)
@@ -607,7 +607,7 @@ class AsyncWriteDAL(
             return None  # pragma: no cover  # coverage.py 异步协程计量局限; 逻辑已由测试覆盖
 
         update_exclude = type(cu).resolve_cu_config()["update_exclude"]
-        update_data: dict[str, Any] = cu.model_dump(exclude_unset=True, exclude=update_exclude)
+        update_data: dict[str, Any] = cu.model_dump(exclude_unset=True, exclude=set(update_exclude))
 
         allowed_names: set[str] | None = None
         if fields is not None:
@@ -754,7 +754,7 @@ class AsyncWriteDAL(
         pk_col = cls._pk_column()
 
         exclude_fields = type(cu).resolve_cu_config()["update_exclude"] | {version_field}
-        update_data = cu.model_dump(exclude_unset=True, exclude=exclude_fields)
+        update_data = cu.model_dump(exclude_unset=True, exclude=set(exclude_fields))
 
         if not update_data:
             return await session.get(cls._Table, entity_id)

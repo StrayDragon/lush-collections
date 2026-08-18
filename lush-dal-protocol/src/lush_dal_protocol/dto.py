@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import datetime
 import warnings
-from typing import Any, ClassVar, Final, Generic, TypedDict, TypeVar, cast
+from typing import Any, ClassVar, Final, Generic, TypedDict, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypeVar as TypeVarExt
@@ -32,10 +32,21 @@ class BaseCUConfigDict(TypedDict, total=False):
     update_exclude: frozenset[str]
 
 
+class ResolvedCUConfigDict(TypedDict):
+    """``BaseCU`` 经 MRO 浅合并后的完整行为配置 (两个键必填).
+
+    ``resolve_cu_config()`` / ``_resolved_cu_config`` 返回此类型:
+    合并始终叠加 ``BaseCU`` 默认值, 因此 ``to_orm_exclude`` / ``update_exclude`` 必然存在.
+    """
+
+    to_orm_exclude: frozenset[str]
+    update_exclude: frozenset[str]
+
+
 # 1:1 水平扩展表 (共享主键) 推荐配置: create 保留 id, update 仍排除 id.
 
 
-def pk_field_cu_config(pk_field: str = "id", *, keep_on_create: bool = False) -> BaseCUConfigDict:
+def pk_field_cu_config(pk_field: str = "id", *, keep_on_create: bool = False) -> ResolvedCUConfigDict:
     """按主键字段名生成 ``cu_config``.
 
     Args:
@@ -43,13 +54,13 @@ def pk_field_cu_config(pk_field: str = "id", *, keep_on_create: bool = False) ->
         keep_on_create: ``True`` 时 create/to_orm 保留主键 (共享 PK / 客户端指定 PK).
 
     Returns:
-        可直接赋给 ``BaseCU.cu_config`` 的配置字典.
+        可直接赋给 ``BaseCU.cu_config`` 的配置字典 (始终包含两个键).
     """
     to_orm = frozenset() if keep_on_create else frozenset({pk_field})
-    return BaseCUConfigDict(to_orm_exclude=to_orm, update_exclude=frozenset({pk_field}))
+    return ResolvedCUConfigDict(to_orm_exclude=to_orm, update_exclude=frozenset({pk_field}))
 
 
-EXTEND_TABLE_CU_CONFIG: Final[BaseCUConfigDict] = pk_field_cu_config("id", keep_on_create=True)
+EXTEND_TABLE_CU_CONFIG: Final[ResolvedCUConfigDict] = pk_field_cu_config("id", keep_on_create=True)
 
 
 class BaseCU(BaseModel, Generic[OrmModelT]):
@@ -66,12 +77,12 @@ class BaseCU(BaseModel, Generic[OrmModelT]):
 
     _Table: ClassVar[type]
 
-    cu_config: ClassVar[BaseCUConfigDict] = BaseCUConfigDict(
+    cu_config: ClassVar[BaseCUConfigDict | ResolvedCUConfigDict] = BaseCUConfigDict(
         to_orm_exclude=frozenset({"id"}),
         update_exclude=frozenset({"id"}),
     )
     # BaseCU 自身不触发 __init_subclass__, 需与 cu_config 默认值对齐.
-    _resolved_cu_config: ClassVar[BaseCUConfigDict] = BaseCUConfigDict(
+    _resolved_cu_config: ClassVar[ResolvedCUConfigDict] = ResolvedCUConfigDict(
         to_orm_exclude=frozenset({"id"}),
         update_exclude=frozenset({"id"}),
     )
@@ -83,10 +94,13 @@ class BaseCU(BaseModel, Generic[OrmModelT]):
             own = base.__dict__.get("cu_config")
             if own is not None:
                 merged.update(own)
-        cls._resolved_cu_config = cast("BaseCUConfigDict", merged)
+        cls._resolved_cu_config = {
+            "to_orm_exclude": merged.get("to_orm_exclude", frozenset({"id"})),
+            "update_exclude": merged.get("update_exclude", frozenset({"id"})),
+        }
 
     @classmethod
-    def resolve_cu_config(cls) -> BaseCUConfigDict:
+    def resolve_cu_config(cls) -> ResolvedCUConfigDict:
         """返回经 MRO 浅合并后的 ``cu_config`` (类创建期已缓存)."""
         return cls._resolved_cu_config
 
@@ -98,7 +112,7 @@ class BaseCU(BaseModel, Generic[OrmModelT]):
         子类可覆盖此方法以适配不同 ORM 的构造方式.
         """
         exclude = type(self)._resolved_cu_config["to_orm_exclude"]
-        model_data = self.model_dump(exclude_unset=True, exclude=exclude)
+        model_data = self.model_dump(exclude_unset=True, exclude=set(exclude))
         return self._Table(**model_data)
 
 

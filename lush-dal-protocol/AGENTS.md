@@ -15,7 +15,7 @@
 | `abc/read.py` | AbstractAsync/SyncReadDAL — 读操作 ABC (8 个 abstractmethod) |
 | `abc/write.py` | AbstractAsync/SyncWriteDAL — 写操作 ABC (5 个 abstractmethod) |
 | `abc/composed.py` | AbstractAsync/SyncBaseDAL — Read + Write 组合 |
-| `dto.py` | `BaseCU` / `BaseDTO` — ORM 无关 Pydantic 基类; `BaseCUConfigDict` / `pk_field_cu_config` / `EXTEND_TABLE_CU_CONFIG`; `StdBaseCU` / `StdBaseDTO` (deprecated) |
+| `dto.py` | `BaseCU` / `BaseDTO` — ORM 无关 Pydantic 基类; `BaseCUConfigDict` / `ResolvedCUConfigDict` / `pk_field_cu_config` / `EXTEND_TABLE_CU_CONFIG`; `StdBaseCU` / `StdBaseDTO` (deprecated) |
 | `errors.py` | `DBRetryableError` — 数据库并发可重试错误 |
 | `utils/retry.py` | `RetryConfig` / `DEFAULT_RETRY_CONFIG` — 指数退避重试配置 |
 | `utils/sql.py` | `filtered_in_sql_values` / `escape_like` — 通用工具函数 |
@@ -39,7 +39,7 @@ class ReportJobCU(BaseCU[ReportJobTable]):
 
 - `to_orm_exclude` / `update_exclude`: `frozenset[str]`, 默认均为 `frozenset({"id"})` — **自定义主键字段名时须改** `cu_config`, 否则 dump 仍按 `"id"` 排除.
 - `pk_field_cu_config(pk, *, keep_on_create=False)`: 按主键字段名生成配置; `EXTEND_TABLE_CU_CONFIG` 为其 `keep_on_create=True` 别名 (同时显式带 `update_exclude={pk}`).
-- MRO 浅合并 (子类已设键覆盖, 未设继承上游), 在 `__init_subclass__` 缓存为 `_resolved_cu_config`.
+- MRO 浅合并 (子类已设键覆盖, 未设继承上游), 在 `__init_subclass__` 缓存为 `_resolved_cu_config`; 合并结果**必然包含两个键** (`BaseCU` 默认值兜底), 以 `ResolvedCUConfigDict` 表达 — 故 `resolve_cu_config()` 返回该类型, 调用方可直接索引两个键.
 - `cu_config` 仅在类体声明; 类创建后再改不保证生效.
 - 1:1 水平扩展表 (共享主键): 用 `EXTEND_TABLE_CU_CONFIG`, **扩展表必须独立 DAL**, 同事务先主表后扩展表.
 - InMemory 参考实现: create dump 含非空主键字段时采用客户端值; 冲突抛 `ValueError`; `_next_id` 推进到 `max+1`.

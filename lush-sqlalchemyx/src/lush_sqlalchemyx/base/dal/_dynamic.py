@@ -362,7 +362,7 @@ class TableRef(Generic[PrimaryKeyT]):
             dump_exclude: frozenset[str] = frozenset({self.pk_field_name}) if self.config.exclude_pk_on_create else frozenset()
         else:
             dump_exclude = frozenset({self.pk_field_name})
-        return self.map_to_row_data(cu.model_dump(exclude_unset=True, exclude=dump_exclude))
+        return self.map_to_row_data(cu.model_dump(exclude_unset=True, exclude=set(dump_exclude)))
 
 
 # ---------------------------------------------------------------------------

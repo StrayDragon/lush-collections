@@ -503,7 +503,7 @@ class SyncWriteDAL(
             return None
 
         update_exclude = type(cu).resolve_cu_config()["update_exclude"]
-        update_data = cu.model_dump(exclude_unset=True, exclude=update_exclude)
+        update_data = cu.model_dump(exclude_unset=True, exclude=set(update_exclude))
         for key, value in update_data.items():
             if not _apply_none_policy(key, value, none_policy=none_policy):
                 continue
@@ -555,7 +555,7 @@ class SyncWriteDAL(
         if not entity:
             return None
         update_exclude = type(cu).resolve_cu_config()["update_exclude"]
-        update_data: dict[str, Any] = cu.model_dump(exclude=update_exclude)
+        update_data: dict[str, Any] = cu.model_dump(exclude=set(update_exclude))
         if strict_missing:
             declared_fields = set(cu.__class__.model_fields.keys()) - set(update_exclude)
             missing_declared = [k for k in declared_fields if k not in update_data]
@@ -588,7 +588,7 @@ class SyncWriteDAL(
         if not entity:
             return None
         update_exclude = type(cu).resolve_cu_config()["update_exclude"]
-        update_data: dict[str, Any] = cu.model_dump(exclude_unset=True, exclude=update_exclude)
+        update_data: dict[str, Any] = cu.model_dump(exclude_unset=True, exclude=set(update_exclude))
         allowed_names: set[str] | None = None
         if fields is not None:
             allowed_names = set()
@@ -719,7 +719,7 @@ class SyncWriteDAL(
             raise AttributeError(f"表 {cls._Table.__name__} 不包含 {version_field} 字段,无法使用乐观锁")
         pk_col = cls._pk_column()
         exclude_fields = type(cu).resolve_cu_config()["update_exclude"] | {version_field}
-        update_data = cu.model_dump(exclude_unset=True, exclude=exclude_fields)
+        update_data = cu.model_dump(exclude_unset=True, exclude=set(exclude_fields))
         if not update_data:
             return session.get(cls._Table, entity_id)
         set_values: dict[str, Any] = {key: value for key, value in update_data.items() if hasattr(cls._Table, key)}
