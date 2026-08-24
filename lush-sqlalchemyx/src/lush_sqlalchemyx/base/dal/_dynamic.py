@@ -100,7 +100,7 @@ def derive_pk_from_dto(dto_class: type[BaseModel]) -> str:
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DynamicTableConfig:
     """动态表的软删除 / 只读配置.
 
