@@ -47,6 +47,11 @@ fmt:
 lint:
   @for d in $(ls -1d {{pkg_glob}} | sort); do echo "== lint $d"; (cd "$d" && just lint); done
 
+# 质量门禁聚合: lint + 全包测试 (提交前运行, 防回归).
+qa:
+  @just lint
+  @just test
+
 # Lint 并自动修复可修复项(ruff check --fix).
 lint-fix:
   @for d in $(ls -1d {{pkg_glob}} | sort); do echo "== lint-fix $d"; (cd "$d" && just lint-fix); done
