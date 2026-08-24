@@ -125,6 +125,17 @@ def _post_write_refresh(self, session):
 
 - 100% branch coverage, `--cov-fail-under=100`.
 - ABC 的 `...` body 通过 `exclude_also = ["\\.\\.\\.""]` 排除.
+- 测试标记体系 (`--strict-markers` 已启用): `unit` / `property`; 新增 marker 必须先在 pyproject 注册.
+- 属性测试 (hypothesis): 仅针对纯 Python、可陈述不变量的原语; CI 经 `tests/conftest.py` 加载
+  derandomize profile. 参考样例: `tests/test_property_dto_merge.py` (cu_config MRO 合并不变量).
+
+### 类型纪律 (docs/design/11)
+
+- 新增 TypeVar 必须 `bound=` / constrained, 禁止裸 `TypeVar("T")`;
+  泛型参数顺序 `Session → Table → DTO → CU → PrimaryKey`.
+- Pydantic 字段元数据访问一律 `type(X).model_fields` (2.11+ 弃用实例访问);
+  反射 Annotated 必须 `get_type_hints(..., include_extras=True)`.
+- 完整规范与 DoD 检查单见 `../docs/design/11-typing-test-rigor.md`.
 
 ### Coverage Omit
 

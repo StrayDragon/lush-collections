@@ -134,6 +134,50 @@ class TestAsyncDALConformance(AsyncFullDALConformanceTests):
 - **MySQL matrix**: `mysql:5.7` + `mysql:8.0.40-debian` (`just test-mysql-matrix` / CI workflow), 覆盖非严格 zero-date 与严格模式.
 - 100% branch coverage, `--cov-fail-under=100`.
 
+## 类型与测试工程规范 (docs/design/11)
+
+> 完整规范与 DoD 检查单见 `../docs/design/11-typing-test-rigor.md`. 以下为强制规则摘要.
+
+### 测试标记体系 (--strict-markers 已启用)
+
+| marker | 用途 |
+|--------|------|
+| `unit` | 纯单元测试, 无外部依赖 |
+| `oracle` | oracle 对比测试 (sqlite 或同构) |
+| `matrix` | 需要 MySQL 容器的矩阵测试 |
+| `compat` | mysql mode × version 兼容子集 (双 sql_mode 参数化) |
+| `cost` | 成本契约验证 (语句数断言, 见 docs/design 各文档「成本速览」) |
+| `property` | hypothesis 属性测试 |
+
+- 拼错/未注册的 marker 会直接报错 (`--strict-markers`); 新增 marker 必须先在 pyproject 注册.
+- 每个测试文件/用例须归入上述标记之一.
+
+### 属性测试 (hypothesis)
+
+- 适用判定: **纯 Python、无 IO、能陈述不变量**的原语; 生成策略必须有界.
+- CI 环境 (`CI` 环境变量) 自动加载 derandomize profile (conftest.py), 保证可复现; 本地随机探索.
+- 参考样例: `tests/test_property_primitives.py`.
+
+### 泛型纪律 (增量约束)
+
+- 新增 TypeVar 必须 `bound=` / constrained; 禁止裸 `TypeVar("T")`.
+  存量 `SQLATableT`(unbounded) 为历史例外 — 不新增、不回改.
+- 需要"未指定回退"时用 `typing_extensions.TypeVar(default=...)` (py3.10 无 PEP 695).
+- 泛型参数顺序: `Session → Table → DTO → CU → PrimaryKey`; 新泛型类 docstring 逐参说明.
+- 类级 TypeVar 保持 invariant; 结构匹配的消费方才用 Protocol.
+
+### 配置对象严格化
+
+- 一切**新增**声明式配置/spec 对象必须 `@dataclass(frozen=True, slots=True)`.
+- **例外**: 使用 `cached_property` 的类不可加 slots (需要实例 `__dict__`),
+  如 `TableRef` — 保持 `frozen=True` 即可.
+- 存量 `DynamicTableConfig` 已加固 slots=True (拼写错误的属性赋值立即报错).
+
+### Pydantic 访问约定
+
+- 字段元数据访问一律 `type(X).model_fields`, 不做实例访问 (Pydantic 2.11+ 弃用).
+- 反射 Annotated 元数据必须 `get_type_hints(..., include_extras=True)` (否则静默剥离).
+
 ### BDD / Oracle 对拍
 
 行为变更须先写 feature / oracle 测试, 再实现:
