@@ -37,6 +37,9 @@ await JobDAL.batch_update_by_ids(
 - 依赖 `lush-dal-protocol` `BaseCU.cu_config`: WriteDAL update 读 `update_exclude`; 导出 `BaseCUConfigDict` / `EXTEND_TABLE_CU_CONFIG`
 - `DynamicTableConfig.exclude_pk_on_create` (默认 `True`); update 经 `cu_row_data(..., for_create=False)` 始终排除 PK
 - 支持 1:1 水平扩展表 (共享主键) ORM / Dynamic 双路径
+- 测试基建引入 `hypothesis` 属性测试与 pytest marker 体系 (`unit` / `oracle` / `matrix` / `compat` / `cost` / `property`), `--strict-markers` 启用 (docs/design/11)
+- `DynamicTableConfig` 加固为 `slots=True` (frozen 不变): 拼写错误的属性赋值立即报错; 子类兼容性不受影响
+- CI 环境下 hypothesis 自动加载 derandomize profile (可复现)
 
 ## 0.7.1
 

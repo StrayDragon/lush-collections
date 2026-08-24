@@ -27,14 +27,19 @@ dev = [
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",
+    "hypothesis>=6.100.0",
 ]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib --cov=lush_dal_protocol --cov-branch --cov-report=term-missing --cov-fail-under=100"
+addopts = "--import-mode=importlib --strict-markers --cov=lush_dal_protocol --cov-branch --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"
+markers = [
+    "unit: 纯单元测试, 无外部依赖",
+    "property: hypothesis 属性测试 (纯 Python 不变量)",
+]
 
 [tool.coverage.run]
 branch = true

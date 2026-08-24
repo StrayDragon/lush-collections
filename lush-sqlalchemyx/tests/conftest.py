@@ -319,3 +319,14 @@ def mysql8_endpoint() -> Generator[_MySQLEndpoint, None, None]:
     if not _docker_available():
         pytest.skip("Docker unavailable")
     yield from _start_mysql_endpoint(_mysql8_image())
+
+
+# ---------------------------------------------------------------------------
+# hypothesis 属性测试配置 (docs/design/11 §4)
+# CI 环境固定 seed 保证可复现; 本地默认随机探索.
+# ---------------------------------------------------------------------------
+if os.getenv("CI"):
+    from hypothesis import settings
+
+    settings.register_profile("ci", derandomize=True)
+    settings.load_profile("ci")

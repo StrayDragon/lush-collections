@@ -50,15 +50,24 @@ dev = [
     "flask>=3.0.0",
     "pytest-benchmark>=5.2.3",
     "pymysql>=1.1.2",
+    "hypothesis>=6.100.0",
 ]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib --cov=lush_sqlalchemyx --cov-branch --cov-report=term-missing --cov-fail-under=100"
+addopts = "--import-mode=importlib --strict-markers --cov=lush_sqlalchemyx --cov-branch --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"
 bdd_features_base_dir = "tests/features"
+markers = [
+    "unit: 纯单元测试, 无外部依赖",
+    "oracle: oracle 对比测试 (sqlite 或同构)",
+    "matrix: 需要 MySQL 容器的矩阵测试",
+    "compat: mysql mode × version 兼容性子集 (双 sql_mode 参数化)",
+    "cost: 成本契约验证 (语句数断言)",
+    "property: hypothesis 属性测试 (纯 Python 不变量)",
+]
 
 [tool.coverage.run]
 branch = true
