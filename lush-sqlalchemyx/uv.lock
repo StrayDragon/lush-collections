@@ -756,15 +756,14 @@ wheels = [
 
 [[package]]
 name = "jinja2sql"
-version = "0.8.0"
+version = "0.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jinja2" },
-    { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d9/80/25afe147a6fe58493b21e59eadfc204664cc1b6cf17a3a6d293c0740db9a/jinja2sql-0.8.0.tar.gz", hash = "sha256:32fdb29f509ace7818d7c400cbfd22f5193d313ea0396e1be92f7b5b9b845e2b", size = 77478, upload-time = "2025-01-15T08:20:59.526Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/29/269d59679f47a1df99744a54cb57b7607d44640daeeb1343d58665c2f209/jinja2sql-0.11.0.tar.gz", hash = "sha256:e31902c66e5e238ecbd9b6d771eec0d40daa72cc74d1bd4ce0417e5e2d29757b", size = 87285, upload-time = "2026-04-16T12:43:46.211Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/00/4debb79ff833c12db5dbeb21fc0fe1afa75f77a29990a816ea9cf1f1e9b7/jinja2sql-0.8.0-py3-none-any.whl", hash = "sha256:94d0668dcfa33bd007c89069ec1a60f665b5f172c8e2b99b50c3568e551b2bac", size = 7045, upload-time = "2025-01-15T08:20:56.79Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/7b/15efe09576dd19d95da1343a77b9acadb1b44bfd295ecd207356252e8429/jinja2sql-0.11.0-py3-none-any.whl", hash = "sha256:97808137049050264338297806f15a665294ead8871f651909a5a6be90a82dc7", size = 6899, upload-time = "2026-04-16T12:43:47.215Z" },
 ]
 
 [[package]]
@@ -868,7 +867,7 @@ dev = [
     { name = "flask", specifier = ">=3.0.0" },
     { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
     { name = "hypothesis", specifier = ">=6.100.0" },
-    { name = "jinja2sql", specifier = ">=0.8.0" },
+    { name = "jinja2sql", specifier = ">=0.11.0" },
     { name = "pymysql", specifier = ">=1.1.2" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest-asyncio", specifier = ">=1.1.0" },

@@ -1,8 +1,13 @@
 # 测试专用基础设施 — 仅 bridge 内通信, 不映射宿主机端口.
 #
+# Profiles:
+#   redis  — lush-redisx
+#   mysql  — lush-sqlalchemyx (mysql57 + mysql8)
+#   test   — test-runner
+#
 # 启动: docker compose -f docker-compose.test.yml up -d
-# 跑测: docker compose -f docker-compose.test.yml --profile test run --rm test-runner lush-redisx
-# 停止: docker compose -f docker-compose.test.yml down --remove-orphans
+# 跑测: just test-docker lush-redisx
+# 停止: just test-infra-down
 
 networks:
   lush-test:
@@ -10,6 +15,7 @@ networks:
 
 services:
   redis:
+    profiles: [redis]
     image: redis:7.4-alpine
     networks: [lush-test]
     command: ["redis-server", "--save", "", "--appendonly", "no"]
@@ -21,6 +27,7 @@ services:
       start_period: 5s
 
   mysql57:
+    profiles: [mysql]
     image: mysql:5.7
     networks: [lush-test]
     environment:
@@ -45,6 +52,7 @@ services:
       start_period: 40s
 
   mysql8:
+    profiles: [mysql]
     image: mysql:8.0.40-debian
     networks: [lush-test]
     environment:
@@ -86,12 +94,5 @@ services:
     volumes:
       - .:/workspace:rw
       - ${HOME}/.local/share/uv:${HOME}/.local/share/uv:ro
-    depends_on:
-      redis:
-        condition: service_healthy
-      mysql57:
-        condition: service_healthy
-      mysql8:
-        condition: service_healthy
     profiles: [test]
     entrypoint: ["/workspace/scripts/run-package-tests.sh"]

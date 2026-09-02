@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 在 compose bridge 内顺序跑所有 lush-* 测试.
-# 依赖服务由 docker compose run 的 depends_on 自动拉起, 无需手动 test-infra-up.
+# 各包按需启用 redis/mysql profile (见 scripts/compose-test-run.sh).
 #
 # 环境变量:
 #   LUSH_TEST_TEARDOWN=1  全部跑完后 docker compose down (默认保留 infra 便于重复跑)
@@ -12,7 +12,7 @@ TEARDOWN="${LUSH_TEST_TEARDOWN:-0}"
 
 cleanup() {
   if [[ "$TEARDOWN" == "1" ]]; then
-    docker compose -f "$COMPOSE_FILE" down --remove-orphans
+    docker compose -f "$COMPOSE_FILE" --profile redis --profile mysql --profile test down --remove-orphans
   fi
 }
 trap cleanup EXIT
@@ -26,5 +26,5 @@ export HOME="${HOME:?HOME must be set}"
 for pkg in $(ls -1d lush-* | sort); do
   [[ -d "$pkg" ]] || continue
   echo "== test-docker $pkg"
-  docker compose -f "$COMPOSE_FILE" --profile test run --rm test-runner "$pkg"
+  ./scripts/compose-test-run.sh "$pkg"
 done

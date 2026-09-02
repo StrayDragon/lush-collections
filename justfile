@@ -46,11 +46,11 @@ test:
 # 启动 compose 测试基础设施 (redis + mysql57 + mysql8, 无宿主机端口映射).
 # 通常不需要手动调用: ``just test-docker`` 会通过 depends_on 自动拉起依赖.
 test-infra-up:
-  @docker compose -f {{compose_file}} up -d redis mysql57 mysql8
+  @docker compose -f {{compose_file}} --profile redis --profile mysql up -d --wait redis mysql57 mysql8
 
 # 停止 compose 测试基础设施 (释放内存/容器; 日常跑测可不调).
 test-infra-down:
-  @docker compose -f {{compose_file}} down --remove-orphans
+  @docker compose -f {{compose_file}} --profile redis --profile mysql --profile test down --remove-orphans
 
 # 在 compose bridge 内跑单个包测试 (一条命令, 自动起依赖, 不占用本机 6379/3306).
 test-docker pkg *pytest_args:
