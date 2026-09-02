@@ -10,26 +10,86 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 # `pkg_glob`: 当前仓库中“包目录”的匹配模式.
 pkg_glob := "lush-*"
 
+# compose 测试基础设施 (bridge 内网, 不映射宿主机端口).
+compose_file := "docker-compose.test.yml"
+
 _default:
   @just --list
 
-# 列出当前仓库中所有包目录 (排序后输出).
+# 列出当前仓库中所有包目录 (排序后输出, 排除 lush-versions.toml 等文件).
 packages:
-  @ls -1d {{pkg_glob}} | sort
+  #!/usr/bin/env bash
+  for d in {{pkg_glob}}; do
+    [[ -d "$d" ]] && echo "${d%/}"
+  done | sort
 
 # 以下命令会遍历每个包目录,转发执行包内 `justfile` 的同名 recipe.
 
 # 生成/更新每个包的 `uv.lock`.
 lock:
-  @for d in $(ls -1d {{pkg_glob}} | sort); do echo "== lock $d"; (cd "$d" && just lock); done
+  @just packages | while read -r d; do echo "== lock $d"; (cd "$d" && just lock); done
 
 # 按 `uv.lock` 同步每个包的虚拟环境(不会改锁文件).
 sync:
-  @for d in $(ls -1d {{pkg_glob}} | sort); do echo "== sync $d"; (cd "$d" && just sync); done
+  @just packages | while read -r d; do echo "== sync $d"; (cd "$d" && just sync); done
+
+# 宿主机一次性准备 (test-docker 前置; 网络/代理由环境变量自行配置).
+prepare:
+  @just lock
+  @just sync
+  @echo "prepare done — run: just test-all-docker"
 
 # 跑每个包的测试.
 test:
-  @for d in $(ls -1d {{pkg_glob}} | sort); do echo "== test $d"; (cd "$d" && just test); done
+  @just packages | while read -r d; do echo "== test $d"; (cd "$d" && just test); done
+
+# 启动 compose 测试基础设施 (redis + mysql57 + mysql8, 无宿主机端口映射).
+# 通常不需要手动调用: ``just test-docker`` 会通过 depends_on 自动拉起依赖.
+test-infra-up:
+  @docker compose -f {{compose_file}} up -d redis mysql57 mysql8
+
+# 停止 compose 测试基础设施 (释放内存/容器; 日常跑测可不调).
+test-infra-down:
+  @docker compose -f {{compose_file}} down --remove-orphans
+
+# 在 compose bridge 内跑单个包测试 (一条命令, 自动起依赖, 不占用本机 6379/3306).
+test-docker pkg *pytest_args:
+  @./scripts/compose-test-run.sh {{pkg}} {{pytest_args}}
+
+# 在 compose bridge 内跑所有包测试 (LUSH_TEST_TEARDOWN=1 跑完自动 down).
+test-all-docker:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  missing=()
+  while read -r d; do
+    [[ -x "$d/.venv/bin/python" || -x "$d/.venv/bin/python3" ]] || missing+=("$d")
+  done < <(just packages)
+  if ((${#missing[@]})); then
+    echo "error: missing .venv in: ${missing[*]}" >&2
+    echo "run first: just prepare" >&2
+    exit 2
+  fi
+  LUSH_TEST_TEARDOWN="${LUSH_TEST_TEARDOWN:-0}" ./scripts/test-all-docker.sh
+
+# 构建 test-runner 镜像 (修改 Dockerfile.test 后执行).
+test-docker-build:
+  @docker compose -f {{compose_file}} --profile test build test-runner
+
+# 删除 test-docker 以 root 创建的 .venv (需 sudo).
+clean-docker-venvs:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  found=0
+  while read -r d; do
+    venv="$d/.venv"
+    [[ -d "$venv" ]] || continue
+    if [[ "$(stat -c '%U' "$venv")" == "root" ]]; then
+      echo "== removing root-owned $venv"
+      sudo rm -rf "$venv"
+      found=1
+    fi
+  done < <(just packages)
+  [[ "$found" -eq 1 ]] || echo "no root-owned .venv found"
 
 # 构建每个包的 dist (wheel/sdist).
 build:

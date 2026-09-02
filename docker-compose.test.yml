@@ -1,0 +1,97 @@
+# 测试专用基础设施 — 仅 bridge 内通信, 不映射宿主机端口.
+#
+# 启动: docker compose -f docker-compose.test.yml up -d
+# 跑测: docker compose -f docker-compose.test.yml --profile test run --rm test-runner lush-redisx
+# 停止: docker compose -f docker-compose.test.yml down --remove-orphans
+
+networks:
+  lush-test:
+    driver: bridge
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    networks: [lush-test]
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  mysql57:
+    image: mysql:5.7
+    networks: [lush-test]
+    environment:
+      MYSQL_ROOT_PASSWORD: lush_test_root
+      MYSQL_ROOT_HOST: "%"
+    command: ["--default-authentication-plugin=mysql_native_password"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-plush_test_root",
+          "--protocol=tcp",
+          "--silent",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  mysql8:
+    image: mysql:8.0.40-debian
+    networks: [lush-test]
+    environment:
+      MYSQL_ROOT_PASSWORD: lush_test_root
+      MYSQL_ROOT_HOST: "%"
+    command: ["--default-authentication-plugin=mysql_native_password"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-plush_test_root",
+          "--protocol=tcp",
+          "--silent",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    networks: [lush-test]
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      HOME: ${HOME}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      LUSH_TEST_MYSQL_HOST: mysql8
+      LUSH_TEST_MYSQL57_HOST: mysql57
+      LUSH_TEST_MYSQL8_HOST: mysql8
+      LUSH_TEST_MYSQL_PORT: "3306"
+      LUSH_TEST_MYSQL_ROOT_PASSWORD: lush_test_root
+    volumes:
+      - .:/workspace:rw
+      - ${HOME}/.local/share/uv:${HOME}/.local/share/uv:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql57:
+        condition: service_healthy
+      mysql8:
+        condition: service_healthy
+    profiles: [test]
+    entrypoint: ["/workspace/scripts/run-package-tests.sh"]
