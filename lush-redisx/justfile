@@ -20,9 +20,9 @@ lock:
 sync:
   @uv sync -p {{python}} --frozen --default-index {{default_index}}
 
-# 运行测试.
+# 运行测试 (需 compose bridge 内 redis; 由根 justfile test-docker 拉起).
 test:
-  @uv run -p {{python}} --default-index {{default_index}} pytest
+  @cd .. && just test-docker lush-redisx
 
 # 构建 dist (wheel/sdist).
 build:

@@ -39,9 +39,23 @@ prepare:
   @just sync
   @echo "prepare done — run: just test-all-docker"
 
-# 跑每个包的测试.
+# 跑每个包的测试 (lush-redisx / lush-sqlalchemyx 自动走 compose bridge).
 test:
-  @just packages | while read -r d; do echo "== test $d"; (cd "$d" && just test); done
+  #!/usr/bin/env bash
+  set -euo pipefail
+  mapfile -t _pkgs < <(just packages)
+  for d in "${_pkgs[@]}"; do
+    case "$d" in
+      lush-redisx|lush-sqlalchemyx)
+        echo "== test-docker $d"
+        just test-docker "$d"
+        ;;
+      *)
+        echo "== test $d"
+        (cd "$d" && just test)
+        ;;
+    esac
+  done
 
 # 启动 compose 测试基础设施 (redis + mysql57 + mysql8, 无宿主机端口映射).
 # 通常不需要手动调用: ``just test-docker`` 会通过 depends_on 自动拉起依赖.
@@ -124,7 +138,16 @@ sync-one pkg:
   @cd {{pkg}} && just sync
 
 test-one pkg:
-  @cd {{pkg}} && just test
+  #!/usr/bin/env bash
+  set -euo pipefail
+  case "{{pkg}}" in
+    lush-redisx|lush-sqlalchemyx)
+      just test-docker "{{pkg}}"
+      ;;
+    *)
+      cd "{{pkg}}" && just test
+      ;;
+  esac
 
 build-one pkg:
   @cd {{pkg}} && just build

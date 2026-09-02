@@ -20,9 +20,9 @@ lock:
 sync:
   @uv sync -p {{python}} --frozen --default-index {{default_index}}
 
-# 运行测试.
+# 运行测试 (需 compose bridge 内 mysql57/mysql8; 由根 justfile test-docker 拉起).
 test:
-  @uv run -p {{python}} --default-index {{default_index}} pytest
+  @cd .. && just test-docker lush-sqlalchemyx
 
 # 分别使用 MySQL 5.7 和 8 运行 datetime None / zero-date 集成测试 (matrix, 跳过覆盖率).
 # 需要本机 Docker; CI 可设 LUSH_TEST_MYSQL_PULL=1 自动拉镜像.
