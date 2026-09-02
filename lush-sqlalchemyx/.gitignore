@@ -1,2 +1,18 @@
-# pytest 运行时生成的 sqlite 等临时文件 (tests/test_config.yaml: TEST_SQLITE_PATH)
+# 测试产物
+*.db
+.tmp/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.benchmarks/
+
+# 构建 / 虚拟环境 (包目录内偶发)
+dist/
+build/
+*.egg-info/
+.venv/
+
 tests/.tmp/
