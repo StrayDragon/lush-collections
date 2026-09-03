@@ -30,11 +30,11 @@
 from lush_dal_protocol import BaseCU, BaseCUConfigDict, EXTEND_TABLE_CU_CONFIG, pk_field_cu_config
 
 
-class ReportJobCU(BaseCU[ReportJobTable]):
-    _Table = ReportJobTable
+class AsyncTaskCU(BaseCU[AsyncTaskTable]):
+    _Table = AsyncTaskTable
     cu_config = EXTEND_TABLE_CU_CONFIG  # 或 pk_field_cu_config("id", keep_on_create=True)
     id: int
-    report_name: str
+    detail_label: str
 ```
 
 - `to_orm_exclude` / `update_exclude`: `frozenset[str]`, 默认均为 `frozenset({"id"})` — **自定义主键字段名时须改** `cu_config`, 否则 dump 仍按 `"id"` 排除.

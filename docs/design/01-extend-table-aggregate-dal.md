@@ -7,7 +7,7 @@
 
 ## 现状基线 (已落地, 原 ISSUE 归档并入)
 
-> 业务来源: 异步后台任务系统 Producer 侧实践 —— 主表承载通用状态机 + 运行态 JSON (`data_json`),
+> 业务来源: 通用异步后台任务系统实践 —— 主表承载通用状态机 + 运行态 JSON (`data_json`),
 > 扩展表按类型承载提交参数快照与结构化查询列; 关系为 `extend.id = main.id` (共享主键, 扩展表不自增).
 
 前置 ISSUE (P0 + P0.5) 已交付的能力, 本提案直接复用、不重新设计:
@@ -33,15 +33,15 @@
 ```python
 # ── 现状: 每个扩展表场景都要手写这套序列 ──────────────────
 # 写: 主表 create → 手工回填共享 PK → 扩展表 create (同事务)
-main_dto = await ReportJobDAL.ret_dto_after_create(session, ReportJobCU(stage="init"))
-await ReportJobExportDAL.ret_dto_after_create(
+main_dto = await AsyncTaskDAL.ret_dto_after_create(session, AsyncTaskCU(stage="init"))
+await AsyncTaskDetailDAL.ret_dto_after_create(
     session,
-    ReportJobExportCU(id=main_dto.id, report_name="x"),   # 手工注入共享 PK
+    AsyncTaskDetailCU(id=main_dto.id, detail_label="x"),   # 手工注入共享 PK
 )
 
 # 读: 查两次再拼, 且要处理扩展行不存在
-job = await ReportJobDAL.get_by_id(session, job_id)
-export = await ReportJobExportDAL.get_by_id(session, job_id)   # 可能 None
+job = await AsyncTaskDAL.get_by_id(session, job_id)
+export = await AsyncTaskDetailDAL.get_by_id(session, job_id)   # 可能 None
 full = {...}  # 手工拼装
 
 # 更新: 字段归属全凭开发者记忆, 容易漏掉扩展表那一条
@@ -60,94 +60,94 @@ from lush_sqlalchemyx.base.dal import (
 )
 
 # ---- 表 (与现状完全一致, 不新增任何表层概念) ----
-class ReportJobTable(Base, FieldMixin):
-    __tablename__ = "report_job"
+class AsyncTaskTable(Base, FieldMixin):
+    __tablename__ = "async_task"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     stage: Mapped[str]
 
-class ReportJobExportTable(Base):
-    __tablename__ = "report_job_export"
+class AsyncTaskDetailTable(Base):
+    __tablename__ = "async_task_detail"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)  # 共享主键, 非自增
-    report_name: Mapped[str]
+    detail_label: Mapped[str]
 
 # ---- CU / DTO (与现状一致) ----
-class ReportJobCU(BaseCU[ReportJobTable]):
-    _Table = ReportJobTable
+class AsyncTaskCU(BaseCU[AsyncTaskTable]):
+    _Table = AsyncTaskTable
     stage: str
 
-class ReportJobDTO(BaseDTO[ReportJobCU]):
-    _CU = ReportJobCU
+class AsyncTaskDTO(BaseDTO[AsyncTaskCU]):
+    _CU = AsyncTaskCU
     id: int
     stage: str
 
-class ReportJobExportCU(BaseCU[ReportJobExportTable]):
-    _Table = ReportJobExportTable
+class AsyncTaskDetailCU(BaseCU[AsyncTaskDetailTable]):
+    _Table = AsyncTaskDetailTable
     cu_config = EXTEND_TABLE_CU_CONFIG      # create 保留 id, update 排除 id
     id: int
-    report_name: str
+    detail_label: str
 
-class ReportJobExportDTO(BaseDTO[ReportJobExportCU]):
-    _CU = ReportJobExportCU
+class AsyncTaskDetailDTO(BaseDTO[AsyncTaskDetailCU]):
+    _CU = AsyncTaskDetailCU
     id: int
-    report_name: str
+    detail_label: str
 
 # ---- 子 DAL (与现状一致) ----
-class ReportJobDAL(AsyncBaseDAL[ReportJobTable, ReportJobDTO, ReportJobCU]):
-    _Table = ReportJobTable; _DTO = ReportJobDTO; _CU = ReportJobCU
+class AsyncTaskDAL(AsyncBaseDAL[AsyncTaskTable, AsyncTaskDTO, AsyncTaskCU]):
+    _Table = AsyncTaskTable; _DTO = AsyncTaskDTO; _CU = AsyncTaskCU
 
-class ReportJobExportDAL(AsyncBaseDAL[ReportJobExportTable, ReportJobExportDTO, ReportJobExportCU]):
-    _Table = ReportJobExportTable; _DTO = ReportJobExportDTO; _CU = ReportJobExportCU
+class AsyncTaskDetailDAL(AsyncBaseDAL[AsyncTaskDetailTable, AsyncTaskDetailDTO, AsyncTaskDetailCU]):
+    _Table = AsyncTaskDetailTable; _DTO = AsyncTaskDetailDTO; _CU = AsyncTaskDetailCU
 
 # ---- 新增的全部内容: 一个聚合声明 ----
-class ReportJobFullDTO(ReportJobDTO, ReportJobExportDTO): ...
-# 或 ReportJobFullDTO = compose_full_dto("ReportJobFullDTO", ReportJobDTO, ReportJobExportDTO)
+class AsyncTaskFullDTO(AsyncTaskDTO, AsyncTaskDetailDTO): ...
+# 或 AsyncTaskFullDTO = compose_full_dto("AsyncTaskFullDTO", AsyncTaskDTO, AsyncTaskDetailDTO)
 
-class ReportJobAggDAL(AsyncExtendTableDAL[
-    ReportJobDTO, ReportJobCU, ReportJobExportDTO, ReportJobExportCU,
+class AsyncTaskAggDAL(AsyncExtendTableDAL[
+    AsyncTaskDTO, AsyncTaskCU, AsyncTaskDetailDTO, AsyncTaskDetailCU,
 ]):
-    _main_dal: ClassVar[type[ReportJobDAL]] = ReportJobDAL
-    _ext_dal: ClassVar[type[ReportJobExportDAL]] = ReportJobExportDAL
-    _DTO: ClassVar[type[ReportJobFullDTO]] = ReportJobFullDTO     # 合成读模型
+    _main_dal: ClassVar[type[AsyncTaskDAL]] = AsyncTaskDAL
+    _ext_dal: ClassVar[type[AsyncTaskDetailDAL]] = AsyncTaskDetailDAL
+    _DTO: ClassVar[type[AsyncTaskFullDTO]] = AsyncTaskFullDTO     # 合成读模型
     _cascade_delete_ext: ClassVar[bool] = True                    # 默认级联软删扩展表
 ```
 
 ### 使用侧
 
 ```python
-agg = ReportJobAggDAL  # classmethod 风格, 与现有 DAL 一致
+agg = AsyncTaskAggDAL  # classmethod 风格, 与现有 DAL 一致
 
 # ── 创建: 子 CU 各自验证, 编排层负责顺序与共享 PK 回填 ──
 full = await agg.create_with_ext(
     session,
-    main=ReportJobCU(stage="init"),
-    ext=ReportJobExportCU(report_name="x"),     # 可选参数
+    main=AsyncTaskCU(stage="init"),
+    ext=AsyncTaskDetailCU(detail_label="x"),     # 可选参数
 )
 full.id            # 1  (来自主表自增)
 full.stage         # "init"
-full.report_name   # "x"
+full.detail_label   # "x"
 
 # 也允许只建主表, 扩展行延迟挂载:
-full = await agg.create_with_ext(session, main=ReportJobCU(stage="init"))
-# 效果: 只 INSERT report_job; report_job_export 无行
+full = await agg.create_with_ext(session, main=AsyncTaskCU(stage="init"))
+# 效果: 只 INSERT async_task; async_task_detail 无行
 
 # 后补扩展行:
-await agg.attach_ext(session, entity_id=1, ext=ReportJobExportCU(id=1, report_name="x"))
+await agg.attach_ext(session, entity_id=1, ext=AsyncTaskDetailCU(id=1, detail_label="x"))
 
 # ── 读: 合成 DTO, 扩展行缺失时 .ext 语义见效果表 ──
 full = await agg.get_full_by_id(session, 1)
-# 返回 FullDTO; 若扩展行不存在, report_name 相关字段为 None (见"预期语义")
+# 返回 FullDTO; 若扩展行不存在, detail_label 相关字段为 None (见"预期语义")
 
-rows = await agg.list_full_by(session, where=[ReportJobTable.stage == "init"], skip=0, limit=20)
+rows = await agg.list_full_by(session, where=[AsyncTaskTable.stage == "init"], skip=0, limit=20)
 # 效果: 先按现有分页语义查主表页, 再对页内 ids 用 batch IN 取扩展行 (2 条 SQL, 不是 N+1)
 
 # ── 更新: 只更新传入的子 CU, 同事务拆两条 UPDATE ──
-await agg.update_full_by_id(session, 1, main=ReportJobCU(stage="done"))
-# SQL: UPDATE report_job SET stage='done' WHERE id=1        (扩展表不动)
+await agg.update_full_by_id(session, 1, main=AsyncTaskCU(stage="done"))
+# SQL: UPDATE async_task SET stage='done' WHERE id=1        (扩展表不动)
 
 await agg.update_full_by_id(
     session, 1,
-    main=ReportJobCU(stage="done"),
-    ext=ReportJobExportCU(id=1, report_name="y"),   # id 仅用于满足必填, dump 时排除
+    main=AsyncTaskCU(stage="done"),
+    ext=AsyncTaskDetailCU(id=1, detail_label="y"),   # id 仅用于满足必填, dump 时排除
 )
 # SQL: 同一事务内两条 UPDATE
 

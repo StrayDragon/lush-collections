@@ -201,6 +201,9 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Local tooling caches (may embed absolute repo paths)
+.synode/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

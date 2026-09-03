@@ -20,13 +20,13 @@
 ```python
 from lush_sqlalchemyx.base.dal import FilterModel   # 假想
 
-class JobFilter(FilterModel[ReportJobTable]):
+class JobFilter(FilterModel[AsyncTaskTable]):
     """泛型参数绑定表 → 字段名可静态解析到列"""
     stage: str | None = None                     # 默认操作符: eq
     stage__in: frozenset[str] | None = None      # in
     created_at__gte: datetime | None = None      # gte
     created_at__lt: datetime | None = None       # lt
-    report_name__like: str | None = None         # like — 自动套 escape_like
+    detail_label__like: str | None = None         # like — 自动套 escape_like
 ```
 
 ### 使用
@@ -35,11 +35,11 @@ class JobFilter(FilterModel[ReportJobTable]):
 f = JobFilter(stage="init", created_at__gte=yesterday)
 # 未设置的字段 (stage__in 等) 不产生任何条件 —— 与 CU patch 同一套纪律
 
-result = await ReportJobDAL.find_by(session, f, offset_pagination=OffsetPagination(skip=0, limit=20))
+result = await AsyncTaskDAL.find_by(session, f, offset_pagination=OffsetPagination(skip=0, limit=20))
 result.items        # list[DTO]
 result.total        # int (count 查询, 与现有分页工具复用)
 
-cur = await ReportJobDAL.find_by(session, f, cursor_pagination=CursorPagination(cursor="...", limit=50))
+cur = await AsyncTaskDAL.find_by(session, f, cursor_pagination=CursorPagination(cursor="...", limit=50))
 ```
 
 ### 效果
@@ -49,7 +49,7 @@ cur = await ReportJobDAL.find_by(session, f, cursor_pagination=CursorPagination(
 | `stage="init"` | `stage = 'init'` |
 | `stage__in={"a","b"}` | `stage IN ('a','b')` |
 | `created_at__gte=X, created_at__lt=Y` | `created_at >= X AND created_at < Y` |
-| `report_name__like="%x%"` | `report_name LIKE '%x%'` (用户输入经 escape_like) |
+| `detail_label__like="%x%"` | `detail_label LIKE '%x%'` (用户输入经 escape_like) |
 | 全部未设置 | 无额外 WHERE |
 
 ## 预期语义与效果
